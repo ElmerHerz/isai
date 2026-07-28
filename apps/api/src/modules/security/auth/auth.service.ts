@@ -125,6 +125,32 @@ export class AuthService {
     }
   }
 
+  async me(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        tenantId: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        avatarUrl: true,
+        locale: true,
+        timezone: true,
+        isActive: true,
+        emailVerifiedAt: true,
+        lastLoginAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) throw new UnauthorizedException();
+
+    return user;
+  }
+
   async logout(userId: string): Promise<void> {
     // TODO: Invalidar refresh token en Redis o BD
     // Por ahora solo actualiza el usuario (los tokens son stateless)

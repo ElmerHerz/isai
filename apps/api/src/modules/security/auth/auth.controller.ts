@@ -34,8 +34,8 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @Get('me')
   @ApiOperation({ summary: 'Obtener perfil del usuario autenticado' })
-  me(@CurrentUser() user: unknown) {
-    return user;
+  me(@CurrentUser() user: { userId: string }) {
+    return this.authService.me(user.userId);
   }
 
   @ApiBearerAuth('access-token')

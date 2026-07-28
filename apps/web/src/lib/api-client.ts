@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type AxiosRequestConfig } from 'axios';
 import { useAuthStore } from './auth-store';
 
 /**
@@ -53,7 +53,7 @@ apiClient.interceptors.response.use(
           Authorization: `Bearer ${data.accessToken}`,
         };
 
-        return apiClient(originalRequest as Parameters<typeof apiClient>[0]);
+        return apiClient(originalRequest as AxiosRequestConfig);
       } catch {
         useAuthStore.getState().logout();
         window.location.href = '/login';
