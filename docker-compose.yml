@@ -1,0 +1,23 @@
+version: '3.9'
+
+# Nota: no hay servicio de Postgres aquí a propósito. La base de desarrollo
+# (isai_desa) corre nativa en Windows (servicio postgresql-x64-17, puerto 5433),
+# no en Docker — un contenedor de Postgres crearía una base separada y vacía,
+# no la real. Ver apps/api/.env para la conexión real.
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: isai_redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redis_data:

@@ -1,0 +1,16 @@
+// Configuración base del datasource/generator.
+// Los modelos viven en archivos separados por módulo dentro de esta misma carpeta
+// (general.prisma, seguridad.prisma, y a futuro finanzas.prisma, inventario.prisma...),
+// gracias a la preview feature "prismaSchemaFolder". Prisma los fusiona automáticamente.
+// Regla: un módulo de negocio = un schema de Postgres = un archivo .prisma aquí.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema", "prismaSchemaFolder"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["general", "seguridad"]
+}

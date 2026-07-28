@@ -1,0 +1,233 @@
+// ============================================================
+// SCHEMA: general
+// Módulo: General/Core — Catálogos, Tenants, Instituciones, Sucursales, Módulos
+//
+// Introspectado directamente contra isai_desa (2026-07-28) — refleja columnas,
+// FKs, checks y defaults reales, no el diseño original de texto.
+// ============================================================
+
+model Currency {
+  code          String  @id @db.Char(3) // ISO 4217 (USD, GTQ, HNL, MXN, CRC, NIO...)
+  name          String  @db.VarChar(100)
+  symbol        String  @db.VarChar(5)
+  decimalPlaces Int     @default(2) @map("decimal_places") @db.SmallInt
+  isActive      Boolean @default(true) @map("is_active")
+
+  countries Country[]
+  tenants   Tenant[]
+
+  @@map("currencies")
+  @@schema("general")
+}
+
+model Country {
+  code                String  @id @db.Char(2) // ISO 3166-1 alpha-2
+  name                String  @db.VarChar(100)
+  phonePrefix         String? @map("phone_prefix") @db.VarChar(5)
+  defaultCurrencyCode String? @map("default_currency_code") @db.Char(3)
+  isActive            Boolean @default(true) @map("is_active")
+
+  defaultCurrency Currency? @relation(fields: [defaultCurrencyCode], references: [code])
+  tenants         Tenant[]
+  addresses       Address[]
+
+  @@map("countries")
+  @@schema("general")
+}
+
+model Language {
+  code String @id @db.VarChar(10) // ISO 639-1 (es, en)
+  name String @db.VarChar(100)
+
+  tenants Tenant[]
+
+  @@map("languages")
+  @@schema("general")
+}
+
+model InstitutionType {
+  code        String  @id @db.VarChar(30) // church, store, pharmacy, nursing_home, generic
+  name        String  @db.VarChar(100)
+  description String?
+
+  institutions Institution[]
+
+  @@map("institution_types")
+  @@schema("general")
+}
+
+model Tenant {
+  id           String    @id @default(uuid())
+  name         String    @db.VarChar(150)
+  slug         String    @unique @db.VarChar(100)
+  currencyCode String    @default("USD") @map("currency_code") @db.Char(3)
+  countryCode  String    @default("SV") @map("country_code") @db.Char(2)
+  languageCode String    @default("es") @map("language_code") @db.VarChar(10)
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  currency      Currency       @relation(fields: [currencyCode], references: [code])
+  country       Country        @relation(fields: [countryCode], references: [code])
+  language      Language       @relation(fields: [languageCode], references: [code])
+  institutions  Institution[]
+  tenantModules TenantModule[]
+  users         User[]
+  roles         Role[]
+  auditLogs     AuditLog[]
+
+  @@map("tenants")
+  @@schema("general")
+}
+
+model Institution {
+  id        String    @id @default(uuid())
+  tenantId  String    @map("tenant_id")
+  typeCode  String    @map("type_code") @db.VarChar(30)
+  name      String    @db.VarChar(150)
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  type      InstitutionType @relation(fields: [typeCode], references: [code])
+  branches  Branch[]
+  addresses Address[]
+  userRoles UserRole[]
+
+  churchDetails      ChurchDetails?
+  storeDetails       StoreDetails?
+  pharmacyDetails    PharmacyDetails?
+  nursingHomeDetails NursingHomeDetails?
+
+  @@map("institutions")
+  @@schema("general")
+}
+
+model Branch {
+  id            String    @id @default(uuid())
+  institutionId String    @map("institution_id")
+  name          String    @db.VarChar(150)
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id])
+  addresses   Address[]
+  userRoles   UserRole[]
+
+  @@map("branches")
+  @@schema("general")
+}
+
+// chk_address_owner en la base real exige exactamente uno de institutionId/branchId
+// (XOR) — Prisma no expresa ese CHECK, ya existe a nivel de motor, no se recrea aquí.
+model Address {
+  id            String   @id @default(uuid())
+  institutionId String?  @map("institution_id")
+  branchId      String?  @map("branch_id")
+  countryCode   String   @map("country_code") @db.Char(2)
+  stateProvince String?  @map("state_province") @db.VarChar(100)
+  city          String   @db.VarChar(100)
+  line1         String   @db.VarChar(200)
+  line2         String?  @db.VarChar(200)
+  postalCode    String?  @map("postal_code") @db.VarChar(20)
+  latitude      Decimal? @db.Decimal(9, 6)
+  longitude     Decimal? @db.Decimal(9, 6)
+  isPrimary     Boolean  @default(true) @map("is_primary")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  institution Institution? @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  branch      Branch?      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  country     Country      @relation(fields: [countryCode], references: [code])
+
+  @@map("addresses")
+  @@schema("general")
+}
+
+model ChurchDetails {
+  institutionId     String    @id @map("institution_id")
+  denomination      String?   @db.VarChar(150)
+  pastorName        String?   @map("pastor_name") @db.VarChar(150)
+  foundingDate      DateTime? @map("founding_date") @db.Date
+  congregationSize  Int?      @map("congregation_size")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@map("church_details")
+  @@schema("general")
+}
+
+model StoreDetails {
+  institutionId String    @id @map("institution_id")
+  taxId         String?   @map("tax_id") @db.VarChar(30)
+  businessLine  String?   @map("business_line") @db.VarChar(150)
+  openingDate   DateTime? @map("opening_date") @db.Date
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@map("store_details")
+  @@schema("general")
+}
+
+model PharmacyDetails {
+  institutionId       String    @id @map("institution_id")
+  healthLicenseNumber String?   @map("health_license_number") @db.VarChar(50)
+  licenseExpiryDate   DateTime? @map("license_expiry_date") @db.Date
+  pharmacistInCharge  String?   @map("pharmacist_in_charge") @db.VarChar(150)
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@map("pharmacy_details")
+  @@schema("general")
+}
+
+model NursingHomeDetails {
+  institutionId       String   @id @map("institution_id")
+  healthPermitNumber  String?  @map("health_permit_number") @db.VarChar(50)
+  bedCapacity         Int?     @map("bed_capacity")
+  medicalDirector     String?  @map("medical_director") @db.VarChar(150)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@map("nursing_home_details")
+  @@schema("general")
+}
+
+// PK es "code" directamente, no hay columna id — así está en isai_desa.
+model Module {
+  code        String  @id @db.VarChar(30)
+  name        String  @db.VarChar(100)
+  description String?
+  isCore      Boolean @default(false) @map("is_core")
+
+  permissions   Permission[]
+  tenantModules TenantModule[]
+
+  @@map("modules")
+  @@schema("general")
+}
+
+model TenantModule {
+  tenantId    String    @map("tenant_id")
+  moduleCode  String    @map("module_code") @db.VarChar(30)
+  activatedAt DateTime  @default(now()) @map("activated_at")
+  expiresAt   DateTime? @map("expires_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  module Module @relation(fields: [moduleCode], references: [code])
+
+  @@id([tenantId, moduleCode])
+  @@map("tenant_modules")
+  @@schema("general")
+}
