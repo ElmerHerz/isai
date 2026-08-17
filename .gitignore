@@ -53,3 +53,7 @@ coverage/
 
 # TanStack Router cache
 .tanstack/
+
+# Notas de diseno/despliegue internas, no se versionan
+*.md
+!README.md
