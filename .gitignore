@@ -50,3 +50,6 @@ coverage/
 
 # TypeScript
 *.tsbuildinfo
+
+# TanStack Router cache
+.tanstack/
