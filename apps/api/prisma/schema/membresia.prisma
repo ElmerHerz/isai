@@ -1,0 +1,357 @@
+// ============================================================
+// SCHEMA: membresia
+// Módulo: Membresía — Personas, Grupos, Pertenencia, Directivas, Eventos y Asistencia
+//
+// Diseño deliberadamente GENÉRICO (ver docs/membresia-diseno.md): "persons"
+// y "groups" no son exclusivos de iglesias — un supermercado puede usar
+// person_type='EMPLOYEE'/'CLIENT' y group_type='DEPARTMENT'/'TEAM' con la
+// misma estructura. Tablas creadas por SQL manual (no por `prisma migrate`,
+// mismo criterio que el resto del schema); estos modelos reflejan las
+// columnas reales verificadas contra la base.
+// ============================================================
+
+// Persona relacionada con una institución (miembro, visitante, empleado,
+// cliente, voluntario según personTypeId) — deliberadamente distinta de
+// seguridad.User: la enorme mayoría de personas aquí nunca inician sesión.
+// tenantId vive directo en la tabla (no solo vía institutionId) para que la
+// política RLS sea simple — el backend es responsable de derivarlo siempre
+// de institutionId, nunca confiar en un tenantId que mande el cliente
+// (institutionId por sí solo no garantiza que pertenezca al tenant activo).
+model Person {
+  id               String    @id @default(uuid())
+  tenantId         String    @map("tenant_id")
+  institutionId    String    @map("institution_id")
+  branchId         String?   @map("branch_id")
+  personTypeId     String    @map("person_type_id")
+  firstName        String    @map("first_name") @db.VarChar(100)
+  lastName         String    @map("last_name") @db.VarChar(100)
+  birthDate        DateTime? @map("birth_date") @db.Date
+  gender           String?   @db.VarChar(20)
+  phone            String?   @db.VarChar(30)
+  email            String?   @db.VarChar(255)
+  identityDocument String?   @map("identity_document") @db.VarChar(30)
+  photoUrl         String?   @map("photo_url") @db.VarChar(500)
+  addressLine      String?   @map("address_line") @db.VarChar(200)
+  city             String?   @db.VarChar(100)
+  joinDate         DateTime? @map("join_date") @db.Date
+  isActive         Boolean   @default(true) @map("is_active")
+  notes            String?
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  tenant         Tenant            @relation(fields: [tenantId], references: [id])
+  institution    Institution       @relation(fields: [institutionId], references: [id])
+  branch         Branch?           @relation(fields: [branchId], references: [id])
+  personType     CatalogItem       @relation(fields: [personTypeId], references: [id])
+  groupMembers   GroupMember[]
+  groupPositions GroupPosition[]
+  leadingGroups  Group[]
+  attendances    EventAttendance[]
+  milestones     PersonMilestone[]
+  eventPrivileges EventPrivilege[]
+
+  relationshipsAsPerson  PersonRelationship[] @relation("PersonRelationshipsAsPerson")
+  relationshipsAsRelated PersonRelationship[] @relation("PersonRelationshipsAsRelated")
+
+  @@map("persons")
+  @@schema("membresia")
+}
+
+// Relación de parentesco entre dos personas (cónyuge, padre/madre, hijo/a,
+// hermano/a, tutor...) — relationshipTypeId apunta al catálogo global
+// "relationship_type" (mismo patrón que person_type/group_type). Se guarda
+// UNA fila por relación, no dos: el lado inverso (ej. "hijo de" visto desde
+// el padre) se calcula en el service con un mapa de opuestos por código, no
+// se duplica en la base.
+model PersonRelationship {
+  id                 String   @id @default(uuid())
+  personId           String   @map("person_id")
+  relatedPersonId    String   @map("related_person_id")
+  relationshipTypeId String   @map("relationship_type_id")
+  notes              String?
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  person           Person      @relation("PersonRelationshipsAsPerson", fields: [personId], references: [id], onDelete: Cascade)
+  relatedPerson    Person      @relation("PersonRelationshipsAsRelated", fields: [relatedPersonId], references: [id], onDelete: Cascade)
+  relationshipType CatalogItem @relation(fields: [relationshipTypeId], references: [id])
+
+  @@unique([personId, relatedPersonId, relationshipTypeId], name: "uq_person_relationship")
+  @@map("person_relationships")
+  @@schema("membresia")
+}
+
+// Tipos de hito propios de cada tenant (ej. "Bautismo") — mismo patrón que
+// AttendanceTag: catálogo con tenant_id propio (no general.catalog_items,
+// que es global) porque cada iglesia define los suyos. La pantalla que los
+// administra y el registro de hitos por persona quedan ocultos en el
+// frontend para instituciones que no son de tipo "church" (ver
+// institution.typeCode) — no es un catálogo genérico para cualquier tipo de
+// negocio, a diferencia del resto del schema.
+model MilestoneType {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  code      String   @db.VarChar(50)
+  name      String   @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id])
+  milestones PersonMilestone[]
+
+  @@unique([tenantId, code], name: "uq_milestone_types_tenant_code")
+  @@map("milestone_types")
+  @@schema("membresia")
+}
+
+// Hito espiritual concreto de una persona (ej. "bautizado el 12/03/2020").
+model PersonMilestone {
+  id              String   @id @default(uuid())
+  personId        String   @map("person_id")
+  milestoneTypeId String   @map("milestone_type_id")
+  occurredOn      DateTime @map("occurred_on") @db.Date
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  person        Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+  milestoneType MilestoneType @relation(fields: [milestoneTypeId], references: [id])
+
+  @@map("person_milestones")
+  @@schema("membresia")
+}
+
+// Grupo genérico (etiqueta, célula, sociedad, directiva, zona, departamento,
+// turno...) — groupTypeId decide el significado. Deliberadamente una sola
+// tabla en vez de una por tipo: todas son estructuralmente "un conjunto de
+// personas con un líder opcional". parentGroupId existe para agrupar
+// jerárquicamente (ej. células bajo una zona) pero es opcional y no se usa
+// por defecto.
+model Group {
+  id             String   @id @default(uuid())
+  institutionId  String   @map("institution_id")
+  branchId       String?  @map("branch_id")
+  groupTypeId    String   @map("group_type_id")
+  parentGroupId  String?  @map("parent_group_id")
+  name           String   @db.VarChar(150)
+  description    String?
+  leaderPersonId String?  @map("leader_person_id")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  institution     Institution      @relation(fields: [institutionId], references: [id])
+  branch          Branch?          @relation(fields: [branchId], references: [id])
+  groupType       CatalogItem      @relation(fields: [groupTypeId], references: [id])
+  parentGroup     Group?           @relation("GroupHierarchy", fields: [parentGroupId], references: [id])
+  childGroups     Group[]          @relation("GroupHierarchy")
+  leader          Person?          @relation(fields: [leaderPersonId], references: [id])
+  members         GroupMember[]
+  positions       GroupPosition[]
+  events          Event[]
+  branchSchedules BranchSchedule[]
+
+  @@map("groups")
+  @@schema("membresia")
+}
+
+// Pertenencia a un grupo CON historial: id propio (no PK compuesta) porque
+// una persona puede entrar, salir, y volver a entrar al mismo grupo años
+// después — cada periodo queda como su propia fila. La regla "sin dos
+// membresías abiertas a la vez por persona/grupo" la protege un índice
+// único parcial en la base real (uq_group_members_open, WHERE left_at IS
+// NULL) — no representable en Prisma; el service debe verificar que no
+// exista ya una fila con leftAt null antes de crear una nueva.
+model GroupMember {
+  id        String    @id @default(uuid())
+  groupId   String    @map("group_id")
+  personId  String    @map("person_id")
+  role      String    @default("member") @db.VarChar(50)
+  joinedAt  DateTime  @default(now()) @map("joined_at") @db.Date
+  leftAt    DateTime? @map("left_at") @db.Date
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  group  Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@map("group_members")
+  @@schema("membresia")
+}
+
+// Cargo de directiva CON vigencia (termStart/termEnd) — separado de
+// GroupMember a propósito: alguien puede ser miembro continuo de un grupo
+// mientras ocupa un cargo (presidente, tesorero...) solo durante un periodo
+// específico.
+model GroupPosition {
+  id         String    @id @default(uuid())
+  groupId    String    @map("group_id")
+  personId   String    @map("person_id")
+  positionId String    @map("position_id")
+  termStart  DateTime  @map("term_start") @db.Date
+  termEnd    DateTime? @map("term_end") @db.Date
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  group    Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  person   Person      @relation(fields: [personId], references: [id], onDelete: Cascade)
+  position CatalogItem @relation(fields: [positionId], references: [id])
+
+  @@map("group_positions")
+  @@schema("membresia")
+}
+
+// Ocurrencia concreta (no un horario recurrente — eso es
+// general.BranchSchedule). El scope de a quién aplica lo decide la
+// combinación groupId/branchId: ambos null = toda la institución; branchId
+// con valor y groupId null = toda esa sucursal; groupId con valor = solo
+// los miembros ACTUALES de ese grupo (join contra GroupMember con leftAt
+// null desde el service, no hay FK que lo garantice).
+model Event {
+  id            String    @id @default(uuid())
+  institutionId String    @map("institution_id")
+  branchId      String?   @map("branch_id")
+  groupId       String?   @map("group_id")
+  scheduleId    String?   @map("schedule_id")
+  eventTypeId   String    @map("event_type_id")
+  title         String    @db.VarChar(150)
+  eventDate     DateTime  @map("event_date") @db.Date
+  startTime     DateTime? @map("start_time") @db.Time
+  endTime       DateTime? @map("end_time") @db.Time
+  notes         String?
+  createdBy     String?   @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  institution   Institution       @relation(fields: [institutionId], references: [id])
+  branch        Branch?           @relation(fields: [branchId], references: [id])
+  group         Group?            @relation(fields: [groupId], references: [id])
+  schedule      BranchSchedule?   @relation(fields: [scheduleId], references: [id])
+  eventType     CatalogItem       @relation(fields: [eventTypeId], references: [id])
+  createdByUser User?             @relation("EventCreatedBy", fields: [createdBy], references: [id])
+  attendances   EventAttendance[]
+  privileges    EventPrivilege[]
+  fundCollections EventFundCollection[]
+
+  @@map("events")
+  @@schema("membresia")
+}
+
+// Tipos de privilegio durante un culto (ej. "Alabanzas", "Dirección",
+// "Mensaje") propios de cada tenant — mismo patrón que MilestoneType.
+// Exclusivo de instituciones tipo "church", igual criterio que hitos
+// espirituales.
+model PrivilegeType {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  code      String   @db.VarChar(50)
+  name      String   @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant     Tenant           @relation(fields: [tenantId], references: [id])
+  privileges EventPrivilege[]
+
+  @@unique([tenantId, code], name: "uq_privilege_types_tenant_code")
+  @@map("privilege_types")
+  @@schema("membresia")
+}
+
+// Quién tuvo qué privilegio en un evento concreto (ej. "Juan dirigió las
+// alabanzas del culto del 15/08"). Sin vigencia — es puntual a ese evento,
+// a diferencia de GroupPosition que sí tiene termStart/termEnd.
+model EventPrivilege {
+  id              String   @id @default(uuid())
+  eventId         String   @map("event_id")
+  personId        String   @map("person_id")
+  privilegeTypeId String   @map("privilege_type_id")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  event         Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  person        Person        @relation(fields: [personId], references: [id])
+  privilegeType PrivilegeType @relation(fields: [privilegeTypeId], references: [id])
+
+  @@map("event_privileges")
+  @@schema("membresia")
+}
+
+// Tipos de fondo recogido en un culto (ej. "Ofrenda", "Diezmo", "Talentos")
+// propios de cada tenant — mismo patrón que PrivilegeType/MilestoneType.
+// Registro deliberadamente simple (monto por tipo por evento) — pensado
+// como insumo futuro para un módulo de tesorería, no un libro contable.
+model FundType {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  code      String   @db.VarChar(50)
+  name      String   @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant      Tenant                @relation(fields: [tenantId], references: [id])
+  collections EventFundCollection[]
+
+  @@unique([tenantId, code], name: "uq_fund_types_tenant_code")
+  @@map("fund_types")
+  @@schema("membresia")
+}
+
+// Monto recogido de un tipo de fondo en un evento concreto.
+model EventFundCollection {
+  id         String   @id @default(uuid())
+  eventId    String   @map("event_id")
+  fundTypeId String   @map("fund_type_id")
+  amount     Decimal  @db.Decimal(12, 2)
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  fundType FundType @relation(fields: [fundTypeId], references: [id])
+
+  @@map("event_fund_collections")
+  @@schema("membresia")
+}
+
+// Registro de asistencia por persona por evento. extraData (JSONB) es
+// deliberadamente sin esquema fijo en la base — ver docs/membresia-diseno.md
+// (sección "extra_data"): el frontend debe construir claves consistentes
+// por tipo de evento (formulario fijo, no texto libre del usuario), la base
+// no valida el contenido del JSON.
+model EventAttendance {
+  id         String   @id @default(uuid())
+  eventId    String   @map("event_id")
+  personId   String   @map("person_id")
+  statusId   String   @map("status_id")
+  extraData  Json?    @map("extra_data")
+  notes      String?
+  recordedBy String?  @map("recorded_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  event          Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  person         Person      @relation(fields: [personId], references: [id])
+  status         CatalogItem @relation(fields: [statusId], references: [id])
+  recordedByUser User?       @relation("AttendanceRecordedBy", fields: [recordedBy], references: [id])
+
+  @@unique([eventId, personId], name: "uq_event_attendance_person")
+  @@map("event_attendance")
+  @@schema("membresia")
+}
+
+// Etiquetas de asistencia (ej. "Uniforme") propias de cada tenant — a
+// diferencia de attendance_status/person_type que SÍ son catálogo global en
+// general.catalog_items, esto es configuración libre de cada organización
+// (una farmacia no necesita las mismas etiquetas que una iglesia), por eso
+// vive en su propia tabla con tenant_id en vez de reusar catalog_items.
+// EventAttendance.extraData referencia estos códigos por tenant, ver
+// EventsService.recordAttendance.
+model AttendanceTag {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  code      String   @db.VarChar(50)
+  name      String   @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, code], name: "uq_attendance_tags_tenant_code")
+  @@map("attendance_tags")
+  @@schema("membresia")
+}

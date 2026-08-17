@@ -4,9 +4,12 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { GeneralModule } from './modules/general/general.module';
 import { SecurityModule } from './modules/security/security.module';
+import { MembresiaModule } from './modules/membresia/membresia.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
+import { ScopeGuard } from './common/guards/scope.guard';
 import { TenantRlsInterceptor } from './common/interceptors/tenant-rls.interceptor';
+import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
 @Module({
   imports: [
@@ -29,7 +32,8 @@ import { TenantRlsInterceptor } from './common/interceptors/tenant-rls.intercept
     // Regla: Un módulo de NestJS = un schema de Postgres = una carpeta en modules/
     GeneralModule,
     SecurityModule,
-    // Futuros módulos se agregan aquí: MembershipModule, FinanceModule, etc.
+    MembresiaModule,
+    // Futuros módulos se agregan aquí: FinanceModule, etc.
   ],
 
   providers: [
@@ -43,12 +47,24 @@ import { TenantRlsInterceptor } from './common/interceptors/tenant-rls.intercept
       provide: APP_GUARD,
       useClass: PermissionsGuard,
     },
+    // Afirma acceso a institución/sucursal cuando el handler declara
+    // @RequireScope() — no-op para todo lo que no lo use.
+    {
+      provide: APP_GUARD,
+      useClass: ScopeGuard,
+    },
 
     // ─── Interceptors globales ────────────────────────────────────────────
     // Inyecta SET app.current_tenant_id en cada transacción (RLS de Postgres)
     {
       provide: APP_INTERCEPTOR,
       useClass: TenantRlsInterceptor,
+    },
+    // Registra cada mutación exitosa (POST/PUT/PATCH/DELETE) en
+    // seguridad.audit_logs — ver el propio interceptor para el detalle.
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditLogInterceptor,
     },
   ],
 })

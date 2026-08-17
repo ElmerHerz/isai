@@ -3,6 +3,13 @@ import { PrismaModule } from '../../common/prisma/prisma.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { InstitutionsModule } from './institutions/institutions.module';
 import { BranchesModule } from './branches/branches.module';
+import { MenusModule } from './menus/menus.module';
+import { InstitutionTypesModule } from './institution-types/institution-types.module';
+import { CurrenciesModule } from './currencies/currencies.module';
+import { CountriesModule } from './countries/countries.module';
+import { LanguagesModule } from './languages/languages.module';
+import { CatalogItemsModule } from './catalog-items/catalog-items.module';
+import { BranchSchedulesModule } from './branch-schedules/branch-schedules.module';
 
 /**
  * GeneralModule — Schema "general" de Postgres
@@ -21,11 +28,25 @@ import { BranchesModule } from './branches/branches.module';
     TenantsModule,
     InstitutionsModule,
     BranchesModule,
+    MenusModule,
+    InstitutionTypesModule,
+    CurrenciesModule,
+    CountriesModule,
+    LanguagesModule,
+    CatalogItemsModule,
+    BranchSchedulesModule,
   ],
   exports: [
     TenantsModule,
     InstitutionsModule,
     BranchesModule,
+    MenusModule,
+    InstitutionTypesModule,
+    CurrenciesModule,
+    CountriesModule,
+    LanguagesModule,
+    CatalogItemsModule,
+    BranchSchedulesModule,
   ],
 })
 export class GeneralModule {}

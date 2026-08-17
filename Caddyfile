@@ -1,0 +1,13 @@
+{$SITE_ADDRESS:164-90-123-45.sslip.io} {
+	root * /usr/share/caddy
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}

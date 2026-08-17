@@ -8,6 +8,7 @@ import { UpdateRoleDto } from './dto/update-role.dto';
 import { AssignPermissionsDto } from './dto/assign-permissions.dto';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
+import { CurrentUser, RequestUser } from '../../../common/decorators/current-user.decorator';
 
 @ApiTags('roles')
 @ApiBearerAuth('access-token')
@@ -16,24 +17,24 @@ export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @Get()
-  @RequirePermission('security.role.read')
+  @RequirePermission('security.role.view')
   @ApiOperation({ summary: 'Listar roles del tenant' })
-  findAll(@CurrentTenant() tenantId: string) {
+  findAll(@CurrentTenant() tenantId: string | null) {
     return this.rolesService.findAll(tenantId);
   }
 
   @Get(':id')
-  @RequirePermission('security.role.read')
+  @RequirePermission('security.role.view')
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentTenant() tenantId: string,
+    @CurrentTenant() tenantId: string | null,
   ) {
     return this.rolesService.findOne(id, tenantId);
   }
 
   @Post()
   @RequirePermission('security.role.create')
-  create(@Body() dto: CreateRoleDto, @CurrentTenant() tenantId: string) {
+  create(@Body() dto: CreateRoleDto, @CurrentTenant() tenantId: string | null) {
     return this.rolesService.create(tenantId, dto);
   }
 
@@ -42,9 +43,10 @@ export class RolesController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateRoleDto,
-    @CurrentTenant() tenantId: string,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
   ) {
-    return this.rolesService.update(id, tenantId, dto);
+    return this.rolesService.update(id, tenantId, dto, user);
   }
 
   @Post(':id/permissions')
@@ -54,9 +56,10 @@ export class RolesController {
   assignPermissions(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AssignPermissionsDto,
-    @CurrentTenant() tenantId: string,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
   ) {
-    return this.rolesService.assignPermissions(id, tenantId, dto.permissionIds);
+    return this.rolesService.assignPermissions(id, tenantId, dto.permissionIds, user);
   }
 
   @Delete(':id')
@@ -64,7 +67,7 @@ export class RolesController {
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentTenant() tenantId: string,
+    @CurrentTenant() tenantId: string | null,
   ) {
     return this.rolesService.remove(id, tenantId);
   }

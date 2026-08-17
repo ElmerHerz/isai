@@ -24,7 +24,11 @@ export function useLoginMutation() {
 
   return useMutation({
     mutationFn: async (payload: LoginPayload) => {
-      const { data } = await apiClient.post<LoginResponse>('/auth/login', payload);
+      // login.tsx ya muestra su propio "Credenciales inválidas" inline —
+      // sin esto se duplicaría con el toast automático del interceptor.
+      const { data } = await apiClient.post<LoginResponse>('/auth/login', payload, {
+        skipErrorToast: true,
+      });
       return data;
     },
     onSuccess: (data) => {

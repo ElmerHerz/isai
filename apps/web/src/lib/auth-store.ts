@@ -59,7 +59,11 @@ export const useAuthStore = create<AuthState>()(
           activeBranchId: null,
         }),
 
-      isAuthenticated: () => !!get().accessToken && !!get().user,
+      // "Autenticado" = tiene un token. El perfil (user) se carga aparte
+      // vía /auth/me una vez ya estás dentro — no lo exigimos aquí porque
+      // el guard de ruta corre justo después del login, antes de que
+      // /auth/me haya tenido tiempo de resolver.
+      isAuthenticated: () => !!get().accessToken,
     }),
     {
       name: 'isai-auth',

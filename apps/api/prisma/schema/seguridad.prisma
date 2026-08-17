@@ -8,32 +8,34 @@
 
 // tenantId nulo = superadmin de la plataforma (sin tenant asociado).
 model User {
-  id                   String    @id @default(uuid())
-  tenantId             String?   @map("tenant_id")
-  email                String    @db.VarChar(255)
-  passwordHash         String    @map("password_hash") @db.VarChar(255)
-  firstName            String    @map("first_name") @db.VarChar(100)
-  lastName             String    @map("last_name") @db.VarChar(100)
-  phone                String?   @db.VarChar(30)
-  avatarUrl            String?   @map("avatar_url") @db.VarChar(500)
-  locale               String    @default("es") @db.VarChar(10)
-  timezone             String    @default("America/El_Salvador") @db.VarChar(50)
-  isActive             Boolean   @default(true) @map("is_active")
-  emailVerifiedAt      DateTime? @map("email_verified_at")
-  lastLoginAt          DateTime? @map("last_login_at")
-  failedLoginAttempts  Int       @default(0) @map("failed_login_attempts") @db.SmallInt
-  lockedUntil          DateTime? @map("locked_until")
-  mustChangePassword   Boolean   @default(false) @map("must_change_password")
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
-  deletedAt            DateTime? @map("deleted_at")
+  id                  String    @id @default(uuid())
+  tenantId            String?   @map("tenant_id")
+  email               String    @db.VarChar(255)
+  passwordHash        String    @map("password_hash") @db.VarChar(255)
+  firstName           String    @map("first_name") @db.VarChar(100)
+  lastName            String    @map("last_name") @db.VarChar(100)
+  phone               String?   @db.VarChar(30)
+  avatarUrl           String?   @map("avatar_url") @db.VarChar(500)
+  locale              String    @default("es") @db.VarChar(10)
+  timezone            String    @default("America/El_Salvador") @db.VarChar(50)
+  isActive            Boolean   @default(true) @map("is_active")
+  emailVerifiedAt     DateTime? @map("email_verified_at")
+  lastLoginAt         DateTime? @map("last_login_at")
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts") @db.SmallInt
+  lockedUntil         DateTime? @map("locked_until")
+  mustChangePassword  Boolean   @default(false) @map("must_change_password")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  deletedAt           DateTime? @map("deleted_at")
 
-  tenant            Tenant?        @relation(fields: [tenantId], references: [id])
-  userRoles         UserRole[]     @relation("UserRoleUser")
-  grantedUserRoles  UserRole[]     @relation("UserRoleGrantedBy")
-  refreshTokens     RefreshToken[]
-  oneTimeTokens     OneTimeToken[]
-  auditLogs         AuditLog[]
+  tenant              Tenant?           @relation(fields: [tenantId], references: [id])
+  userRoles           UserRole[]        @relation("UserRoleUser")
+  grantedUserRoles    UserRole[]        @relation("UserRoleGrantedBy")
+  refreshTokens       RefreshToken[]
+  oneTimeTokens       OneTimeToken[]
+  auditLogs           AuditLog[]
+  createdEvents       Event[]           @relation("EventCreatedBy")
+  recordedAttendances EventAttendance[] @relation("AttendanceRecordedBy")
 
   @@unique([tenantId, email], name: "uq_users_tenant_email")
   @@map("users")
@@ -61,16 +63,34 @@ model Role {
   @@schema("seguridad")
 }
 
+// Catálogo abierto de acciones (view/create/update/delete/export/approve/cancel/revoke...).
+model Action {
+  code String @id @db.VarChar(30)
+  name String @db.VarChar(100)
+
+  permissions Permission[]
+
+  @@map("actions")
+  @@schema("seguridad")
+}
+
+// "code" es GENERATED ALWAYS AS (module_code || '.' || resource || '.' || action_code)
+// STORED en la base real — nunca se escribe a mano desde el backend, Postgres lo
+// calcula solo a partir de moduleCode/resource/actionCode. No incluir "code" en
+// ningún create()/update() de Prisma (el motor lo rechazaría).
 model Permission {
   id          String  @id @default(uuid())
   moduleCode  String  @map("module_code") @db.VarChar(30)
-  // Formato estricto: modulo.recurso.accion (ej: finance.invoice.create)
-  code        String  @unique @db.VarChar(100)
+  resource    String  @db.VarChar(50)
+  actionCode  String  @map("action_code") @db.VarChar(30)
+  code        String  @unique @db.VarChar(150)
   name        String  @db.VarChar(150)
   description String?
 
   module          Module           @relation(fields: [moduleCode], references: [code])
+  action          Action           @relation(fields: [actionCode], references: [code])
   rolePermissions RolePermission[]
+  menus           Menu[]
 
   @@map("permissions")
   @@schema("seguridad")
@@ -99,11 +119,11 @@ model UserRole {
   grantedBy     String?  @map("granted_by")
   grantedAt     DateTime @default(now()) @map("granted_at")
 
-  user        User         @relation("UserRoleUser", fields: [userId], references: [id], onDelete: Cascade)
-  role        Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  institution Institution? @relation(fields: [institutionId], references: [id], onDelete: Cascade)
-  branch      Branch?      @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  grantedByUser User?      @relation("UserRoleGrantedBy", fields: [grantedBy], references: [id])
+  user          User         @relation("UserRoleUser", fields: [userId], references: [id], onDelete: Cascade)
+  role          Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  institution   Institution? @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  branch        Branch?      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  grantedByUser User?        @relation("UserRoleGrantedBy", fields: [grantedBy], references: [id])
 
   @@unique([userId, roleId, institutionId, branchId], name: "uq_user_role_scope")
   @@map("user_roles")

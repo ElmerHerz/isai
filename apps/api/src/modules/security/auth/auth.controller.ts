@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { Public } from '../../../common/decorators/public.decorator';
+import { AnyAuthenticatedUser } from '../../../common/decorators/any-authenticated-user.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 
 @ApiTags('auth')
@@ -32,6 +33,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth('access-token')
+  @AnyAuthenticatedUser()
   @Get('me')
   @ApiOperation({ summary: 'Obtener perfil del usuario autenticado' })
   me(@CurrentUser() user: { userId: string }) {
@@ -39,6 +41,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth('access-token')
+  @AnyAuthenticatedUser()
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Cerrar sesión (invalida refresh token)' })

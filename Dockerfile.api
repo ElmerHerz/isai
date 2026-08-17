@@ -1,0 +1,13 @@
+FROM node:20-alpine AS build
+WORKDIR /repo
+COPY . .
+RUN npm ci
+RUN npx turbo run build --filter=@isai/api...
+RUN npx prisma generate --schema=apps/api/prisma/schema
+
+FROM node:20-alpine
+WORKDIR /repo
+ENV NODE_ENV=production
+COPY --from=build /repo .
+EXPOSE 3000
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=apps/api/prisma/schema && node apps/api/dist/main.js"]

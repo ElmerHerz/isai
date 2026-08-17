@@ -1,7 +1,9 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { createHash } from 'node:crypto';
 import * as bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 
@@ -10,6 +12,7 @@ export interface JwtPayload {
   email: string;
   tenantId: string | null; // null = superadmin de la plataforma (sin tenant)
   permissions: string[];
+  isSuperadmin: boolean; // true = tiene el rol de sistema "superadmin" (acceso total, bypass de permisos)
 }
 
 export interface AuthTokens {
@@ -18,12 +21,27 @@ export interface AuthTokens {
   expiresIn: number;
 }
 
+// Incluye lo necesario para calcular permisos efectivos + isSuperadmin —
+// compartido entre login() (busca por email) y refresh() (busca por id) para
+// que ambos emitan tokens con exactamente la misma lógica.
+const userRolesInclude = {
+  userRoles: {
+    include: {
+      role: {
+        include: { rolePermissions: { include: { permission: true } } },
+      },
+    },
+  },
+};
+
+type UserWithRoles = Prisma.UserGetPayload<{ include: typeof userRolesInclude }>;
+
 /**
  * AuthService — Lógica de autenticación.
  *
  * Regla: No accede a req/res — recibe solo los datos que necesita.
- * Los permisos efectivos se calculan aquí y se incluyen en el JWT
- * para ser cacheados en Redis (evita queries a BD por request).
+ * Los permisos efectivos se calculan aquí y van embebidos en el JWT (no hay
+ * caché de Redis en este flujo, el JWT mismo hace ese papel).
  */
 @Injectable()
 export class AuthService {
@@ -34,95 +52,70 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto): Promise<AuthTokens> {
-    // 1. Buscar usuario por email (dentro del tenant no lo sabemos aún en login público)
-    //    En un sistema multi-tenant, el email es único globalmente o por tenant.
-    //    Aquí asumimos email único globalmente para simplificar.
+    // En un sistema multi-tenant, el email es único globalmente (no lo
+    // sabemos aún en login público, no se puede filtrar por tenant aquí).
     const user = await this.prisma.user.findFirst({
       where: { email: dto.email, isActive: true },
-      include: {
-        userRoles: {
-          include: {
-            role: {
-              include: {
-                rolePermissions: {
-                  include: { permission: true },
-                },
-              },
-            },
-          },
-        },
-      },
+      include: userRolesInclude,
     });
 
     if (!user) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // 2. Verificar contraseña
     const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordValid) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // 3. Calcular permisos efectivos (aplanados de todos los roles)
-    const permissions = [
-      ...new Set(
-        user.userRoles.flatMap((ur) =>
-          ur.role.rolePermissions.map((rp) => rp.permission.code),
-        ),
-      ),
-    ];
+    const tokens = await this.issueTokens(user);
 
-    // 4. Generar tokens
-    const payload: JwtPayload = {
-      sub: user.id,
-      email: user.email,
-      tenantId: user.tenantId,
-      permissions,
-    };
-
-    const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(payload),
-      this.jwtService.signAsync(
-        { sub: user.id },
-        {
-          secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
-          expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES_IN', '7d'),
-        },
-      ),
-    ]);
-
-    // 5. Actualizar último login
     await this.prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
     });
 
-    return {
-      accessToken,
-      refreshToken,
-      expiresIn: 900, // 15 minutos en segundos
-    };
+    return tokens;
   }
 
   async refresh(refreshToken: string): Promise<AuthTokens> {
+    let payload: { sub: string };
     try {
-      const payload = this.jwtService.verify<{ sub: string }>(refreshToken, {
+      payload = this.jwtService.verify<{ sub: string }>(refreshToken, {
         secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       });
-
-      // Genera un nuevo login completo con permisos frescos
-      const user = await this.prisma.user.findUnique({
-        where: { id: payload.sub, isActive: true },
-        select: { email: true },
-      });
-
-      if (!user) throw new UnauthorizedException();
-
-      return this.login({ email: user.email, password: '' }); // simplificado
     } catch {
       throw new UnauthorizedException('Refresh token inválido o expirado');
     }
+
+    const stored = await this.prisma.refreshToken.findFirst({
+      where: { userId: payload.sub, tokenHash: this.hashToken(refreshToken) },
+    });
+
+    if (!stored || stored.expiresAt < new Date()) {
+      throw new UnauthorizedException('Refresh token inválido o expirado');
+    }
+
+    if (stored.revokedAt) {
+      // Reuso de un refresh token ya rotado: señal de token robado — se
+      // revoca toda la familia de tokens activos del usuario en vez de solo
+      // rechazar este, forzando un login nuevo en todos los dispositivos.
+      await this.prisma.refreshToken.updateMany({
+        where: { userId: payload.sub, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      throw new UnauthorizedException('Refresh token inválido o expirado');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub, isActive: true },
+      include: userRolesInclude,
+    });
+    if (!user) throw new UnauthorizedException();
+
+    // Rotación: el token usado queda revokedAt + replacedBy apuntando al
+    // nuevo (ver stored.id abajo), nunca se reutiliza dos veces.
+    return this.issueTokens(user, stored.id);
   }
 
   async me(userId: string) {
@@ -143,20 +136,87 @@ export class AuthService {
         lastLoginAt: true,
         createdAt: true,
         updatedAt: true,
+        userRoles: { include: { role: { select: { name: true } } } },
       },
     });
 
     if (!user) throw new UnauthorizedException();
 
-    return user;
+    const { userRoles, ...rest } = user;
+    return { ...rest, roles: userRoles.map((ur) => ur.role.name) };
   }
 
   async logout(userId: string): Promise<void> {
-    // TODO: Invalidar refresh token en Redis o BD
-    // Por ahora solo actualiza el usuario (los tokens son stateless)
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { updatedAt: new Date() },
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
     });
+  }
+
+  // Calcula permisos efectivos + isSuperadmin, firma el par de tokens, y
+  // persiste el hash del refresh token (nunca el token en claro) en
+  // RefreshToken para que refresh() pueda validarlo y logout()/reuso puedan
+  // revocarlo. replacesTokenId, si viene, marca la rotación del token viejo.
+  private async issueTokens(user: UserWithRoles, replacesTokenId?: string): Promise<AuthTokens> {
+    const permissions = [
+      ...new Set(
+        user.userRoles.flatMap((ur) =>
+          ur.role.rolePermissions.map((rp) => rp.permission.code),
+        ),
+      ),
+    ];
+
+    const isSuperadmin = user.userRoles.some(
+      (ur) => ur.role.code === 'superadmin' && ur.role.isSystem,
+    );
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      tenantId: user.tenantId,
+      permissions,
+      isSuperadmin,
+    };
+
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload),
+      this.jwtService.signAsync(
+        { sub: user.id },
+        {
+          secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
+          expiresIn: this.config.get<string>('JWT_REFRESH_EXPIRES_IN', '7d'),
+        },
+      ),
+    ]);
+
+    const decoded = this.jwtService.decode(refreshToken) as { exp: number };
+    const stored = await this.prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: this.hashToken(refreshToken),
+        expiresAt: new Date(decoded.exp * 1000),
+      },
+    });
+
+    if (replacesTokenId) {
+      await this.prisma.refreshToken.update({
+        where: { id: replacesTokenId },
+        data: { revokedAt: new Date(), replacedBy: stored.id },
+      });
+    }
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresIn: 900, // 15 minutos en segundos
+    };
+  }
+
+  // sha256, no bcrypt: el refresh token ya es de alta entropía (un JWT
+  // firmado), no una contraseña de baja entropía — bcrypt además trunca su
+  // entrada a 72 bytes, más corto que un JWT típico. Un hash rápido con
+  // búsqueda exacta es lo correcto aquí.
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
   }
 }

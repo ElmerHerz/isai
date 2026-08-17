@@ -13,7 +13,9 @@ out/
 .env
 .env.local
 .env.*.local
+.env.production
 !.env.example
+!.env.production.example
 
 # MCP config (contiene credenciales de conexión reales)
 .mcp.json

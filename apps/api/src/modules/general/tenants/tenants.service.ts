@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
+import { UpdateTenantSettingsDto } from './dto/update-tenant-settings.dto';
 
 /**
  * Regla: El service contiene TODA la lógica de negocio.
@@ -49,7 +50,25 @@ export class TenantsService {
       throw new ConflictException(`Ya existe un tenant con slug "${dto.slug}"`);
     }
 
-    return this.prisma.tenant.create({ data: dto });
+    // Sin esto el tenant queda con tenant_modules vacío y MenusService.findMyMenu
+    // filtra TODO el árbol de menú a nada (moduleCode IN () no matchea ninguna
+    // fila) — cualquier usuario no-superadmin del tenant ve el sidebar vacío.
+    return this.prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.create({ data: dto });
+
+      const coreModules = await tx.module.findMany({
+        where: { isCore: true },
+        select: { code: true },
+      });
+
+      if (coreModules.length > 0) {
+        await tx.tenantModule.createMany({
+          data: coreModules.map((m) => ({ tenantId: tenant.id, moduleCode: m.code })),
+        });
+      }
+
+      return tenant;
+    });
   }
 
   async update(id: string, dto: UpdateTenantDto) {
@@ -59,5 +78,33 @@ export class TenantsService {
       where: { id },
       data: dto,
     });
+  }
+
+  // Self-service: lo que puede leer/tocar un Administrador de SU PROPIO
+  // tenant (moneda/país/idioma), a diferencia de findOne/update que son de
+  // uso superadmin sobre cualquier tenant por id.
+  async getSelfSettings(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) throw new NotFoundException(`Tenant "${tenantId}" no encontrado`);
+    return tenant;
+  }
+
+  async updateSelfSettings(tenantId: string, dto: UpdateTenantSettingsDto) {
+    await this.getSelfSettings(tenantId); // Lanza NotFoundException si no existe
+
+    if (dto.currencyCode) {
+      const currency = await this.prisma.currency.findUnique({ where: { code: dto.currencyCode } });
+      if (!currency) throw new BadRequestException(`La moneda "${dto.currencyCode}" no existe en el catálogo.`);
+    }
+    if (dto.countryCode) {
+      const country = await this.prisma.country.findUnique({ where: { code: dto.countryCode } });
+      if (!country) throw new BadRequestException(`El país "${dto.countryCode}" no existe en el catálogo.`);
+    }
+    if (dto.languageCode) {
+      const language = await this.prisma.language.findUnique({ where: { code: dto.languageCode } });
+      if (!language) throw new BadRequestException(`El idioma "${dto.languageCode}" no existe en el catálogo.`);
+    }
+
+    return this.prisma.tenant.update({ where: { id: tenantId }, data: dto });
   }
 }

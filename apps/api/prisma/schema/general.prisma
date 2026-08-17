@@ -45,12 +45,73 @@ model Language {
   @@schema("general")
 }
 
+// Catálogo genérico reutilizable, discriminado por catalogCode — evita crear
+// una tabla dedicada por cada catálogo simple (código+nombre) que aparezca a
+// futuro. Primer uso: catalogCode = "schedule_type" (Culto, Atención al
+// público, Vigilia...). "code" solo es único DENTRO de un catalogCode, no
+// globalmente — por eso el id uuid es la PK real, no code.
+model CatalogItem {
+  id          String   @id @default(uuid())
+  catalogCode String   @map("catalog_code") @db.VarChar(50)
+  code        String   @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  sortOrder   Int      @default(0) @map("sort_order") @db.SmallInt
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  branchSchedules     BranchSchedule[]
+  persons             Person[]
+  groups              Group[]
+  groupPositions      GroupPosition[]
+  events              Event[]
+  eventAttendances    EventAttendance[]
+  personRelationships PersonRelationship[]
+
+  @@unique([catalogCode, code], name: "uq_catalog_items_code")
+  @@map("catalog_items")
+  @@schema("general")
+}
+
+// Franjas de horario por sucursal (atención al público, culto, vigilia...).
+// day_of_week/specific_date son mutuamente excluyentes (chk_branch_schedule_recurrence
+// en la base real) — una franja o se repite semanalmente o es de una fecha
+// puntual. Esta versión del sistema solo tiene UI para el caso recurrente
+// (día de la semana); specific_date queda listo para eventos de una sola
+// fecha (vigilias, seminarios) sin requerir otra migración después.
+model BranchSchedule {
+  id             String    @id @default(uuid())
+  branchId       String    @map("branch_id")
+  scheduleTypeId String    @map("schedule_type_id")
+  dayOfWeek      Int?      @map("day_of_week") @db.SmallInt // 0=domingo..6=sábado (EXTRACT(DOW))
+  specificDate   DateTime? @map("specific_date") @db.Date
+  startTime      DateTime  @map("start_time") @db.Time
+  endTime        DateTime? @map("end_time") @db.Time
+  label          String?   @db.VarChar(150)
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  // groupId opcional (membresia.groups) — null = horario general de la
+  // sucursal (ej. culto dominical de todos); con valor = horario propio de
+  // ese grupo/sociedad (ej. "Culto de Jóvenes"). ON DELETE SET NULL: borrar
+  // el grupo desvincula el horario, no lo destruye.
+  groupId        String?   @map("group_id")
+
+  branch       Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  scheduleType CatalogItem @relation(fields: [scheduleTypeId], references: [id])
+  group        Group?      @relation(fields: [groupId], references: [id])
+  events       Event[]
+
+  @@map("branch_schedules")
+  @@schema("general")
+}
+
 model InstitutionType {
   code        String  @id @db.VarChar(30) // church, store, pharmacy, nursing_home, generic
   name        String  @db.VarChar(100)
   description String?
 
-  institutions Institution[]
+  institutions     Institution[]
+  menuRestrictions MenuInstitutionType[]
 
   @@map("institution_types")
   @@schema("general")
@@ -76,6 +137,11 @@ model Tenant {
   users         User[]
   roles         Role[]
   auditLogs     AuditLog[]
+  persons       Person[]
+  attendanceTags AttendanceTag[]
+  milestoneTypes MilestoneType[]
+  privilegeTypes PrivilegeType[]
+  fundTypes      FundType[]
 
   @@map("tenants")
   @@schema("general")
@@ -95,6 +161,9 @@ model Institution {
   branches  Branch[]
   addresses Address[]
   userRoles UserRole[]
+  persons   Person[]
+  groups    Group[]
+  events    Event[]
 
   churchDetails      ChurchDetails?
   storeDetails       StoreDetails?
@@ -113,9 +182,13 @@ model Branch {
   createdAt     DateTime  @default(now()) @map("created_at")
   deletedAt     DateTime? @map("deleted_at")
 
-  institution Institution @relation(fields: [institutionId], references: [id])
+  institution Institution      @relation(fields: [institutionId], references: [id])
   addresses   Address[]
   userRoles   UserRole[]
+  schedules   BranchSchedule[]
+  persons     Person[]
+  groups      Group[]
+  events      Event[]
 
   @@map("branches")
   @@schema("general")
@@ -148,13 +221,13 @@ model Address {
 }
 
 model ChurchDetails {
-  institutionId     String    @id @map("institution_id")
-  denomination      String?   @db.VarChar(150)
-  pastorName        String?   @map("pastor_name") @db.VarChar(150)
-  foundingDate      DateTime? @map("founding_date") @db.Date
-  congregationSize  Int?      @map("congregation_size")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  institutionId    String    @id @map("institution_id")
+  denomination     String?   @db.VarChar(150)
+  pastorName       String?   @map("pastor_name") @db.VarChar(150)
+  foundingDate     DateTime? @map("founding_date") @db.Date
+  congregationSize Int?      @map("congregation_size")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
 
@@ -191,12 +264,12 @@ model PharmacyDetails {
 }
 
 model NursingHomeDetails {
-  institutionId       String   @id @map("institution_id")
-  healthPermitNumber  String?  @map("health_permit_number") @db.VarChar(50)
-  bedCapacity         Int?     @map("bed_capacity")
-  medicalDirector     String?  @map("medical_director") @db.VarChar(150)
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  institutionId      String   @id @map("institution_id")
+  healthPermitNumber String?  @map("health_permit_number") @db.VarChar(50)
+  bedCapacity        Int?     @map("bed_capacity")
+  medicalDirector    String?  @map("medical_director") @db.VarChar(150)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
 
@@ -210,11 +283,62 @@ model Module {
   name        String  @db.VarChar(100)
   description String?
   isCore      Boolean @default(false) @map("is_core")
+  // Color identificador del módulo en la UI (hex, ej: "#6366f1").
+  // chk_modules_color_hex en la base real valida el formato.
+  colorHex    String  @map("color_hex") @db.VarChar(7)
 
   permissions   Permission[]
   tenantModules TenantModule[]
+  menus         Menu[]
 
   @@map("modules")
+  @@schema("general")
+}
+
+// Define la navegación del frontend (sidebar): jerarquía, ícono, ruta, bajo
+// qué permiso y módulo. No lleva tenantId — es una definición GLOBAL del
+// sistema; el filtrado real por tenant/permisos se hace cruzando esto con
+// tenant_modules + los permisos del usuario en tiempo de consulta, no con RLS.
+model Menu {
+  id             String  @id @default(uuid())
+  parentId       String? @map("parent_id")
+  moduleCode     String  @map("module_code") @db.VarChar(30)
+  permissionCode String? @map("permission_code") @db.VarChar(150)
+  label          String  @db.VarChar(100)
+  icon           String? @db.VarChar(50)
+  route          String? @db.VarChar(200)
+  sortOrder      Int     @default(0) @map("sort_order") @db.SmallInt
+  isActive       Boolean @default(true) @map("is_active")
+  // Identificador de negocio estable (ej: "SEC_USERS") — el que usan las FKs,
+  // nunca el id uuid, para que las migraciones/seeds no dependan de un uuid fijo.
+  code           String  @db.VarChar(50)
+  level          Int     @default(1) @db.SmallInt
+
+  parent   Menu?  @relation("MenuHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children Menu[] @relation("MenuHierarchy")
+
+  module     Module      @relation(fields: [moduleCode], references: [code])
+  permission Permission? @relation(fields: [permissionCode], references: [code])
+
+  institutionTypes MenuInstitutionType[]
+
+  @@unique([code])
+  @@unique([moduleCode, code], name: "uq_menus_module_code")
+  @@map("menus")
+  @@schema("general")
+}
+
+// Si un menú no tiene filas aquí, se asume visible para TODOS los tipos de
+// institución. Si tiene una o más, SOLO es visible para esos tipos.
+model MenuInstitutionType {
+  menuId              String @map("menu_id")
+  institutionTypeCode String @map("institution_type_code") @db.VarChar(30)
+
+  menu            Menu            @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  institutionType InstitutionType @relation(fields: [institutionTypeCode], references: [code])
+
+  @@id([menuId, institutionTypeCode])
+  @@map("menu_institution_types")
   @@schema("general")
 }
 

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/platform-fastify';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import multipart from '@fastify/multipart';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -39,6 +40,13 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // ─── Multipart (subida de archivos) ────────────────────────────────────────
+  // Fastify, no Express — no hay FileInterceptor/multer, esto es lo que
+  // habilita @Req().file() en los controllers (ver PersonsController import).
+  await app.register(multipart, {
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  });
+
   // ─── Swagger / OpenAPI ────────────────────────────────────────────────────
   if (process.env.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()
@@ -56,6 +64,13 @@ async function bootstrap() {
       .addTag('tenants', 'Gestión de tenants')
       .addTag('institutions', 'Instituciones por tenant')
       .addTag('branches', 'Sucursales por institución')
+      .addTag('menus', 'Menú de navegación dinámico')
+      .addTag('institution-types', 'Catálogo de tipos de institución')
+      .addTag('currencies', 'Catálogo de monedas')
+      .addTag('countries', 'Catálogo de países')
+      .addTag('languages', 'Catálogo de idiomas')
+      .addTag('catalog-items', 'Catálogo genérico (tipos de horario, etc.)')
+      .addTag('permissions', 'Catálogo de permisos')
       .addTag('users', 'Usuarios')
       .addTag('roles', 'Roles y permisos')
       .build();

@@ -7,6 +7,7 @@ import { CreateInstitutionDto } from './dto/create-institution.dto';
 import { UpdateInstitutionDto } from './dto/update-institution.dto';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
+import { CurrentUser, RequestUser } from '../../../common/decorators/current-user.decorator';
 
 @ApiTags('institutions')
 @ApiBearerAuth('access-token')
@@ -15,37 +16,42 @@ export class InstitutionsController {
   constructor(private readonly institutionsService: InstitutionsService) {}
 
   @Get()
-  @RequirePermission('general.institution.read')
+  @RequirePermission('core.institution.view')
   @ApiOperation({ summary: 'Listar instituciones del tenant activo' })
-  findAll(@CurrentTenant() tenantId: string) {
-    return this.institutionsService.findAll(tenantId);
+  findAll(
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.institutionsService.findAll(tenantId, user);
   }
 
   @Get(':id')
-  @RequirePermission('general.institution.read')
+  @RequirePermission('core.institution.view')
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentTenant() tenantId: string,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
   ) {
-    return this.institutionsService.findOne(id, tenantId);
+    return this.institutionsService.findOne(id, tenantId, user);
   }
 
   @Post()
-  @RequirePermission('general.institution.create')
+  @RequirePermission('core.institution.create')
   create(
     @Body() dto: CreateInstitutionDto,
-    @CurrentTenant() tenantId: string,
+    @CurrentTenant() tenantId: string | null,
   ) {
     return this.institutionsService.create(tenantId, dto);
   }
 
   @Patch(':id')
-  @RequirePermission('general.institution.update')
+  @RequirePermission('core.institution.update')
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateInstitutionDto,
-    @CurrentTenant() tenantId: string,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
   ) {
-    return this.institutionsService.update(id, tenantId, dto);
+    return this.institutionsService.update(id, tenantId, dto, user);
   }
 }

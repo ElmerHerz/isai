@@ -9,12 +9,30 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedGeneralCatalogsRouteImport } from './routes/_authenticated/general/catalogs'
+import { Route as AuthenticatedGeneralPharmacyLicensesRouteImport } from './routes/_authenticated/general/pharmacy-licenses'
+import { Route as AuthenticatedGeneralSettingsRouteImport } from './routes/_authenticated/general/settings'
+import { Route as AuthenticatedMembershipAttendanceRouteImport } from './routes/_authenticated/membership/attendance'
+import { Route as AuthenticatedMembershipPositionsRouteImport } from './routes/_authenticated/membership/positions'
+import { Route as AuthenticatedSecurityAuditRouteImport } from './routes/_authenticated/security/audit'
+import { Route as AuthenticatedSecurityRolesRouteImport } from './routes/_authenticated/security/roles'
+import { Route as AuthenticatedSecurityUsersRouteImport } from './routes/_authenticated/security/users'
+import { Route as AuthenticatedGeneralBranchesIndexRouteImport } from './routes/_authenticated/general/branches/index'
+import { Route as AuthenticatedGeneralBranchesBranchIdRouteImport } from './routes/_authenticated/general/branches/$branchId'
+import { Route as AuthenticatedGeneralInstitutionsIndexRouteImport } from './routes/_authenticated/general/institutions/index'
+import { Route as AuthenticatedGeneralInstitutionsInstitutionIdRouteImport } from './routes/_authenticated/general/institutions/$institutionId'
+import { Route as AuthenticatedMembershipEventsIndexRouteImport } from './routes/_authenticated/membership/events/index'
+import { Route as AuthenticatedMembershipEventsEventIdRouteImport } from './routes/_authenticated/membership/events/$eventId'
+import { Route as AuthenticatedMembershipGroupsIndexRouteImport } from './routes/_authenticated/membership/groups/index'
+import { Route as AuthenticatedMembershipGroupsGroupIdRouteImport } from './routes/_authenticated/membership/groups/$groupId'
+import { Route as AuthenticatedMembershipPersonsIndexRouteImport } from './routes/_authenticated/membership/persons/index'
+import { Route as AuthenticatedMembershipPersonsPersonIdRouteImport } from './routes/_authenticated/membership/persons/$personId'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -22,40 +40,270 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedGeneralCatalogsRoute =
+  AuthenticatedGeneralCatalogsRouteImport.update({
+    id: '/general/catalogs',
+    path: '/general/catalogs',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedGeneralPharmacyLicensesRoute =
+  AuthenticatedGeneralPharmacyLicensesRouteImport.update({
+    id: '/general/pharmacy-licenses',
+    path: '/general/pharmacy-licenses',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedGeneralSettingsRoute =
+  AuthenticatedGeneralSettingsRouteImport.update({
+    id: '/general/settings',
+    path: '/general/settings',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMembershipAttendanceRoute =
+  AuthenticatedMembershipAttendanceRouteImport.update({
+    id: '/membership/attendance',
+    path: '/membership/attendance',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMembershipPositionsRoute =
+  AuthenticatedMembershipPositionsRouteImport.update({
+    id: '/membership/positions',
+    path: '/membership/positions',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSecurityAuditRoute =
+  AuthenticatedSecurityAuditRouteImport.update({
+    id: '/security/audit',
+    path: '/security/audit',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSecurityRolesRoute =
+  AuthenticatedSecurityRolesRouteImport.update({
+    id: '/security/roles',
+    path: '/security/roles',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSecurityUsersRoute =
+  AuthenticatedSecurityUsersRouteImport.update({
+    id: '/security/users',
+    path: '/security/users',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedGeneralBranchesIndexRoute =
+  AuthenticatedGeneralBranchesIndexRouteImport.update({
+    id: '/general/branches/',
+    path: '/general/branches/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedGeneralBranchesBranchIdRoute =
+  AuthenticatedGeneralBranchesBranchIdRouteImport.update({
+    id: '/general/branches/$branchId',
+    path: '/general/branches/$branchId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedGeneralInstitutionsIndexRoute =
+  AuthenticatedGeneralInstitutionsIndexRouteImport.update({
+    id: '/general/institutions/',
+    path: '/general/institutions/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedGeneralInstitutionsInstitutionIdRoute =
+  AuthenticatedGeneralInstitutionsInstitutionIdRouteImport.update({
+    id: '/general/institutions/$institutionId',
+    path: '/general/institutions/$institutionId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMembershipEventsIndexRoute =
+  AuthenticatedMembershipEventsIndexRouteImport.update({
+    id: '/membership/events/',
+    path: '/membership/events/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMembershipEventsEventIdRoute =
+  AuthenticatedMembershipEventsEventIdRouteImport.update({
+    id: '/membership/events/$eventId',
+    path: '/membership/events/$eventId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMembershipGroupsIndexRoute =
+  AuthenticatedMembershipGroupsIndexRouteImport.update({
+    id: '/membership/groups/',
+    path: '/membership/groups/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMembershipGroupsGroupIdRoute =
+  AuthenticatedMembershipGroupsGroupIdRouteImport.update({
+    id: '/membership/groups/$groupId',
+    path: '/membership/groups/$groupId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMembershipPersonsIndexRoute =
+  AuthenticatedMembershipPersonsIndexRouteImport.update({
+    id: '/membership/persons/',
+    path: '/membership/persons/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMembershipPersonsPersonIdRoute =
+  AuthenticatedMembershipPersonsPersonIdRouteImport.update({
+    id: '/membership/persons/$personId',
+    path: '/membership/persons/$personId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
+  '/general/catalogs': typeof AuthenticatedGeneralCatalogsRoute
+  '/general/pharmacy-licenses': typeof AuthenticatedGeneralPharmacyLicensesRoute
+  '/general/settings': typeof AuthenticatedGeneralSettingsRoute
+  '/membership/attendance': typeof AuthenticatedMembershipAttendanceRoute
+  '/membership/positions': typeof AuthenticatedMembershipPositionsRoute
+  '/security/audit': typeof AuthenticatedSecurityAuditRoute
+  '/security/roles': typeof AuthenticatedSecurityRolesRoute
+  '/security/users': typeof AuthenticatedSecurityUsersRoute
+  '/general/branches/$branchId': typeof AuthenticatedGeneralBranchesBranchIdRoute
+  '/general/institutions/$institutionId': typeof AuthenticatedGeneralInstitutionsInstitutionIdRoute
+  '/membership/events/$eventId': typeof AuthenticatedMembershipEventsEventIdRoute
+  '/membership/groups/$groupId': typeof AuthenticatedMembershipGroupsGroupIdRoute
+  '/membership/persons/$personId': typeof AuthenticatedMembershipPersonsPersonIdRoute
+  '/general/branches/': typeof AuthenticatedGeneralBranchesIndexRoute
+  '/general/institutions/': typeof AuthenticatedGeneralInstitutionsIndexRoute
+  '/membership/events/': typeof AuthenticatedMembershipEventsIndexRoute
+  '/membership/groups/': typeof AuthenticatedMembershipGroupsIndexRoute
+  '/membership/persons/': typeof AuthenticatedMembershipPersonsIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/': typeof AuthenticatedIndexRoute
+  '/general/catalogs': typeof AuthenticatedGeneralCatalogsRoute
+  '/general/pharmacy-licenses': typeof AuthenticatedGeneralPharmacyLicensesRoute
+  '/general/settings': typeof AuthenticatedGeneralSettingsRoute
+  '/membership/attendance': typeof AuthenticatedMembershipAttendanceRoute
+  '/membership/positions': typeof AuthenticatedMembershipPositionsRoute
+  '/security/audit': typeof AuthenticatedSecurityAuditRoute
+  '/security/roles': typeof AuthenticatedSecurityRolesRoute
+  '/security/users': typeof AuthenticatedSecurityUsersRoute
+  '/general/branches/$branchId': typeof AuthenticatedGeneralBranchesBranchIdRoute
+  '/general/institutions/$institutionId': typeof AuthenticatedGeneralInstitutionsInstitutionIdRoute
+  '/membership/events/$eventId': typeof AuthenticatedMembershipEventsEventIdRoute
+  '/membership/groups/$groupId': typeof AuthenticatedMembershipGroupsGroupIdRoute
+  '/membership/persons/$personId': typeof AuthenticatedMembershipPersonsPersonIdRoute
+  '/general/branches': typeof AuthenticatedGeneralBranchesIndexRoute
+  '/general/institutions': typeof AuthenticatedGeneralInstitutionsIndexRoute
+  '/membership/events': typeof AuthenticatedMembershipEventsIndexRoute
+  '/membership/groups': typeof AuthenticatedMembershipGroupsIndexRoute
+  '/membership/persons': typeof AuthenticatedMembershipPersonsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
+  '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/general/catalogs': typeof AuthenticatedGeneralCatalogsRoute
+  '/_authenticated/general/pharmacy-licenses': typeof AuthenticatedGeneralPharmacyLicensesRoute
+  '/_authenticated/general/settings': typeof AuthenticatedGeneralSettingsRoute
+  '/_authenticated/membership/attendance': typeof AuthenticatedMembershipAttendanceRoute
+  '/_authenticated/membership/positions': typeof AuthenticatedMembershipPositionsRoute
+  '/_authenticated/security/audit': typeof AuthenticatedSecurityAuditRoute
+  '/_authenticated/security/roles': typeof AuthenticatedSecurityRolesRoute
+  '/_authenticated/security/users': typeof AuthenticatedSecurityUsersRoute
+  '/_authenticated/general/branches/$branchId': typeof AuthenticatedGeneralBranchesBranchIdRoute
+  '/_authenticated/general/institutions/$institutionId': typeof AuthenticatedGeneralInstitutionsInstitutionIdRoute
+  '/_authenticated/membership/events/$eventId': typeof AuthenticatedMembershipEventsEventIdRoute
+  '/_authenticated/membership/groups/$groupId': typeof AuthenticatedMembershipGroupsGroupIdRoute
+  '/_authenticated/membership/persons/$personId': typeof AuthenticatedMembershipPersonsPersonIdRoute
+  '/_authenticated/general/branches/': typeof AuthenticatedGeneralBranchesIndexRoute
+  '/_authenticated/general/institutions/': typeof AuthenticatedGeneralInstitutionsIndexRoute
+  '/_authenticated/membership/events/': typeof AuthenticatedMembershipEventsIndexRoute
+  '/_authenticated/membership/groups/': typeof AuthenticatedMembershipGroupsIndexRoute
+  '/_authenticated/membership/persons/': typeof AuthenticatedMembershipPersonsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/general/catalogs'
+    | '/general/pharmacy-licenses'
+    | '/general/settings'
+    | '/membership/attendance'
+    | '/membership/positions'
+    | '/security/audit'
+    | '/security/roles'
+    | '/security/users'
+    | '/general/branches/$branchId'
+    | '/general/institutions/$institutionId'
+    | '/membership/events/$eventId'
+    | '/membership/groups/$groupId'
+    | '/membership/persons/$personId'
+    | '/general/branches/'
+    | '/general/institutions/'
+    | '/membership/events/'
+    | '/membership/groups/'
+    | '/membership/persons/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login'
-  id: '__root__' | '/' | '/login'
+  to:
+    | '/login'
+    | '/'
+    | '/general/catalogs'
+    | '/general/pharmacy-licenses'
+    | '/general/settings'
+    | '/membership/attendance'
+    | '/membership/positions'
+    | '/security/audit'
+    | '/security/roles'
+    | '/security/users'
+    | '/general/branches/$branchId'
+    | '/general/institutions/$institutionId'
+    | '/membership/events/$eventId'
+    | '/membership/groups/$groupId'
+    | '/membership/persons/$personId'
+    | '/general/branches'
+    | '/general/institutions'
+    | '/membership/events'
+    | '/membership/groups'
+    | '/membership/persons'
+  id:
+    | '__root__'
+    | '/_authenticated'
+    | '/login'
+    | '/_authenticated/'
+    | '/_authenticated/general/catalogs'
+    | '/_authenticated/general/pharmacy-licenses'
+    | '/_authenticated/general/settings'
+    | '/_authenticated/membership/attendance'
+    | '/_authenticated/membership/positions'
+    | '/_authenticated/security/audit'
+    | '/_authenticated/security/roles'
+    | '/_authenticated/security/users'
+    | '/_authenticated/general/branches/$branchId'
+    | '/_authenticated/general/institutions/$institutionId'
+    | '/_authenticated/membership/events/$eventId'
+    | '/_authenticated/membership/groups/$groupId'
+    | '/_authenticated/membership/persons/$personId'
+    | '/_authenticated/general/branches/'
+    | '/_authenticated/general/institutions/'
+    | '/_authenticated/membership/events/'
+    | '/_authenticated/membership/groups/'
+    | '/_authenticated/membership/persons/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -65,11 +313,204 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/': {
+      id: '/_authenticated/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/general/catalogs': {
+      id: '/_authenticated/general/catalogs'
+      path: '/general/catalogs'
+      fullPath: '/general/catalogs'
+      preLoaderRoute: typeof AuthenticatedGeneralCatalogsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/general/pharmacy-licenses': {
+      id: '/_authenticated/general/pharmacy-licenses'
+      path: '/general/pharmacy-licenses'
+      fullPath: '/general/pharmacy-licenses'
+      preLoaderRoute: typeof AuthenticatedGeneralPharmacyLicensesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/general/settings': {
+      id: '/_authenticated/general/settings'
+      path: '/general/settings'
+      fullPath: '/general/settings'
+      preLoaderRoute: typeof AuthenticatedGeneralSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/membership/attendance': {
+      id: '/_authenticated/membership/attendance'
+      path: '/membership/attendance'
+      fullPath: '/membership/attendance'
+      preLoaderRoute: typeof AuthenticatedMembershipAttendanceRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/membership/positions': {
+      id: '/_authenticated/membership/positions'
+      path: '/membership/positions'
+      fullPath: '/membership/positions'
+      preLoaderRoute: typeof AuthenticatedMembershipPositionsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/security/audit': {
+      id: '/_authenticated/security/audit'
+      path: '/security/audit'
+      fullPath: '/security/audit'
+      preLoaderRoute: typeof AuthenticatedSecurityAuditRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/security/roles': {
+      id: '/_authenticated/security/roles'
+      path: '/security/roles'
+      fullPath: '/security/roles'
+      preLoaderRoute: typeof AuthenticatedSecurityRolesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/security/users': {
+      id: '/_authenticated/security/users'
+      path: '/security/users'
+      fullPath: '/security/users'
+      preLoaderRoute: typeof AuthenticatedSecurityUsersRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/general/branches/': {
+      id: '/_authenticated/general/branches/'
+      path: '/general/branches'
+      fullPath: '/general/branches/'
+      preLoaderRoute: typeof AuthenticatedGeneralBranchesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/general/branches/$branchId': {
+      id: '/_authenticated/general/branches/$branchId'
+      path: '/general/branches/$branchId'
+      fullPath: '/general/branches/$branchId'
+      preLoaderRoute: typeof AuthenticatedGeneralBranchesBranchIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/general/institutions/': {
+      id: '/_authenticated/general/institutions/'
+      path: '/general/institutions'
+      fullPath: '/general/institutions/'
+      preLoaderRoute: typeof AuthenticatedGeneralInstitutionsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/general/institutions/$institutionId': {
+      id: '/_authenticated/general/institutions/$institutionId'
+      path: '/general/institutions/$institutionId'
+      fullPath: '/general/institutions/$institutionId'
+      preLoaderRoute: typeof AuthenticatedGeneralInstitutionsInstitutionIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/membership/events/': {
+      id: '/_authenticated/membership/events/'
+      path: '/membership/events'
+      fullPath: '/membership/events/'
+      preLoaderRoute: typeof AuthenticatedMembershipEventsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/membership/events/$eventId': {
+      id: '/_authenticated/membership/events/$eventId'
+      path: '/membership/events/$eventId'
+      fullPath: '/membership/events/$eventId'
+      preLoaderRoute: typeof AuthenticatedMembershipEventsEventIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/membership/groups/': {
+      id: '/_authenticated/membership/groups/'
+      path: '/membership/groups'
+      fullPath: '/membership/groups/'
+      preLoaderRoute: typeof AuthenticatedMembershipGroupsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/membership/groups/$groupId': {
+      id: '/_authenticated/membership/groups/$groupId'
+      path: '/membership/groups/$groupId'
+      fullPath: '/membership/groups/$groupId'
+      preLoaderRoute: typeof AuthenticatedMembershipGroupsGroupIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/membership/persons/': {
+      id: '/_authenticated/membership/persons/'
+      path: '/membership/persons'
+      fullPath: '/membership/persons/'
+      preLoaderRoute: typeof AuthenticatedMembershipPersonsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/membership/persons/$personId': {
+      id: '/_authenticated/membership/persons/$personId'
+      path: '/membership/persons/$personId'
+      fullPath: '/membership/persons/$personId'
+      preLoaderRoute: typeof AuthenticatedMembershipPersonsPersonIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
+interface AuthenticatedRouteChildren {
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedGeneralCatalogsRoute: typeof AuthenticatedGeneralCatalogsRoute
+  AuthenticatedGeneralPharmacyLicensesRoute: typeof AuthenticatedGeneralPharmacyLicensesRoute
+  AuthenticatedGeneralSettingsRoute: typeof AuthenticatedGeneralSettingsRoute
+  AuthenticatedMembershipAttendanceRoute: typeof AuthenticatedMembershipAttendanceRoute
+  AuthenticatedMembershipPositionsRoute: typeof AuthenticatedMembershipPositionsRoute
+  AuthenticatedSecurityAuditRoute: typeof AuthenticatedSecurityAuditRoute
+  AuthenticatedSecurityRolesRoute: typeof AuthenticatedSecurityRolesRoute
+  AuthenticatedSecurityUsersRoute: typeof AuthenticatedSecurityUsersRoute
+  AuthenticatedGeneralBranchesBranchIdRoute: typeof AuthenticatedGeneralBranchesBranchIdRoute
+  AuthenticatedGeneralInstitutionsInstitutionIdRoute: typeof AuthenticatedGeneralInstitutionsInstitutionIdRoute
+  AuthenticatedMembershipEventsEventIdRoute: typeof AuthenticatedMembershipEventsEventIdRoute
+  AuthenticatedMembershipGroupsGroupIdRoute: typeof AuthenticatedMembershipGroupsGroupIdRoute
+  AuthenticatedMembershipPersonsPersonIdRoute: typeof AuthenticatedMembershipPersonsPersonIdRoute
+  AuthenticatedGeneralBranchesIndexRoute: typeof AuthenticatedGeneralBranchesIndexRoute
+  AuthenticatedGeneralInstitutionsIndexRoute: typeof AuthenticatedGeneralInstitutionsIndexRoute
+  AuthenticatedMembershipEventsIndexRoute: typeof AuthenticatedMembershipEventsIndexRoute
+  AuthenticatedMembershipGroupsIndexRoute: typeof AuthenticatedMembershipGroupsIndexRoute
+  AuthenticatedMembershipPersonsIndexRoute: typeof AuthenticatedMembershipPersonsIndexRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedGeneralCatalogsRoute: AuthenticatedGeneralCatalogsRoute,
+  AuthenticatedGeneralPharmacyLicensesRoute:
+    AuthenticatedGeneralPharmacyLicensesRoute,
+  AuthenticatedGeneralSettingsRoute: AuthenticatedGeneralSettingsRoute,
+  AuthenticatedMembershipAttendanceRoute:
+    AuthenticatedMembershipAttendanceRoute,
+  AuthenticatedMembershipPositionsRoute: AuthenticatedMembershipPositionsRoute,
+  AuthenticatedSecurityAuditRoute: AuthenticatedSecurityAuditRoute,
+  AuthenticatedSecurityRolesRoute: AuthenticatedSecurityRolesRoute,
+  AuthenticatedSecurityUsersRoute: AuthenticatedSecurityUsersRoute,
+  AuthenticatedGeneralBranchesBranchIdRoute:
+    AuthenticatedGeneralBranchesBranchIdRoute,
+  AuthenticatedGeneralInstitutionsInstitutionIdRoute:
+    AuthenticatedGeneralInstitutionsInstitutionIdRoute,
+  AuthenticatedMembershipEventsEventIdRoute:
+    AuthenticatedMembershipEventsEventIdRoute,
+  AuthenticatedMembershipGroupsGroupIdRoute:
+    AuthenticatedMembershipGroupsGroupIdRoute,
+  AuthenticatedMembershipPersonsPersonIdRoute:
+    AuthenticatedMembershipPersonsPersonIdRoute,
+  AuthenticatedGeneralBranchesIndexRoute:
+    AuthenticatedGeneralBranchesIndexRoute,
+  AuthenticatedGeneralInstitutionsIndexRoute:
+    AuthenticatedGeneralInstitutionsIndexRoute,
+  AuthenticatedMembershipEventsIndexRoute:
+    AuthenticatedMembershipEventsIndexRoute,
+  AuthenticatedMembershipGroupsIndexRoute:
+    AuthenticatedMembershipGroupsIndexRoute,
+  AuthenticatedMembershipPersonsIndexRoute:
+    AuthenticatedMembershipPersonsIndexRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport

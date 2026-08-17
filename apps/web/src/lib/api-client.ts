@@ -1,5 +1,14 @@
 import axios, { type AxiosRequestConfig } from 'axios';
 import { useAuthStore } from './auth-store';
+import { toast, getErrorMessage } from './toast';
+
+// Extiende el config de axios para poder marcar requests puntuales que ya
+// muestran su propio error inline (ej. login) y no necesitan el toast automático.
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    skipErrorToast?: boolean;
+  }
+}
 
 /**
  * apiClient — Cliente HTTP centralizado para toda la app.
@@ -24,13 +33,13 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// ─── Interceptor de Response: Maneja 401 (token expirado) ─────────────────
+// ─── Interceptor de Response: Maneja 401 (token expirado) + toast de error ─
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: unknown) => {
     const axiosError = error as {
       response?: { status: number };
-      config?: { _retry?: boolean } & Record<string, unknown>;
+      config?: { _retry?: boolean; skipErrorToast?: boolean } & Record<string, unknown>;
     };
 
     if (axiosError.response?.status === 401 && !axiosError.config?._retry) {
@@ -55,9 +64,19 @@ apiClient.interceptors.response.use(
 
         return apiClient(originalRequest as AxiosRequestConfig);
       } catch {
+        // Refresh falló → se está redirigiendo a /login, un toast justo
+        // antes no sirve de nada.
         useAuthStore.getState().logout();
         window.location.href = '/login';
+        return Promise.reject(error);
       }
+    }
+
+    // Cualquier otro error (incluyendo un 401 sin refresh token disponible)
+    // se avisa solo una vez, aquí, para toda la app — así ningún mutation
+    // hook ni pantalla se queda sin feedback de error por olvido.
+    if (!axiosError.config?.skipErrorToast) {
+      toast.error(getErrorMessage(error));
     }
 
     return Promise.reject(error);

@@ -1,18 +1,22 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { resolveTenantId } from '../utils/resolve-tenant-id';
 
 /**
- * @CurrentTenant() extrae el tenantId del JWT/request autenticado.
+ * @CurrentTenant() extrae el tenant activo de la request.
  *
- * Regla: NUNCA se confía en un tenant_id que venga del body/query.
- * Siempre se obtiene del JWT del usuario autenticado.
+ * Regla: para un usuario normal, NUNCA se confía en un tenant_id que venga
+ * del body/query — siempre se obtiene del JWT del usuario autenticado.
+ *
+ * Puede devolver `null`: significa que quien hace la request es superadmin
+ * (tenantId=null en el JWT) y no seleccionó un tenant específico vía
+ * ?tenantId=. Cada endpoint decide qué hacer con null (ver resolveTenantId).
  *
  * Uso en controller:
- * findAll(@CurrentTenant() tenantId: string) { ... }
+ * findAll(@CurrentTenant() tenantId: string | null) { ... }
  */
 export const CurrentTenant = createParamDecorator(
-  (_data: unknown, ctx: ExecutionContext): string => {
+  (_data: unknown, ctx: ExecutionContext): string | null => {
     const request = ctx.switchToHttp().getRequest();
-    // El TenantRlsInterceptor y JwtAuthGuard ya colocaron tenant_id en request.user
-    return request.user?.tenantId as string;
+    return resolveTenantId(request);
   },
 );

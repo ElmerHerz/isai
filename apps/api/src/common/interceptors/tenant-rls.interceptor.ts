@@ -5,39 +5,46 @@ import {
   CallHandler,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
+import { resolveTenantId } from '../utils/resolve-tenant-id';
+import { tenantContextStorage } from '../prisma/tenant-context';
 
 /**
- * TenantRlsInterceptor — Inyecta el tenant_id del usuario autenticado
- * en el contexto de Postgres para que las políticas RLS actúen.
+ * TenantRlsInterceptor — Propaga el tenant_id activo de la request al
+ * contexto de PrismaService (vía AsyncLocalStorage) para que su middleware
+ * ejecute SET LOCAL app.current_tenant_id y las políticas RLS de Postgres
+ * actúen de verdad, no solo el filtro `where: tenantId` de cada service.
  *
- * Ejecuta: SET LOCAL app.current_tenant_id = '<tenant_id>'
- * en cada transacción, antes de que el service acceda a Prisma.
- *
- * Regla: NUNCA se confía en un tenant_id del body/query.
- * Siempre se obtiene de request.user (JWT ya validado por JwtAuthGuard).
- *
- * NOTA: La implementación completa requiere un middleware de transacción Prisma
- * ($transaction con SET LOCAL). Este interceptor establece el contexto en la
- * request para que PrismaService lo use al iniciar transacciones.
+ * Regla: para un usuario normal, NUNCA se confía en un tenant_id del
+ * body/query — siempre viene de request.user (JWT ya validado por
+ * JwtAuthGuard). Un superadmin (tenantId=null en el JWT) puede seleccionar
+ * un tenant vía ?tenantId=; si no lo hace, no se setea nada y, tal como
+ * describe el diseño de RLS, un app.current_tenant_id sin setear se asume
+ * contexto de superadmin (sin filtro).
  */
 @Injectable()
 export class TenantRlsInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<{
-      user?: { tenantId?: string };
+      user?: { tenantId?: string | null };
+      query?: Record<string, unknown>;
       tenantId?: string;
     }>();
 
-    // Extrae tenant_id del JWT (ya validado por JwtAuthGuard)
-    const tenantId = request.user?.tenantId;
+    const tenantId = resolveTenantId(request);
 
     if (tenantId) {
-      // Coloca tenantId en el request para acceso en toda la cadena
       request.tenantId = tenantId;
-      // TODO: Ejecutar SET LOCAL app.current_tenant_id usando Prisma middleware
-      // cuando se implemente la capa de transacciones explícitas
     }
 
-    return next.handle();
+    // El handler completo (guards ya corrieron; esto envuelve la ejecución
+    // del controller/service) corre dentro del contexto de AsyncLocalStorage
+    // para que PrismaService pueda leer el tenant activo sin pasarlo a mano
+    // por cada llamada.
+    return new Observable((subscriber) => {
+      tenantContextStorage.run({ tenantId }, () => {
+        const subscription = next.handle().subscribe(subscriber);
+        return () => subscription.unsubscribe();
+      });
+    });
   }
 }
