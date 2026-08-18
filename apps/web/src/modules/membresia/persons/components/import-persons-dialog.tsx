@@ -199,7 +199,12 @@ export function ImportPersonsDialog({ open, onOpenChange, institutionId }: Impor
             {previewRows.length > 0 && (
             <div className="max-h-96 overflow-y-auto rounded-lg border">
               <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-muted/80 backdrop-blur">
+                {/* bg-muted sólido, no /80 con blur: mismo problema que
+                    DialogHeader (ver components/ui/dialog.tsx) — los colores
+                    en tailwind.config.js no soportan el modificador de
+                    opacidad de forma confiable, y el texto de las filas
+                    scrolleadas se veía pasar detrás del encabezado. */}
+                <thead className="sticky top-0 bg-muted">
                   <tr>
                     <th className="w-8 p-2"></th>
                     <th className="p-2 text-left font-medium">Nombre</th>
