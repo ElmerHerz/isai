@@ -10,4 +10,4 @@ WORKDIR /repo
 ENV NODE_ENV=production
 COPY --from=build /repo .
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=apps/api/prisma/schema && node apps/api/dist/main.js"]
+CMD ["sh", "-c", "npx prisma db push --skip-generate --schema=apps/api/prisma/schema && node apps/api/dist/main.js"]
