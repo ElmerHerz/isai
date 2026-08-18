@@ -2,8 +2,8 @@ FROM node:20-alpine AS build
 WORKDIR /repo
 COPY . .
 RUN npm ci
-RUN npx turbo run build --filter=@isai/api...
 RUN npx prisma generate --schema=apps/api/prisma/schema
+RUN npx turbo run build --filter=...@isai/api
 
 FROM node:20-alpine
 WORKDIR /repo
