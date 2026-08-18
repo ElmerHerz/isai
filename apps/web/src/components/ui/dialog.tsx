@@ -37,19 +37,29 @@ export const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        // px-6 sin py-6: el padding vertical se lo dan DialogHeader/Footer a
-        // sí mismos (ver comentario ahí) — tenerlo también aquí obligaba a
-        // cancelarlo con márgenes negativos en el header/footer sticky, y esa
-        // combinación (padding del contenedor + margen negativo + sticky)
-        // dejaba un hueco de ~24px donde el contenido ya scrolleado se
-        // alcanzaba a ver antes de quedar tapado del todo.
-        'fixed left-1/2 top-1/2 z-[1100] max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border bg-background px-6 shadow-2xl ring-1 ring-black/5 focus:outline-none dark:ring-white/10',
+        // overflow-hidden aquí (NO overflow-y-auto): DialogContent ya no es
+        // el elemento que scrollea — ver el div interno de abajo. Antes, el
+        // botón de cerrar (y en su momento el header/footer) eran hijos
+        // directos de este mismo elemento con overflow-y-auto, así que
+        // cualquier posicionamiento absolute/fixed sobre ellos terminaba
+        // moviéndose junto con ese scroll (fixed no logra "escapar" del
+        // scroll interno de su propio contenedor con transform, aunque en
+        // teoría debería — comprobado en el navegador). Separar el scroll a
+        // un div interno saca al botón de cerrar de esa zona por completo,
+        // sin depender de ese caso límite de CSS.
+        'fixed left-1/2 top-1/2 z-[1100] max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border bg-background shadow-2xl ring-1 ring-black/5 focus:outline-none dark:ring-white/10',
         'data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out',
         className,
       )}
       {...props}
     >
-      {children}
+      {/* Único elemento que scrollea. px-6 sin py-6: el padding vertical se
+          lo dan DialogHeader/Footer a sí mismos (ver comentario ahí) —
+          tenerlo también aquí obligaba a cancelarlo con márgenes negativos
+          en el header/footer sticky, y esa combinación (padding + margen
+          negativo + sticky) dejaba un hueco de ~24px donde el contenido ya
+          scrolleado se alcanzaba a ver antes de quedar tapado del todo. */}
+      <div className="max-h-[85vh] overflow-y-auto px-6">{children}</div>
       <DialogPrimitive.Close className="absolute right-4 top-4 rounded-full p-1.5 text-muted-foreground opacity-70 transition-colors hover:bg-muted hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
         <X className="h-4 w-4" />
         <span className="sr-only">Cerrar</span>

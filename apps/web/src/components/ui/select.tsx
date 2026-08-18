@@ -43,7 +43,11 @@ export const SelectContent = React.forwardRef<
         // detrás de los controles de Leaflet (z-index:1000 fijo) cuando hay
         // un mapa en la misma página (ej. país en la ubicación de sucursal).
         'z-[1100] max-h-96 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md',
-        position === 'popper' && 'translate-y-1',
+        // w-[...-trigger-width]: sin esto el popover mide solo lo que ocupa
+        // su contenido (ej. 128px), más angosto que el campo que lo abrió —
+        // el campo de abajo (ej. "Sucursal" bajo "Tipo") quedaba asomado a
+        // la derecha, parcialmente visible, en vez de tapado por completo.
+        position === 'popper' && 'translate-y-1 w-[var(--radix-select-trigger-width)]',
         className,
       )}
       {...props}
