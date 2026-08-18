@@ -14,7 +14,11 @@ export const institutionDetailKey = (id: string) => ['institutions', 'detail', i
  * específico en un formulario (ej. crear usuario), se manda como query param
  * para traer solo las instituciones de ESE tenant.
  */
-export function useInstitutionsQuery(tenantId?: string) {
+// enabled adicional (default true) — quien llama debe apagarlo si sabe que
+// el usuario actual no tiene core.institution.view (ej. Home dashboard con
+// un usuario tipo Tesorero), para no dispararle un 403 (y su toast
+// automático) solo por cargar una tarjeta informativa.
+export function useInstitutionsQuery(tenantId?: string, enabled: boolean = true) {
   return useQuery({
     queryKey: tenantId ? [...INSTITUTIONS_QUERY_KEY, tenantId] : INSTITUTIONS_QUERY_KEY,
     queryFn: async () => {
@@ -23,6 +27,7 @@ export function useInstitutionsQuery(tenantId?: string) {
       });
       return data;
     },
+    enabled,
   });
 }
 

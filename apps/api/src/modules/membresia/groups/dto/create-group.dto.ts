@@ -31,6 +31,11 @@ export class CreateGroupDto {
   @IsOptional()
   leaderPersonId?: string;
 
+  @ApiPropertyOptional({ description: 'Cuenta de Activo donde vive el fondo propio del grupo (ej. "Caja: Fondo Músicos"). Requerida antes de poder registrar movimientos del fondo.' })
+  @IsUUID()
+  @IsOptional()
+  cashAccountId?: string;
+
   @ApiPropertyOptional()
   @IsBoolean() @IsOptional()
   isActive?: boolean;

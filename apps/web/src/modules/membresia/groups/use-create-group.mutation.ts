@@ -11,6 +11,7 @@ export interface CreateGroupInput {
   name: string;
   description?: string;
   leaderPersonId?: string;
+  cashAccountId?: string;
 }
 
 export function useCreateGroupMutation() {

@@ -52,9 +52,12 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto): Promise<AuthTokens> {
-    // En un sistema multi-tenant, el email es único globalmente (no lo
-    // sabemos aún en login público, no se puede filtrar por tenant aquí).
-    const user = await this.prisma.user.findFirst({
+    // email es único GLOBALMENTE (constraint uq_users_email, no solo por
+    // tenant) — findUnique en vez de findFirst: antes, con la constraint
+    // vieja (única solo por tenant), dos tenants podían compartir un email y
+    // findFirst devolvía una fila no determinista, arriesgando autenticar a
+    // alguien con el tenant equivocado. Ver auditoría de sesión.
+    const user = await this.prisma.user.findUnique({
       where: { email: dto.email, isActive: true },
       include: userRolesInclude,
     });
@@ -118,6 +121,12 @@ export class AuthService {
     return this.issueTokens(user, stored.id);
   }
 
+  // Trae también el arreglo plano de permisos efectivos (mismo cálculo que
+  // issueTokens, que es lo que de verdad manda en el backend vía
+  // PermissionsGuard) — el frontend lo necesita para poder ocultar UI que de
+  // otro modo dispara un 403 solo por renderizarse (ver GroupFundsController:
+  // la card "Fondo del grupo" en la página de un grupo se le mostraba a
+  // CUALQUIER rol, incluido uno sin ningún permiso de finanzas).
   async me(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -136,14 +145,19 @@ export class AuthService {
         lastLoginAt: true,
         createdAt: true,
         updatedAt: true,
-        userRoles: { include: { role: { select: { name: true } } } },
+        userRoles: {
+          include: { role: { include: { rolePermissions: { include: { permission: true } } } } },
+        },
       },
     });
 
     if (!user) throw new UnauthorizedException();
 
     const { userRoles, ...rest } = user;
-    return { ...rest, roles: userRoles.map((ur) => ur.role.name) };
+    const permissions = [
+      ...new Set(userRoles.flatMap((ur) => ur.role.rolePermissions.map((rp) => rp.permission.code))),
+    ];
+    return { ...rest, roles: userRoles.map((ur) => ur.role.name), permissions };
   }
 
   async logout(userId: string): Promise<void> {

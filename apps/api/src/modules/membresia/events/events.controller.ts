@@ -168,4 +168,16 @@ export class EventsController {
   ) {
     return this.eventsService.removeFundCollection(id, collectionId, tenantId, user);
   }
+
+  @Post(':id/fund-collections/:collectionId/post-to-ledger')
+  @RequirePermission('finance.journal_entry.create')
+  @ApiOperation({ summary: 'Contabilizar un fondo recogido: genera su asiento contable (debe caja, haber cuenta de ingreso)' })
+  postFundCollectionToLedger(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('collectionId', ParseUUIDPipe) collectionId: string,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.eventsService.postFundCollectionToLedger(id, collectionId, tenantId, user);
+  }
 }

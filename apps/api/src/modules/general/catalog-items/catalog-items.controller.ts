@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags, ApiQuery } from '@nestjs/swagger'
 import { CatalogItemsService } from './catalog-items.service';
 import { CreateCatalogItemDto } from './dto/create-catalog-item.dto';
 import { UpdateCatalogItemDto } from './dto/update-catalog-item.dto';
-import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
+import { AnyAuthenticatedUser } from '../../../common/decorators/any-authenticated-user.decorator';
 import { SuperadminOnly } from '../../../common/decorators/superadmin-only.decorator';
 
 @ApiTags('catalog-items')
@@ -13,9 +13,9 @@ export class CatalogItemsController {
   constructor(private readonly catalogItemsService: CatalogItemsService) {}
 
   @Get()
-  @RequirePermission('core.institution.view')
+  @AnyAuthenticatedUser()
   @ApiQuery({ name: 'catalogCode', required: false, example: 'schedule_type' })
-  @ApiOperation({ summary: 'Catálogo genérico de ítems (discriminado por catalogCode)' })
+  @ApiOperation({ summary: 'Catálogo genérico de ítems (discriminado por catalogCode) — sin permiso de negocio, ver AnyAuthenticatedUser' })
   findAll(@Query('catalogCode') catalogCode?: string) {
     return this.catalogItemsService.findAll(catalogCode);
   }

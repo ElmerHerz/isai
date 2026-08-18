@@ -13,6 +13,9 @@ export function useRemoveGroupMemberMutation(groupId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: groupMembersQueryKey(groupId) });
+      // La lista de grupos trae _count.members — sin esto queda
+      // desactualizada hasta que expire el staleTime (hallazgo de auditoría).
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
       toast.success('Persona quitada del grupo.');
     },
   });

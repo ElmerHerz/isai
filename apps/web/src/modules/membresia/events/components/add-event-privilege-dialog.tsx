@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { usePersonsQuery, usePrivilegeTypesQuery, useCreateEventPrivilegeMutation } from '@/modules/membresia';
+import { useAuthStore } from '@/lib/auth-store';
 import { getErrorMessage } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +24,9 @@ interface AddEventPrivilegeDialogProps {
 }
 
 export function AddEventPrivilegeDialog({ open, onOpenChange, eventId, institutionId }: AddEventPrivilegeDialogProps) {
-  const { data: persons, isLoading: isPersonsLoading } = usePersonsQuery(institutionId);
+  const permissions = useAuthStore((state) => state.user?.permissions) ?? [];
+  const canViewPersons = permissions.includes('membership.person.view');
+  const { data: persons, isLoading: isPersonsLoading } = usePersonsQuery(institutionId, canViewPersons);
   const { data: privilegeTypes } = usePrivilegeTypesQuery();
   const mutation = useCreateEventPrivilegeMutation(eventId);
 
@@ -73,11 +76,14 @@ export function AddEventPrivilegeDialog({ open, onOpenChange, eventId, instituti
           </div>
 
           <div className="max-h-56 overflow-y-auto rounded-lg border">
-            {isPersonsLoading && <p className="p-3 text-sm text-muted-foreground">Cargando...</p>}
-            {!isPersonsLoading && available.length === 0 && (
+            {!canViewPersons && (
+              <p className="p-3 text-sm text-muted-foreground">No tienes permiso para ver personas.</p>
+            )}
+            {canViewPersons && isPersonsLoading && <p className="p-3 text-sm text-muted-foreground">Cargando...</p>}
+            {canViewPersons && !isPersonsLoading && available.length === 0 && (
               <p className="p-3 text-sm text-muted-foreground">Nadie coincide con esa búsqueda.</p>
             )}
-            {!isPersonsLoading &&
+            {canViewPersons && !isPersonsLoading &&
               available.map((p) => (
                 <button
                   key={p.id}

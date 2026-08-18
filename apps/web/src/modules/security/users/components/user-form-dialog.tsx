@@ -49,6 +49,10 @@ interface UserFormDialogProps {
 export function UserFormDialog({ open, onOpenChange }: UserFormDialogProps) {
   const { data: currentUser } = useMeQuery();
   const isSuperadmin = !!currentUser && !currentUser.tenantId;
+  // isSuperadmin bypasea PermissionsGuard en el backend sin importar su
+  // arreglo de permisos (que puede venir vacío) — por eso se chequea aparte,
+  // no solo permissions.includes(...).
+  const canViewRoles = isSuperadmin || !!currentUser?.permissions?.includes('security.role.view');
 
   const createUserMutation = useCreateUserMutation();
   const assignRoleMutation = useAssignRoleMutation();
@@ -87,7 +91,7 @@ export function UserFormDialog({ open, onOpenChange }: UserFormDialogProps) {
   const institutionId = watch('institutionId');
 
   const { data: tenants } = useTenantsQuery(isSuperadmin);
-  const { data: roles } = useRolesQuery(isSuperadmin ? tenantId || undefined : undefined);
+  const { data: roles } = useRolesQuery(isSuperadmin ? tenantId || undefined : undefined, canViewRoles);
   const { data: institutions } = useInstitutionsQuery(isSuperadmin ? tenantId || undefined : undefined);
   const { data: branches } = useBranchesQuery(institutionId || '');
 
@@ -216,9 +220,9 @@ export function UserFormDialog({ open, onOpenChange }: UserFormDialogProps) {
               name="roleId"
               control={control}
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value} onValueChange={field.onChange} disabled={!canViewRoles}>
                   <SelectTrigger id="roleId">
-                    <SelectValue placeholder="Selecciona un rol" />
+                    <SelectValue placeholder={canViewRoles ? 'Selecciona un rol' : 'No tienes permiso para ver roles'} />
                   </SelectTrigger>
                   <SelectContent>
                     {roles?.map((role) => (

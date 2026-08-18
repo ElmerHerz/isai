@@ -10,7 +10,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DateInput } from '@/components/ui/date-input';
 import { usePersonsQuery, useGroupMembersQuery, useAddGroupMembersMutation } from '@/modules/membresia';
+import { useAuthStore } from '@/lib/auth-store';
+import { getErrorMessage } from '@/lib/toast';
 
 interface AddGroupMemberDialogProps {
   open: boolean;
@@ -20,9 +23,11 @@ interface AddGroupMemberDialogProps {
 }
 
 export function AddGroupMemberDialog({ open, onOpenChange, groupId, institutionId }: AddGroupMemberDialogProps) {
-  const { data: persons, isLoading: isPersonsLoading } = usePersonsQuery(institutionId);
+  const permissions = useAuthStore((state) => state.user?.permissions) ?? [];
+  const canViewPersons = permissions.includes('membership.person.view');
+  const { data: persons, isLoading: isPersonsLoading } = usePersonsQuery(institutionId, canViewPersons);
   const { data: currentMembers, isLoading: isMembersLoading } = useGroupMembersQuery(groupId);
-  const isLoading = isPersonsLoading || isMembersLoading;
+  const isLoading = (canViewPersons && isPersonsLoading) || isMembersLoading;
   const mutation = useAddGroupMembersMutation(groupId);
 
   const [search, setSearch] = useState('');
@@ -91,13 +96,16 @@ export function AddGroupMemberDialog({ open, onOpenChange, groupId, institutionI
           </div>
 
           <div className="max-h-64 overflow-y-auto rounded-lg border">
-            {isLoading && <p className="p-3 text-sm text-muted-foreground">Cargando...</p>}
-            {!isLoading && available.length === 0 && (
+            {!canViewPersons && (
+              <p className="p-3 text-sm text-muted-foreground">No tienes permiso para ver personas.</p>
+            )}
+            {canViewPersons && isLoading && <p className="p-3 text-sm text-muted-foreground">Cargando...</p>}
+            {canViewPersons && !isLoading && available.length === 0 && (
               <p className="p-3 text-sm text-muted-foreground">
                 {persons?.length ? 'No hay personas disponibles con ese nombre.' : 'No hay personas registradas todavía.'}
               </p>
             )}
-            {!isLoading && available.map((p) => (
+            {canViewPersons && !isLoading && available.map((p) => (
               <label
                 key={p.id}
                 className="flex cursor-pointer items-center gap-3 border-b px-3 py-2 text-sm last:border-b-0 hover:bg-muted/50"
@@ -122,14 +130,13 @@ export function AddGroupMemberDialog({ open, onOpenChange, groupId, institutionI
             </div>
             <div className="space-y-2">
               <Label htmlFor="joinedAt">Fecha de ingreso (opcional, hoy por defecto)</Label>
-              <Input id="joinedAt" type="date" value={joinedAt} onChange={(e) => setJoinedAt(e.target.value)} />
+              <DateInput id="joinedAt" value={joinedAt} onChange={setJoinedAt} />
             </div>
           </div>
 
           {mutation.isError && (
             <p className="text-sm text-destructive">
-              {(mutation.error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-                'No se pudo agregar. Verifica los datos e intenta de nuevo.'}
+              {getErrorMessage(mutation.error, 'No se pudo agregar. Verifica los datos e intenta de nuevo.')}
             </p>
           )}
 

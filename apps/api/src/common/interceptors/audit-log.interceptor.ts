@@ -37,6 +37,10 @@ interface AuditRequest {
   url: string;
   params?: Record<string, string>;
   user?: { userId?: string; tenantId?: string | null };
+  /** Tenant EFECTIVO de la request, seteado por TenantRlsInterceptor (que
+   * corre antes que este) — puede diferir de user.tenantId cuando un
+   * superadmin opera sobre un tenant vía ?tenantId=. */
+  tenantId?: string;
   ip?: string;
   headers: Record<string, string | string[] | undefined>;
 }
@@ -95,7 +99,13 @@ export class AuditLogInterceptor implements NestInterceptor {
 
     await this.prisma.auditLog.create({
       data: {
-        tenantId: request.user?.tenantId ?? null,
+        // request.tenantId (seteado por TenantRlsInterceptor, que corre
+        // antes) es el tenant EFECTIVO de la operación — para un superadmin
+        // operando vía ?tenantId=, user.tenantId sigue siendo null aunque la
+        // mutación sí afecte a un tenant concreto (hallazgo de auditoría de
+        // sesión: antes se guardaba tenantId: null en ese caso, y la
+        // bitácora de ese tenant nunca mostraba esas acciones).
+        tenantId: request.tenantId ?? request.user?.tenantId ?? null,
         userId: request.user?.userId ?? null,
         action: ACTION_BY_METHOD[method] ?? method.toLowerCase(),
         entityType,

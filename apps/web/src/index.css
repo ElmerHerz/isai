@@ -56,6 +56,13 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'Inter', system-ui, sans-serif;
+    /* Red de seguridad: la página nunca debe scrollear horizontalmente
+       (dejaría contenido "cortado sin forma de verlo" en pantallas muy
+       angostas, ej. LG Optimus L70 ~320px). No sustituye arreglar el
+       componente que desborda — eso se arregla en su origen (ver
+       finance/projects/$projectId.tsx) — pero evita que un futuro desborde
+       se sienta como un bug roto en vez de simplemente no pasar. */
+    overflow-x: hidden;
   }
 
   /* Scrollbar delgado y redondeado en toda la app — el cuadrado y grueso

@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { DateInput } from '@/components/ui/date-input';
 import { useMilestoneTypesQuery, useCreatePersonMilestoneMutation } from '@/modules/membresia';
 import { getErrorMessage } from '@/lib/toast';
 
@@ -80,12 +81,7 @@ export function AddMilestoneDialog({ open, onOpenChange, personId }: AddMileston
 
           <div className="space-y-2">
             <Label htmlFor="milestone-date">Fecha</Label>
-            <Input
-              id="milestone-date"
-              type="date"
-              value={occurredOn}
-              onChange={(e) => setOccurredOn(e.target.value)}
-            />
+            <DateInput id="milestone-date" value={occurredOn} onChange={setOccurredOn} />
           </div>
 
           <div className="space-y-2">

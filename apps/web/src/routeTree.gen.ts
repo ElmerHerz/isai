@@ -12,6 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedFinanceAccountsRouteImport } from './routes/_authenticated/finance/accounts'
+import { Route as AuthenticatedFinanceEntriesRouteImport } from './routes/_authenticated/finance/entries'
+import { Route as AuthenticatedFinanceReportsRouteImport } from './routes/_authenticated/finance/reports'
 import { Route as AuthenticatedGeneralCatalogsRouteImport } from './routes/_authenticated/general/catalogs'
 import { Route as AuthenticatedGeneralPharmacyLicensesRouteImport } from './routes/_authenticated/general/pharmacy-licenses'
 import { Route as AuthenticatedGeneralSettingsRouteImport } from './routes/_authenticated/general/settings'
@@ -20,6 +23,10 @@ import { Route as AuthenticatedMembershipPositionsRouteImport } from './routes/_
 import { Route as AuthenticatedSecurityAuditRouteImport } from './routes/_authenticated/security/audit'
 import { Route as AuthenticatedSecurityRolesRouteImport } from './routes/_authenticated/security/roles'
 import { Route as AuthenticatedSecurityUsersRouteImport } from './routes/_authenticated/security/users'
+import { Route as AuthenticatedFinanceGroupFundsIndexRouteImport } from './routes/_authenticated/finance/group-funds/index'
+import { Route as AuthenticatedFinanceGroupFundsGroupIdRouteImport } from './routes/_authenticated/finance/group-funds/$groupId'
+import { Route as AuthenticatedFinanceProjectsIndexRouteImport } from './routes/_authenticated/finance/projects/index'
+import { Route as AuthenticatedFinanceProjectsProjectIdRouteImport } from './routes/_authenticated/finance/projects/$projectId'
 import { Route as AuthenticatedGeneralBranchesIndexRouteImport } from './routes/_authenticated/general/branches/index'
 import { Route as AuthenticatedGeneralBranchesBranchIdRouteImport } from './routes/_authenticated/general/branches/$branchId'
 import { Route as AuthenticatedGeneralInstitutionsIndexRouteImport } from './routes/_authenticated/general/institutions/index'
@@ -45,6 +52,24 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedFinanceAccountsRoute =
+  AuthenticatedFinanceAccountsRouteImport.update({
+    id: '/finance/accounts',
+    path: '/finance/accounts',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedFinanceEntriesRoute =
+  AuthenticatedFinanceEntriesRouteImport.update({
+    id: '/finance/entries',
+    path: '/finance/entries',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedFinanceReportsRoute =
+  AuthenticatedFinanceReportsRouteImport.update({
+    id: '/finance/reports',
+    path: '/finance/reports',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedGeneralCatalogsRoute =
   AuthenticatedGeneralCatalogsRouteImport.update({
     id: '/general/catalogs',
@@ -91,6 +116,30 @@ const AuthenticatedSecurityUsersRoute =
   AuthenticatedSecurityUsersRouteImport.update({
     id: '/security/users',
     path: '/security/users',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedFinanceGroupFundsIndexRoute =
+  AuthenticatedFinanceGroupFundsIndexRouteImport.update({
+    id: '/finance/group-funds/',
+    path: '/finance/group-funds/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedFinanceGroupFundsGroupIdRoute =
+  AuthenticatedFinanceGroupFundsGroupIdRouteImport.update({
+    id: '/finance/group-funds/$groupId',
+    path: '/finance/group-funds/$groupId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedFinanceProjectsIndexRoute =
+  AuthenticatedFinanceProjectsIndexRouteImport.update({
+    id: '/finance/projects/',
+    path: '/finance/projects/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedFinanceProjectsProjectIdRoute =
+  AuthenticatedFinanceProjectsProjectIdRouteImport.update({
+    id: '/finance/projects/$projectId',
+    path: '/finance/projects/$projectId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedGeneralBranchesIndexRoute =
@@ -157,6 +206,9 @@ const AuthenticatedMembershipPersonsPersonIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
+  '/finance/accounts': typeof AuthenticatedFinanceAccountsRoute
+  '/finance/entries': typeof AuthenticatedFinanceEntriesRoute
+  '/finance/reports': typeof AuthenticatedFinanceReportsRoute
   '/general/catalogs': typeof AuthenticatedGeneralCatalogsRoute
   '/general/pharmacy-licenses': typeof AuthenticatedGeneralPharmacyLicensesRoute
   '/general/settings': typeof AuthenticatedGeneralSettingsRoute
@@ -165,11 +217,15 @@ export interface FileRoutesByFullPath {
   '/security/audit': typeof AuthenticatedSecurityAuditRoute
   '/security/roles': typeof AuthenticatedSecurityRolesRoute
   '/security/users': typeof AuthenticatedSecurityUsersRoute
+  '/finance/group-funds/$groupId': typeof AuthenticatedFinanceGroupFundsGroupIdRoute
+  '/finance/projects/$projectId': typeof AuthenticatedFinanceProjectsProjectIdRoute
   '/general/branches/$branchId': typeof AuthenticatedGeneralBranchesBranchIdRoute
   '/general/institutions/$institutionId': typeof AuthenticatedGeneralInstitutionsInstitutionIdRoute
   '/membership/events/$eventId': typeof AuthenticatedMembershipEventsEventIdRoute
   '/membership/groups/$groupId': typeof AuthenticatedMembershipGroupsGroupIdRoute
   '/membership/persons/$personId': typeof AuthenticatedMembershipPersonsPersonIdRoute
+  '/finance/group-funds/': typeof AuthenticatedFinanceGroupFundsIndexRoute
+  '/finance/projects/': typeof AuthenticatedFinanceProjectsIndexRoute
   '/general/branches/': typeof AuthenticatedGeneralBranchesIndexRoute
   '/general/institutions/': typeof AuthenticatedGeneralInstitutionsIndexRoute
   '/membership/events/': typeof AuthenticatedMembershipEventsIndexRoute
@@ -179,6 +235,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/': typeof AuthenticatedIndexRoute
+  '/finance/accounts': typeof AuthenticatedFinanceAccountsRoute
+  '/finance/entries': typeof AuthenticatedFinanceEntriesRoute
+  '/finance/reports': typeof AuthenticatedFinanceReportsRoute
   '/general/catalogs': typeof AuthenticatedGeneralCatalogsRoute
   '/general/pharmacy-licenses': typeof AuthenticatedGeneralPharmacyLicensesRoute
   '/general/settings': typeof AuthenticatedGeneralSettingsRoute
@@ -187,11 +246,15 @@ export interface FileRoutesByTo {
   '/security/audit': typeof AuthenticatedSecurityAuditRoute
   '/security/roles': typeof AuthenticatedSecurityRolesRoute
   '/security/users': typeof AuthenticatedSecurityUsersRoute
+  '/finance/group-funds/$groupId': typeof AuthenticatedFinanceGroupFundsGroupIdRoute
+  '/finance/projects/$projectId': typeof AuthenticatedFinanceProjectsProjectIdRoute
   '/general/branches/$branchId': typeof AuthenticatedGeneralBranchesBranchIdRoute
   '/general/institutions/$institutionId': typeof AuthenticatedGeneralInstitutionsInstitutionIdRoute
   '/membership/events/$eventId': typeof AuthenticatedMembershipEventsEventIdRoute
   '/membership/groups/$groupId': typeof AuthenticatedMembershipGroupsGroupIdRoute
   '/membership/persons/$personId': typeof AuthenticatedMembershipPersonsPersonIdRoute
+  '/finance/group-funds': typeof AuthenticatedFinanceGroupFundsIndexRoute
+  '/finance/projects': typeof AuthenticatedFinanceProjectsIndexRoute
   '/general/branches': typeof AuthenticatedGeneralBranchesIndexRoute
   '/general/institutions': typeof AuthenticatedGeneralInstitutionsIndexRoute
   '/membership/events': typeof AuthenticatedMembershipEventsIndexRoute
@@ -203,6 +266,9 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/finance/accounts': typeof AuthenticatedFinanceAccountsRoute
+  '/_authenticated/finance/entries': typeof AuthenticatedFinanceEntriesRoute
+  '/_authenticated/finance/reports': typeof AuthenticatedFinanceReportsRoute
   '/_authenticated/general/catalogs': typeof AuthenticatedGeneralCatalogsRoute
   '/_authenticated/general/pharmacy-licenses': typeof AuthenticatedGeneralPharmacyLicensesRoute
   '/_authenticated/general/settings': typeof AuthenticatedGeneralSettingsRoute
@@ -211,11 +277,15 @@ export interface FileRoutesById {
   '/_authenticated/security/audit': typeof AuthenticatedSecurityAuditRoute
   '/_authenticated/security/roles': typeof AuthenticatedSecurityRolesRoute
   '/_authenticated/security/users': typeof AuthenticatedSecurityUsersRoute
+  '/_authenticated/finance/group-funds/$groupId': typeof AuthenticatedFinanceGroupFundsGroupIdRoute
+  '/_authenticated/finance/projects/$projectId': typeof AuthenticatedFinanceProjectsProjectIdRoute
   '/_authenticated/general/branches/$branchId': typeof AuthenticatedGeneralBranchesBranchIdRoute
   '/_authenticated/general/institutions/$institutionId': typeof AuthenticatedGeneralInstitutionsInstitutionIdRoute
   '/_authenticated/membership/events/$eventId': typeof AuthenticatedMembershipEventsEventIdRoute
   '/_authenticated/membership/groups/$groupId': typeof AuthenticatedMembershipGroupsGroupIdRoute
   '/_authenticated/membership/persons/$personId': typeof AuthenticatedMembershipPersonsPersonIdRoute
+  '/_authenticated/finance/group-funds/': typeof AuthenticatedFinanceGroupFundsIndexRoute
+  '/_authenticated/finance/projects/': typeof AuthenticatedFinanceProjectsIndexRoute
   '/_authenticated/general/branches/': typeof AuthenticatedGeneralBranchesIndexRoute
   '/_authenticated/general/institutions/': typeof AuthenticatedGeneralInstitutionsIndexRoute
   '/_authenticated/membership/events/': typeof AuthenticatedMembershipEventsIndexRoute
@@ -227,6 +297,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/finance/accounts'
+    | '/finance/entries'
+    | '/finance/reports'
     | '/general/catalogs'
     | '/general/pharmacy-licenses'
     | '/general/settings'
@@ -235,11 +308,15 @@ export interface FileRouteTypes {
     | '/security/audit'
     | '/security/roles'
     | '/security/users'
+    | '/finance/group-funds/$groupId'
+    | '/finance/projects/$projectId'
     | '/general/branches/$branchId'
     | '/general/institutions/$institutionId'
     | '/membership/events/$eventId'
     | '/membership/groups/$groupId'
     | '/membership/persons/$personId'
+    | '/finance/group-funds/'
+    | '/finance/projects/'
     | '/general/branches/'
     | '/general/institutions/'
     | '/membership/events/'
@@ -249,6 +326,9 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/'
+    | '/finance/accounts'
+    | '/finance/entries'
+    | '/finance/reports'
     | '/general/catalogs'
     | '/general/pharmacy-licenses'
     | '/general/settings'
@@ -257,11 +337,15 @@ export interface FileRouteTypes {
     | '/security/audit'
     | '/security/roles'
     | '/security/users'
+    | '/finance/group-funds/$groupId'
+    | '/finance/projects/$projectId'
     | '/general/branches/$branchId'
     | '/general/institutions/$institutionId'
     | '/membership/events/$eventId'
     | '/membership/groups/$groupId'
     | '/membership/persons/$personId'
+    | '/finance/group-funds'
+    | '/finance/projects'
     | '/general/branches'
     | '/general/institutions'
     | '/membership/events'
@@ -272,6 +356,9 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/_authenticated/'
+    | '/_authenticated/finance/accounts'
+    | '/_authenticated/finance/entries'
+    | '/_authenticated/finance/reports'
     | '/_authenticated/general/catalogs'
     | '/_authenticated/general/pharmacy-licenses'
     | '/_authenticated/general/settings'
@@ -280,11 +367,15 @@ export interface FileRouteTypes {
     | '/_authenticated/security/audit'
     | '/_authenticated/security/roles'
     | '/_authenticated/security/users'
+    | '/_authenticated/finance/group-funds/$groupId'
+    | '/_authenticated/finance/projects/$projectId'
     | '/_authenticated/general/branches/$branchId'
     | '/_authenticated/general/institutions/$institutionId'
     | '/_authenticated/membership/events/$eventId'
     | '/_authenticated/membership/groups/$groupId'
     | '/_authenticated/membership/persons/$personId'
+    | '/_authenticated/finance/group-funds/'
+    | '/_authenticated/finance/projects/'
     | '/_authenticated/general/branches/'
     | '/_authenticated/general/institutions/'
     | '/_authenticated/membership/events/'
@@ -318,6 +409,27 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/finance/accounts': {
+      id: '/_authenticated/finance/accounts'
+      path: '/finance/accounts'
+      fullPath: '/finance/accounts'
+      preLoaderRoute: typeof AuthenticatedFinanceAccountsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/finance/entries': {
+      id: '/_authenticated/finance/entries'
+      path: '/finance/entries'
+      fullPath: '/finance/entries'
+      preLoaderRoute: typeof AuthenticatedFinanceEntriesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/finance/reports': {
+      id: '/_authenticated/finance/reports'
+      path: '/finance/reports'
+      fullPath: '/finance/reports'
+      preLoaderRoute: typeof AuthenticatedFinanceReportsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/general/catalogs': {
@@ -374,6 +486,34 @@ declare module '@tanstack/react-router' {
       path: '/security/users'
       fullPath: '/security/users'
       preLoaderRoute: typeof AuthenticatedSecurityUsersRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/finance/group-funds/': {
+      id: '/_authenticated/finance/group-funds/'
+      path: '/finance/group-funds'
+      fullPath: '/finance/group-funds/'
+      preLoaderRoute: typeof AuthenticatedFinanceGroupFundsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/finance/group-funds/$groupId': {
+      id: '/_authenticated/finance/group-funds/$groupId'
+      path: '/finance/group-funds/$groupId'
+      fullPath: '/finance/group-funds/$groupId'
+      preLoaderRoute: typeof AuthenticatedFinanceGroupFundsGroupIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/finance/projects/': {
+      id: '/_authenticated/finance/projects/'
+      path: '/finance/projects'
+      fullPath: '/finance/projects/'
+      preLoaderRoute: typeof AuthenticatedFinanceProjectsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/finance/projects/$projectId': {
+      id: '/_authenticated/finance/projects/$projectId'
+      path: '/finance/projects/$projectId'
+      fullPath: '/finance/projects/$projectId'
+      preLoaderRoute: typeof AuthenticatedFinanceProjectsProjectIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/general/branches/': {
@@ -451,6 +591,9 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedFinanceAccountsRoute: typeof AuthenticatedFinanceAccountsRoute
+  AuthenticatedFinanceEntriesRoute: typeof AuthenticatedFinanceEntriesRoute
+  AuthenticatedFinanceReportsRoute: typeof AuthenticatedFinanceReportsRoute
   AuthenticatedGeneralCatalogsRoute: typeof AuthenticatedGeneralCatalogsRoute
   AuthenticatedGeneralPharmacyLicensesRoute: typeof AuthenticatedGeneralPharmacyLicensesRoute
   AuthenticatedGeneralSettingsRoute: typeof AuthenticatedGeneralSettingsRoute
@@ -459,11 +602,15 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSecurityAuditRoute: typeof AuthenticatedSecurityAuditRoute
   AuthenticatedSecurityRolesRoute: typeof AuthenticatedSecurityRolesRoute
   AuthenticatedSecurityUsersRoute: typeof AuthenticatedSecurityUsersRoute
+  AuthenticatedFinanceGroupFundsGroupIdRoute: typeof AuthenticatedFinanceGroupFundsGroupIdRoute
+  AuthenticatedFinanceProjectsProjectIdRoute: typeof AuthenticatedFinanceProjectsProjectIdRoute
   AuthenticatedGeneralBranchesBranchIdRoute: typeof AuthenticatedGeneralBranchesBranchIdRoute
   AuthenticatedGeneralInstitutionsInstitutionIdRoute: typeof AuthenticatedGeneralInstitutionsInstitutionIdRoute
   AuthenticatedMembershipEventsEventIdRoute: typeof AuthenticatedMembershipEventsEventIdRoute
   AuthenticatedMembershipGroupsGroupIdRoute: typeof AuthenticatedMembershipGroupsGroupIdRoute
   AuthenticatedMembershipPersonsPersonIdRoute: typeof AuthenticatedMembershipPersonsPersonIdRoute
+  AuthenticatedFinanceGroupFundsIndexRoute: typeof AuthenticatedFinanceGroupFundsIndexRoute
+  AuthenticatedFinanceProjectsIndexRoute: typeof AuthenticatedFinanceProjectsIndexRoute
   AuthenticatedGeneralBranchesIndexRoute: typeof AuthenticatedGeneralBranchesIndexRoute
   AuthenticatedGeneralInstitutionsIndexRoute: typeof AuthenticatedGeneralInstitutionsIndexRoute
   AuthenticatedMembershipEventsIndexRoute: typeof AuthenticatedMembershipEventsIndexRoute
@@ -473,6 +620,9 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedFinanceAccountsRoute: AuthenticatedFinanceAccountsRoute,
+  AuthenticatedFinanceEntriesRoute: AuthenticatedFinanceEntriesRoute,
+  AuthenticatedFinanceReportsRoute: AuthenticatedFinanceReportsRoute,
   AuthenticatedGeneralCatalogsRoute: AuthenticatedGeneralCatalogsRoute,
   AuthenticatedGeneralPharmacyLicensesRoute:
     AuthenticatedGeneralPharmacyLicensesRoute,
@@ -483,6 +633,10 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSecurityAuditRoute: AuthenticatedSecurityAuditRoute,
   AuthenticatedSecurityRolesRoute: AuthenticatedSecurityRolesRoute,
   AuthenticatedSecurityUsersRoute: AuthenticatedSecurityUsersRoute,
+  AuthenticatedFinanceGroupFundsGroupIdRoute:
+    AuthenticatedFinanceGroupFundsGroupIdRoute,
+  AuthenticatedFinanceProjectsProjectIdRoute:
+    AuthenticatedFinanceProjectsProjectIdRoute,
   AuthenticatedGeneralBranchesBranchIdRoute:
     AuthenticatedGeneralBranchesBranchIdRoute,
   AuthenticatedGeneralInstitutionsInstitutionIdRoute:
@@ -493,6 +647,10 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedMembershipGroupsGroupIdRoute,
   AuthenticatedMembershipPersonsPersonIdRoute:
     AuthenticatedMembershipPersonsPersonIdRoute,
+  AuthenticatedFinanceGroupFundsIndexRoute:
+    AuthenticatedFinanceGroupFundsIndexRoute,
+  AuthenticatedFinanceProjectsIndexRoute:
+    AuthenticatedFinanceProjectsIndexRoute,
   AuthenticatedGeneralBranchesIndexRoute:
     AuthenticatedGeneralBranchesIndexRoute,
   AuthenticatedGeneralInstitutionsIndexRoute:

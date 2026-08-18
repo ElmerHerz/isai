@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrenciesService } from './currencies.service';
 import { CreateCurrencyDto } from './dto/create-currency.dto';
 import { UpdateCurrencyDto } from './dto/update-currency.dto';
-import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
+import { AnyAuthenticatedUser } from '../../../common/decorators/any-authenticated-user.decorator';
 import { SuperadminOnly } from '../../../common/decorators/superadmin-only.decorator';
 
 @ApiTags('currencies')
@@ -12,10 +12,11 @@ import { SuperadminOnly } from '../../../common/decorators/superadmin-only.decor
 export class CurrenciesController {
   constructor(private readonly currenciesService: CurrenciesService) {}
 
-  // Reutiliza el permiso de instituciones (catálogo de solo lectura, sin
-  // permiso propio seeded).
+  // Catálogo genérico de referencia (monedas ISO), sin tenant_id propio —
+  // mismo criterio que catalog-items/institutions en sesión: lectura sin
+  // sensibilidad, no hace falta un permiso de negocio para verla.
   @Get()
-  @RequirePermission('core.institution.view')
+  @AnyAuthenticatedUser()
   @ApiOperation({ summary: 'Catálogo de monedas' })
   findAll() {
     return this.currenciesService.findAll();

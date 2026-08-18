@@ -22,7 +22,7 @@ import { useCurrentModuleColor } from '@/components/layout/use-current-module-co
 import { tintBackground, tintForeground } from '@/lib/color';
 import { useIsDarkMode } from '@/lib/theme-store';
 import { useSearchAndSort } from '@/lib/use-search-and-sort';
-import { formatDate } from '@/lib/format-date';
+import { formatDate, todayLocalDateInput } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { GroupPositionWithRelations } from '@isai/shared-types';
 
@@ -401,7 +401,7 @@ function PositionsPage() {
         onConfirm={() => {
           if (!finalizingPosition) return;
           updateMutation.mutate(
-            { id: finalizingPosition.id, dto: { termEnd: new Date().toISOString().slice(0, 10) } },
+            { id: finalizingPosition.id, dto: { termEnd: todayLocalDateInput() } },
             { onSuccess: () => setFinalizingPosition(null) },
           );
         }}

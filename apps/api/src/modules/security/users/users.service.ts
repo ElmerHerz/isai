@@ -6,7 +6,7 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AssignRoleDto } from './dto/assign-role.dto';
-import { resolveInstitutionScope, resolveBranchScope } from '../../../common/utils/institution-scope.util';
+import { resolveInstitutionScope, resolveBranchScope, resolveGroupScope } from '../../../common/utils/institution-scope.util';
 import type { RequestUser } from '../../../common/decorators/current-user.decorator';
 
 @Injectable()
@@ -54,12 +54,13 @@ export class UsersService {
       );
     }
 
-    const exists = await this.prisma.user.findFirst({
-      where: { tenantId, email: dto.email },
-    });
+    // email es único GLOBALMENTE (uq_users_email), no solo en este tenant —
+    // ver auditoría de sesión (login antes podía autenticar contra el
+    // tenant equivocado si dos tenants compartían un email).
+    const exists = await this.prisma.user.findUnique({ where: { email: dto.email } });
 
     if (exists) {
-      throw new ConflictException(`Ya existe un usuario con email "${dto.email}" en este tenant`);
+      throw new ConflictException(`Ya existe un usuario con el email "${dto.email}" (en este u otro tenant) — los correos son únicos en toda la plataforma.`);
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
@@ -128,9 +129,12 @@ export class UsersService {
       throw new BadRequestException('Ese rol pertenece a otro tenant.');
     }
 
-    // Refleja el CHECK de la base (chk_scope): branchId requiere institutionId.
+    // Refleja el CHECK de la base (chk_scope): branchId/groupId requieren institutionId.
     if (dto.branchId && !dto.institutionId) {
       throw new BadRequestException('No puedes indicar una sucursal sin indicar la institución.');
+    }
+    if (dto.groupId && !dto.institutionId) {
+      throw new BadRequestException('No puedes indicar un grupo sin indicar la institución.');
     }
 
     if (dto.institutionId) {
@@ -151,24 +155,64 @@ export class UsersService {
       }
     }
 
-    // Que la institución/sucursal exista y sea del tenant correcto no basta:
-    // quien asigna el rol también debe tener alcance sobre ella. Sin esto,
-    // un Administrador con scope en la Institución A podría asignar roles
-    // con scope en la Institución B (que no puede ni ver) a cualquier
-    // usuario del tenant — mismo tipo de fuga que la de findAllForTenant.
-    if (!currentUser.isSuperadmin && dto.institutionId) {
-      const institutionScope = await resolveInstitutionScope(this.prisma, currentUser);
-      if (!institutionScope.unrestricted && !institutionScope.institutionIds.includes(dto.institutionId)) {
-        throw new ForbiddenException('No puedes asignar un rol con alcance en una institución fuera de tu propio alcance.');
+    if (dto.groupId) {
+      const group = await this.prisma.group.findFirst({
+        where: { id: dto.groupId, institutionId: dto.institutionId },
+      });
+      if (!group) {
+        throw new BadRequestException('El grupo no pertenece a la institución indicada.');
       }
+    }
 
-      if (dto.branchId) {
+    // Que la institución/sucursal exista y sea del tenant correcto no basta:
+    // quien asigna el rol también debe tener alcance sobre ella. Cubre los
+    // 3 niveles de alcance que se pueden otorgar (todo el tenant / toda una
+    // institución / una sucursal puntual) — el asignador nunca puede otorgar
+    // un alcance MÁS AMPLIO que el suyo propio.
+    //
+    // Hallazgo de auditoría corregido acá: la versión anterior de este
+    // chequeo solo corría `if (dto.institutionId)` — el caso más peligroso
+    // (omitir institutionId para otorgar un rol "todo el tenant") se saltaba
+    // el chequeo por completo, dejando que un Administrador con alcance
+    // restringido a una sola institución se auto-otorgara (o le otorgara a
+    // cualquiera) un rol sin restricción que ve TODO el tenant.
+    if (!currentUser.isSuperadmin) {
+      const institutionScope = await resolveInstitutionScope(this.prisma, currentUser);
+
+      if (!dto.institutionId) {
+        if (!institutionScope.unrestricted) {
+          throw new ForbiddenException('No puedes asignar un rol sin restricción de institución — tu propio alcance está limitado.');
+        }
+      } else {
+        if (!institutionScope.unrestricted && !institutionScope.institutionIds.includes(dto.institutionId)) {
+          throw new ForbiddenException('No puedes asignar un rol con alcance en una institución fuera de tu propio alcance.');
+        }
+
         const branchScope = await resolveBranchScope(this.prisma, {
           ...currentUser,
           institutionId: dto.institutionId,
         });
-        if (!branchScope.unrestricted && !branchScope.branchIds.includes(dto.branchId)) {
+        if (!dto.branchId) {
+          if (!branchScope.unrestricted) {
+            throw new ForbiddenException('No puedes asignar un rol sin restricción de sucursal en esa institución — tu propio alcance está limitado a sucursales puntuales.');
+          }
+        } else if (!branchScope.unrestricted && !branchScope.branchIds.includes(dto.branchId)) {
           throw new ForbiddenException('No puedes asignar un rol con alcance en una sucursal fuera de tu propio alcance.');
+        }
+
+        // groupId es independiente de branchId (un Tesorero puede tener
+        // groupId sin branchId) — mismo criterio de "nunca otorgar más
+        // alcance del propio" aplicado a esta tercera dimensión.
+        const groupScope = await resolveGroupScope(this.prisma, {
+          ...currentUser,
+          institutionId: dto.institutionId,
+        });
+        if (!dto.groupId) {
+          if (!groupScope.unrestricted) {
+            throw new ForbiddenException('No puedes asignar un rol sin restricción de grupo en esa institución — tu propio alcance está limitado a grupos puntuales.');
+          }
+        } else if (!groupScope.unrestricted && !groupScope.groupIds.includes(dto.groupId)) {
+          throw new ForbiddenException('No puedes asignar un rol con alcance en un grupo fuera de tu propio alcance.');
         }
       }
     }
@@ -179,6 +223,7 @@ export class UsersService {
         roleId: dto.roleId,
         institutionId: dto.institutionId ?? null,
         branchId: dto.branchId ?? null,
+        groupId: dto.groupId ?? null,
         grantedBy: currentUser.userId,
       },
       include: { role: true },

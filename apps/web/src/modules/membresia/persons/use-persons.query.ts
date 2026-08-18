@@ -4,7 +4,12 @@ import type { PersonWithRelations } from '@isai/shared-types';
 
 export const personsQueryKey = (institutionId: string) => ['persons', institutionId] as const;
 
-export function usePersonsQuery(institutionId: string) {
+// enabled adicional (default true) — quien llama debe apagarlo si sabe que
+// el usuario actual no tiene membership.person.view (ej. un diálogo que se
+// monta siempre, aunque cerrado, en una página que también visitan roles
+// angostos como Tesorero), para no dispararle un 403 solo por abrir la
+// página. Mismo criterio que useGroupFundBalanceQuery/useInstitutionsQuery.
+export function usePersonsQuery(institutionId: string, enabled: boolean = true) {
   return useQuery({
     queryKey: personsQueryKey(institutionId),
     queryFn: async () => {
@@ -13,6 +18,6 @@ export function usePersonsQuery(institutionId: string) {
       });
       return data;
     },
-    enabled: !!institutionId,
+    enabled: !!institutionId && enabled,
   });
 }

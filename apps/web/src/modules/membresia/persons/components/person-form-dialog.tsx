@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { DateInput } from '@/components/ui/date-input';
 import { useCatalogItemsQuery, useBranchesQuery } from '@/modules/general';
 import { useCreatePersonMutation, useUpdatePersonMutation } from '@/modules/membresia';
 import { getErrorMessage } from '@/lib/toast';
@@ -58,9 +59,13 @@ interface PersonFormDialogProps {
   onOpenChange: (open: boolean) => void;
   institutionId: string;
   person?: PersonWithRelations;
+  /** Se dispara solo al CREAR (no al editar) — para flujos que necesitan la
+   * persona recién creada de inmediato, ej. quick-add de un aportante
+   * externo dentro de otro diálogo (ver add-contribution-dialog.tsx). */
+  onCreated?: (person: PersonWithRelations) => void;
 }
 
-export function PersonFormDialog({ open, onOpenChange, institutionId, person }: PersonFormDialogProps) {
+export function PersonFormDialog({ open, onOpenChange, institutionId, person, onCreated }: PersonFormDialogProps) {
   const isEditing = !!person;
   const { data: personTypes } = useCatalogItemsQuery('person_type');
   const { data: branches } = useBranchesQuery(institutionId);
@@ -122,7 +127,15 @@ export function PersonFormDialog({ open, onOpenChange, institutionId, person }: 
     if (isEditing) {
       updateMutation.mutate({ id: person.id, dto }, { onSuccess });
     } else {
-      createMutation.mutate({ ...dto, institutionId }, { onSuccess });
+      createMutation.mutate(
+        { ...dto, institutionId },
+        {
+          onSuccess: (created) => {
+            onSuccess();
+            onCreated?.(created);
+          },
+        },
+      );
     }
   };
 
@@ -210,11 +223,19 @@ export function PersonFormDialog({ open, onOpenChange, institutionId, person }: 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="birthDate">Fecha de nacimiento (opcional)</Label>
-              <Input id="birthDate" type="date" {...register('birthDate')} />
+              <Controller
+                name="birthDate"
+                control={control}
+                render={({ field }) => <DateInput id="birthDate" value={field.value ?? ''} onChange={field.onChange} />}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="joinDate">Fecha de ingreso (opcional)</Label>
-              <Input id="joinDate" type="date" {...register('joinDate')} />
+              <Controller
+                name="joinDate"
+                control={control}
+                render={({ field }) => <DateInput id="joinDate" value={field.value ?? ''} onChange={field.onChange} />}
+              />
             </div>
           </div>
 

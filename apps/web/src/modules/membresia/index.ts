@@ -137,3 +137,4 @@ export {
   type CreateEventFundCollectionInput,
 } from './events/use-create-event-fund-collection.mutation';
 export { useRemoveEventFundCollectionMutation } from './events/use-remove-event-fund-collection.mutation';
+export { usePostFundCollectionToLedgerMutation } from './events/use-post-fund-collection-to-ledger.mutation';

@@ -8,6 +8,7 @@ export interface AssignRoleInput {
   roleId: string;
   institutionId?: string;
   branchId?: string;
+  groupId?: string;
   /** Debe coincidir con el tenantId usado al crear el usuario (superadmin). */
   tenantId?: string;
 }

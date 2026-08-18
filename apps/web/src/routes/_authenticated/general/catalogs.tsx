@@ -102,7 +102,7 @@ function CatalogsPage() {
   // tenant_id, no catalog_items) — un Administrador normal ya tiene su
   // tenant fijo en el JWT; superadmin no tiene tenant propio, por eso elige
   // uno con el selector de abajo antes de poder gestionar algo acá.
-  const { data: tenants } = useTenantsQuery();
+  const { data: tenants } = useTenantsQuery(isSuperadmin);
   const [selectedTenantId, setSelectedTenantId] = useState('');
   const canManageAttendanceTags =
     (!!me?.tenantId && !!me.roles?.includes('Administrador')) || (isSuperadmin && !!selectedTenantId);

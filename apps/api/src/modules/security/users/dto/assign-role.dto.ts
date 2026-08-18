@@ -15,4 +15,9 @@ export class AssignRoleDto {
   @IsUUID()
   @IsOptional()
   branchId?: string;
+
+  @ApiPropertyOptional({ description: 'Restringe el rol a un solo grupo (ej. Tesorero de un grupo puntual). Requiere institutionId, independiente de branchId.' })
+  @IsUUID()
+  @IsOptional()
+  groupId?: string;
 }

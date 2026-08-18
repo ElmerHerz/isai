@@ -3,6 +3,7 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
 import { CreateGroupPositionDto } from './dto/create-group-position.dto';
 import { UpdateGroupPositionDto } from './dto/update-group-position.dto';
 import { resolveInstitutionScope, resolveBranchScope } from '../../../common/utils/institution-scope.util';
+import { ensureGroupMember } from '../groups/ensure-group-member.util';
 import type { RequestUser } from '../../../common/decorators/current-user.decorator';
 
 const include = {
@@ -87,7 +88,7 @@ export class PositionsService {
     });
     if (!person) throw new BadRequestException('La persona no pertenece a la institución de este grupo.');
 
-    return this.prisma.groupPosition.create({
+    const created = await this.prisma.groupPosition.create({
       data: {
         groupId: dto.groupId,
         personId: dto.personId,
@@ -99,6 +100,10 @@ export class PositionsService {
       },
       include,
     });
+
+    await ensureGroupMember(this.prisma, dto.groupId, dto.personId);
+
+    return created;
   }
 
   private async findOrThrow(id: string, tenantId: string | null) {
@@ -121,7 +126,7 @@ export class PositionsService {
       if (!person) throw new BadRequestException('La persona no pertenece a la institución de este grupo.');
     }
 
-    return this.prisma.groupPosition.update({
+    const updated = await this.prisma.groupPosition.update({
       where: { id },
       data: {
         groupId: dto.groupId,
@@ -132,5 +137,14 @@ export class PositionsService {
       },
       include,
     });
+
+    // Cubre tanto reasignar el cargo a otra persona como moverlo a otro
+    // grupo — en ambos casos el resultado final (updated.groupId/personId)
+    // debe reflejarse en group_members, no solo el caso "todo nuevo".
+    if (dto.personId || dto.groupId) {
+      await ensureGroupMember(this.prisma, updated.groupId, updated.personId);
+    }
+
+    return updated;
   }
 }

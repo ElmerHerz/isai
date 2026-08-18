@@ -16,6 +16,7 @@ import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { UpdateTenantSettingsDto } from './dto/update-tenant-settings.dto';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
+import { SuperadminOnly } from '../../../common/decorators/superadmin-only.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 
 /**
@@ -28,12 +29,13 @@ import { CurrentTenant } from '../../../common/decorators/current-tenant.decorat
 export class TenantsController {
   constructor(private readonly tenantsService: TenantsService) {}
 
-  // Nota: 'core.tenant.*' todavía no está sembrado en seguridad.permissions
-  // (Tenants nunca tuvo pantalla propia — solo superadmin lo usa hoy, y
-  // superadmin bypasea el guard). Si se delega esto a un rol algún día, hay
-  // que insertar las filas correspondientes primero.
+  // @SuperadminOnly() explícito (no @RequirePermission) — a diferencia de
+  // catálogos globales de solo lectura, Tenant contiene datos
+  // administrativos de OTRAS organizaciones; no depende de que nadie siembre
+  // ni asigne 'core.tenant.*' por accidente (hallazgo de auditoría de
+  // sesión: antes dependía 100% de eso, sin ninguna otra red de seguridad).
   @Get()
-  @RequirePermission('core.tenant.view')
+  @SuperadminOnly()
   @ApiOperation({ summary: 'Listar todos los tenants' })
   findAll() {
     return this.tenantsService.findAll();
@@ -65,21 +67,21 @@ export class TenantsController {
   }
 
   @Get(':id')
-  @RequirePermission('core.tenant.view')
+  @SuperadminOnly()
   @ApiOperation({ summary: 'Obtener un tenant por ID' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.tenantsService.findOne(id);
   }
 
   @Post()
-  @RequirePermission('core.tenant.create')
+  @SuperadminOnly()
   @ApiOperation({ summary: 'Crear un nuevo tenant' })
   create(@Body() createTenantDto: CreateTenantDto) {
     return this.tenantsService.create(createTenantDto);
   }
 
   @Patch(':id')
-  @RequirePermission('core.tenant.update')
+  @SuperadminOnly()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Actualizar un tenant' })
   update(

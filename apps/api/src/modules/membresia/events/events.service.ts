@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -58,10 +58,24 @@ export class EventsService {
     return institution;
   }
 
-  private async assertBranchBelongsToInstitution(branchId: string, institutionId: string) {
+  // Además de validar que la sucursal pertenezca a la institución, valida
+  // que quien escribe tenga alcance sobre ESA sucursal — mismo fix que
+  // persons.service.ts/groups.service.ts (hallazgo de auditoría de sesión).
+  private async assertBranchBelongsToInstitution(
+    branchId: string,
+    institutionId: string,
+    user: RequestUser,
+  ) {
     const branch = await this.prisma.branch.findFirst({ where: { id: branchId, institutionId } });
     if (!branch) {
       throw new BadRequestException('La sucursal no pertenece a la institución indicada.');
+    }
+
+    if (!user.isSuperadmin) {
+      const branchScope = await resolveBranchScope(this.prisma, { ...user, institutionId });
+      if (!branchScope.unrestricted && !branchScope.branchIds.includes(branchId)) {
+        throw new ForbiddenException('No tienes alcance sobre esa sucursal.');
+      }
     }
   }
 
@@ -143,7 +157,7 @@ export class EventsService {
   async create(tenantId: string | null, dto: CreateEventDto, user: RequestUser) {
     await this.assertInstitutionAccessible(dto.institutionId, tenantId, user);
     if (dto.branchId) {
-      await this.assertBranchBelongsToInstitution(dto.branchId, dto.institutionId);
+      await this.assertBranchBelongsToInstitution(dto.branchId, dto.institutionId, user);
     }
     if (dto.groupId) {
       await this.assertGroupBelongsToInstitution(dto.groupId, dto.institutionId);
@@ -175,7 +189,7 @@ export class EventsService {
       await this.assertInstitutionAccessible(dto.institutionId, tenantId, user);
     }
     if (dto.branchId) {
-      await this.assertBranchBelongsToInstitution(dto.branchId, institutionId);
+      await this.assertBranchBelongsToInstitution(dto.branchId, institutionId, user);
     }
     if (dto.groupId) {
       await this.assertGroupBelongsToInstitution(dto.groupId, institutionId);
@@ -414,7 +428,116 @@ export class EventsService {
 
     const row = await this.prisma.eventFundCollection.findFirst({ where: { id: collectionId, eventId } });
     if (!row) throw new NotFoundException(`Registro de fondo "${collectionId}" no encontrado`);
+    if (row.journalEntryId) {
+      throw new BadRequestException('Esta colecta ya fue contabilizada — no se puede eliminar sin dejar un asiento huérfano.');
+    }
 
     await this.prisma.eventFundCollection.delete({ where: { id: collectionId } });
+  }
+
+  // --- Contabilizar (finanzas) -----------------------------------------------
+  // Genera el asiento de partida doble para una colecta ya registrada: debe
+  // la cuenta de caja de la sucursal del evento, haber la cuenta de ingreso
+  // del tipo de fondo. Ver comentario del trigger en finanzas.prisma — TODO
+  // esto debe ir en un solo prisma.$transaction() o el trigger de balance
+  // falla siempre (se dispara y valida en cada INSERT individual sin
+  // transacción explícita).
+  async postFundCollectionToLedger(
+    eventId: string,
+    collectionId: string,
+    tenantId: string | null,
+    user: RequestUser,
+  ) {
+    const event = await this.findOne(eventId, tenantId, user);
+    const institution = await this.getInstitutionTenant(event.institutionId);
+    if (institution.typeCode !== CHURCH_INSTITUTION_TYPE) {
+      throw new BadRequestException('Los fondos recogidos solo aplican a instituciones de tipo iglesia.');
+    }
+
+    const collection = await this.prisma.eventFundCollection.findFirst({
+      where: { id: collectionId, eventId },
+      include: { fundType: true },
+    });
+    if (!collection) throw new NotFoundException(`Registro de fondo "${collectionId}" no encontrado`);
+    if (collection.journalEntryId) {
+      throw new BadRequestException('Esta colecta ya fue contabilizada.');
+    }
+    if (!collection.fundType.incomeAccountId) {
+      throw new BadRequestException(
+        `El tipo de fondo "${collection.fundType.name}" no tiene una cuenta de ingreso configurada. Configúrala en Catálogos antes de contabilizar.`,
+      );
+    }
+
+    // branchId propio y group.branchId son mutuamente excluyentes (ver
+    // comentario en `include` arriba) — mismo patrón que assertEventAccessible.
+    const effectiveBranchId = event.branchId ?? event.group?.branchId ?? null;
+    if (!effectiveBranchId) {
+      throw new BadRequestException(
+        'Este evento no tiene una sucursal asignada (ni propia ni vía su grupo) — no se puede determinar la cuenta de caja.',
+      );
+    }
+    const branch = await this.prisma.branch.findUnique({ where: { id: effectiveBranchId } });
+    if (!branch?.defaultCashAccountId) {
+      throw new BadRequestException(
+        'La sucursal de este evento no tiene una cuenta de caja configurada. Configúrala antes de contabilizar.',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const journalEntry = await tx.journalEntry.create({
+        data: {
+          tenantId: institution.tenantId,
+          institutionId: event.institutionId,
+          branchId: effectiveBranchId,
+          entryDate: event.eventDate,
+          description: `Colecta: ${collection.fundType.name} — ${event.title}`,
+          sourceType: 'event_fund_collection',
+          sourceId: collection.id,
+          createdBy: user.userId,
+        },
+      });
+
+      await tx.journalEntryLine.createMany({
+        data: [
+          {
+            journalEntryId: journalEntry.id,
+            accountId: branch.defaultCashAccountId!,
+            groupId: event.groupId,
+            debitAmount: collection.amount,
+            creditAmount: 0,
+            description: 'Caja',
+          },
+          {
+            journalEntryId: journalEntry.id,
+            accountId: collection.fundType.incomeAccountId!,
+            groupId: event.groupId,
+            debitAmount: 0,
+            creditAmount: collection.amount,
+            description: collection.fundType.name,
+          },
+        ],
+      });
+
+      // Reclamo atómico: si otra request concurrente ya contabilizó esta
+      // misma colecta entre el chequeo de arriba (fuera de la transacción)
+      // y este punto, `count` da 0 y se revierte TODO (incluyendo el
+      // journalEntry recién creado arriba) — sin esto, dos clics/reintentos
+      // simultáneos generan dos asientos para la misma colecta, uno huérfano
+      // (hallazgo de auditoría de sesión). Postgres serializa el UPDATE con
+      // este WHERE vía lock de fila, no hace falta SELECT ... FOR UPDATE
+      // aparte.
+      const claim = await tx.eventFundCollection.updateMany({
+        where: { id: collectionId, journalEntryId: null },
+        data: { journalEntryId: journalEntry.id },
+      });
+      if (claim.count === 0) {
+        throw new ConflictException('Esta colecta ya fue contabilizada por otra solicitud.');
+      }
+
+      return tx.eventFundCollection.findUniqueOrThrow({
+        where: { id: collectionId },
+        include: { fundType: { select: { id: true, code: true, name: true } } },
+      });
+    });
   }
 }

@@ -4,10 +4,12 @@ import { motion, type Variants } from 'framer-motion';
 import {
   ArrowLeft,
   Calendar,
+  CheckCircle2,
   Clock,
   ClipboardCheck,
   Coins,
   FileText,
+  Landmark,
   MapPin,
   Pencil,
   Plus,
@@ -22,6 +24,7 @@ import {
   useRemoveEventPrivilegeMutation,
   useEventFundCollectionsQuery,
   useRemoveEventFundCollectionMutation,
+  usePostFundCollectionToLedgerMutation,
 } from '@/modules/membresia';
 import { useInstitutionsQuery } from '@/modules/general';
 import { EventFormDialog } from '@/modules/membresia/events/components/event-form-dialog';
@@ -83,6 +86,8 @@ function EventDetailPage() {
     refetch: refetchFundCollections,
   } = useEventFundCollectionsQuery(eventId);
   const removeFundCollectionMutation = useRemoveEventFundCollectionMutation(eventId);
+  const [postingFund, setPostingFund] = useState<EventFundCollection | null>(null);
+  const postFundCollectionMutation = usePostFundCollectionToLedgerMutation(eventId);
 
   if (isError) {
     return <QueryErrorState message="No se pudo cargar el evento." onRetry={() => refetch()} />;
@@ -268,15 +273,36 @@ function EventDetailPage() {
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <span className="text-sm font-medium">${Number(fc.amount).toFixed(2)}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setRemovingFund(fc)}
-                          aria-label="Eliminar"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {fc.journalEntryId ? (
+                          <span
+                            className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                            title="Ya tiene asiento contable"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Contabilizado
+                          </span>
+                        ) : (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setPostingFund(fc)}
+                              aria-label="Contabilizar"
+                              title="Contabilizar"
+                            >
+                              <Landmark className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setRemovingFund(fc)}
+                              aria-label="Eliminar"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </li>
                   ))}
@@ -356,6 +382,24 @@ function EventDetailPage() {
             onConfirm={() => {
               if (!removingFund) return;
               removeFundCollectionMutation.mutate(removingFund.id, { onSuccess: () => setRemovingFund(null) });
+            }}
+          />
+
+          <ConfirmDialog
+            open={!!postingFund}
+            onOpenChange={(open) => !open && setPostingFund(null)}
+            title="Contabilizar colecta"
+            confirmLabel="Contabilizar"
+            pendingLabel="Contabilizando..."
+            description={
+              postingFund
+                ? `Esto genera el asiento contable de "${postingFund.fundType.name}" por $${Number(postingFund.amount).toFixed(2)} (debe Caja, haber la cuenta de ingreso del fondo). No se puede deshacer ni volver a contabilizar la misma colecta.`
+                : ''
+            }
+            isPending={postFundCollectionMutation.isPending}
+            onConfirm={() => {
+              if (!postingFund) return;
+              postFundCollectionMutation.mutate(postingFund.id, { onSuccess: () => setPostingFund(null) });
             }}
           />
         </>

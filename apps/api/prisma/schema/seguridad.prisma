@@ -7,10 +7,15 @@
 // ============================================================
 
 // tenantId nulo = superadmin de la plataforma (sin tenant asociado).
+// email es único GLOBALMENTE (no solo por tenant) — decisión de sesión tras
+// encontrar en auditoría que login() hacía `findFirst({ where: { email } })`
+// sin poder distinguir entre tenants si dos compartían el mismo correo,
+// arriesgando autenticación cruzada entre tenants. Antes era
+// UNIQUE(tenantId, email); se migró a UNIQUE(email) — ver SQL de sesión.
 model User {
   id                  String    @id @default(uuid())
   tenantId            String?   @map("tenant_id")
-  email               String    @db.VarChar(255)
+  email               String    @unique(map: "uq_users_email") @db.VarChar(255)
   passwordHash        String    @map("password_hash") @db.VarChar(255)
   firstName           String    @map("first_name") @db.VarChar(100)
   lastName            String    @map("last_name") @db.VarChar(100)
@@ -36,8 +41,10 @@ model User {
   auditLogs           AuditLog[]
   createdEvents       Event[]           @relation("EventCreatedBy")
   recordedAttendances EventAttendance[] @relation("AttendanceRecordedBy")
+  createdJournalEntries JournalEntry[]  @relation("JournalEntryCreatedBy")
+  createdProjects       Project[]       @relation("ProjectCreatedBy")
+  createdProjectExpenses ProjectExpense[] @relation("ProjectExpenseCreatedBy")
 
-  @@unique([tenantId, email], name: "uq_users_tenant_email")
   @@map("users")
   @@schema("seguridad")
 }
@@ -108,14 +115,20 @@ model RolePermission {
   @@schema("seguridad")
 }
 
-// Scope del rol vía institutionId/branchId (ambos nulos = todo el tenant).
-// chk_scope en la base real: branchId solo puede tener valor si institutionId también lo tiene.
+// Scope del rol vía institutionId/branchId/groupId (todos nulos = todo el
+// tenant). chk_scope en la base real: branchId solo puede tener valor si
+// institutionId también lo tiene; groupId es independiente de branchId (un
+// "Tesorero" puede tener groupId sin branchId — ver resolveGroupScope).
+// groupId agregado en sesión posterior (Parte B, fondo propio de grupo) — el
+// ALTER (columna, FK, chk_scope y uq_user_role_scope extendidos) ya estaba
+// aplicado en la base real antes de que este schema lo reflejara.
 model UserRole {
   id            String   @id @default(uuid())
   userId        String   @map("user_id")
   roleId        String   @map("role_id")
   institutionId String?  @map("institution_id")
   branchId      String?  @map("branch_id")
+  groupId       String?  @map("group_id")
   grantedBy     String?  @map("granted_by")
   grantedAt     DateTime @default(now()) @map("granted_at")
 
@@ -123,9 +136,10 @@ model UserRole {
   role          Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
   institution   Institution? @relation(fields: [institutionId], references: [id], onDelete: Cascade)
   branch        Branch?      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  group         Group?       @relation(fields: [groupId], references: [id], onDelete: Cascade)
   grantedByUser User?        @relation("UserRoleGrantedBy", fields: [grantedBy], references: [id])
 
-  @@unique([userId, roleId, institutionId, branchId], name: "uq_user_role_scope")
+  @@unique([userId, roleId, institutionId, branchId, groupId], name: "uq_user_role_scope")
   @@map("user_roles")
   @@schema("seguridad")
 }

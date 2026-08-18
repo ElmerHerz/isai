@@ -287,7 +287,137 @@ export interface EventFundCollection {
   amount: string;
   notes?: string | null;
   createdAt: string;
+  /** null = pendiente de contabilizar. Con valor = ya tiene asiento en finanzas.journal_entries. */
+  journalEntryId?: string | null;
   fundType: { id: string; code: string; name: string };
+}
+
+/** Forma que devuelve GET /accounts — catálogo de cuentas del tenant, con saldo (string, Decimal serializado) */
+export interface Account {
+  id: string;
+  tenantId: string;
+  parentAccountId?: string | null;
+  accountTypeId: string;
+  code: string;
+  name: string;
+  normalBalance: 'DEBIT' | 'CREDIT';
+  allowsTransactions: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  accountType: { code: string; name: string };
+  balance: string;
+}
+
+/** Forma que devuelve GET /journal-entries y GET /journal-entries/:id */
+export interface JournalEntry {
+  id: string;
+  tenantId: string;
+  institutionId: string;
+  branchId?: string | null;
+  entryDate: string;
+  description?: string | null;
+  status: 'draft' | 'posted' | 'void';
+  sourceType?: string | null;
+  sourceId?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  branch?: { id: string; name: string } | null;
+  lines: JournalEntryLine[];
+}
+
+export interface JournalEntryLine {
+  id: string;
+  journalEntryId: string;
+  accountId: string;
+  groupId?: string | null;
+  debitAmount: string;
+  creditAmount: string;
+  description?: string | null;
+  createdAt: string;
+  account: { id: string; code: string; name: string };
+}
+
+/** Forma que devuelve GET /reports/fund-summary — totales por sucursal/grupo/cuenta (solo asientos posted) */
+export interface FundSummaryRow {
+  branch: string;
+  group: string;
+  account: string;
+  totalDebit: string;
+  totalCredit: string;
+}
+
+/** Forma que devuelven GET /projects, GET /projects/:id, POST /projects, PATCH /projects/:id */
+export interface Project {
+  id: string;
+  tenantId: string;
+  institutionId: string;
+  branchId: string;
+  name: string;
+  description?: string | null;
+  goalAmount: string;
+  targetDate?: string | null;
+  status: 'active' | 'completed' | 'cancelled';
+  incomeAccountId?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  branch: { id: string; name: string };
+  incomeAccount?: { id: string; code: string; name: string } | null;
+  /** Suma de TODOS los aportes (contabilizados o no) — el KPI de avance no espera a "Contabilizar". */
+  totalContributed: string;
+  /** Suma de TODOS los gastos (contabilizados o no) — mismo criterio que totalContributed. */
+  totalSpent: string;
+}
+
+/** Forma que devuelve GET /projects/:id/contributions */
+export interface ProjectContribution {
+  id: string;
+  projectId: string;
+  personId?: string | null;
+  groupId?: string | null;
+  amount: string;
+  contributedAt: string;
+  notes?: string | null;
+  journalEntryId?: string | null;
+  createdAt: string;
+  person?: { id: string; firstName: string; lastName: string } | null;
+  group?: { id: string; name: string } | null;
+}
+
+/** Forma que devuelve GET /projects/:id/expenses */
+export interface ProjectExpense {
+  id: string;
+  projectId: string;
+  accountId: string;
+  amount: string;
+  incurredAt: string;
+  notes?: string | null;
+  journalEntryId?: string | null;
+  createdAt: string;
+  account: { id: string; code: string; name: string };
+}
+
+/** Forma que devuelve GET /groups/:id/fund-balance */
+export interface GroupFundBalance {
+  balance: string;
+}
+
+/** Forma que devuelve GET /groups/fund-summary?institutionId=... */
+export interface GroupFundSummary extends GroupListItem {
+  balance: string;
+}
+
+/** Forma que devuelve GET /groups/:id/fund-movements */
+export interface GroupFundMovement {
+  id: string;
+  journalEntryId: string;
+  type: 'income' | 'expense';
+  account: { id: string; code: string; name: string };
+  amount: string;
+  entryDate: string;
+  notes?: string | null;
 }
 
 export interface Group {
@@ -299,6 +429,8 @@ export interface Group {
   name: string;
   description?: string | null;
   leaderPersonId?: string | null;
+  /** Cuenta de Activo donde vive el fondo propio del grupo — null = fondo sin configurar, bloquea registrar movimientos. */
+  cashAccountId?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -309,6 +441,7 @@ export interface GroupWithRelations extends Group {
   groupType: CatalogItem;
   branch?: { id: string; name: string } | null;
   leader?: { id: string; firstName: string; lastName: string } | null;
+  cashAccount?: { id: string; code: string; name: string } | null;
 }
 
 /** Forma que devuelve GET /groups (incluye conteo de miembros actuales) */
@@ -452,6 +585,8 @@ export interface User {
   // Solo viene poblado en endpoints que lo incluyen explícitamente (ej. /auth/me) —
   // no todos los que devuelven User traen roles asignados en ese momento (ej. recién creado).
   roles?: string[];
+  /** Permisos efectivos (códigos planos, ej. "finance.group_fund.view") — solo en /auth/me. */
+  permissions?: string[];
 }
 
 /** Forma que devuelve GET /users (subset de campos + nombres de rol) */

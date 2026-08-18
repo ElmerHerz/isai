@@ -12,7 +12,11 @@ export const rolesQueryKey = (tenantId?: string) => ['roles', tenantId ?? null] 
  * (ej. en el formulario de crear usuario), se manda como query param para
  * traer los roles de ESE tenant en particular.
  */
-export function useRolesQuery(tenantId?: string) {
+// enabled adicional (default true) — quien llama debe apagarlo si sabe que
+// el usuario actual no tiene security.role.view (ej. un diálogo que se
+// monta siempre, aunque cerrado, en una página que también visitan roles
+// angostos), para no dispararle un 403 solo por abrir la página.
+export function useRolesQuery(tenantId?: string, enabled: boolean = true) {
   return useQuery({
     queryKey: rolesQueryKey(tenantId),
     queryFn: async () => {
@@ -21,5 +25,6 @@ export function useRolesQuery(tenantId?: string) {
       });
       return data;
     },
+    enabled,
   });
 }

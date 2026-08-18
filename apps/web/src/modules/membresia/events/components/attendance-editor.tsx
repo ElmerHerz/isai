@@ -15,6 +15,7 @@ import {
   useAttendanceTagsQuery,
 } from '@/modules/membresia';
 import { cn } from '@/lib/utils';
+import { getErrorMessage } from '@/lib/toast';
 import type { EventWithRelations } from '@isai/shared-types';
 
 const ATTENDANCE_STATUS_CATALOG_CODE = 'attendance_status';
@@ -320,8 +321,7 @@ export function AttendanceEditor({ event }: AttendanceEditorProps) {
 
       {recordMutation.isError && (
         <p className="text-sm text-destructive">
-          {(recordMutation.error as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-            'No se pudo guardar la asistencia. Intenta de nuevo.'}
+          {getErrorMessage(recordMutation.error, 'No se pudo guardar la asistencia. Intenta de nuevo.')}
         </p>
       )}
 

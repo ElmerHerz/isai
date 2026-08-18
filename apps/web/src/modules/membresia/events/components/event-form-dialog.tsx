@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { DateInput } from '@/components/ui/date-input';
 import { useCatalogItemsQuery, useBranchesQuery, useBranchSchedulesQuery } from '@/modules/general';
 import { useGroupsQuery, useCreateEventMutation, useUpdateEventMutation } from '@/modules/membresia';
 import { toTimeInputValue } from '@/lib/format-time';
@@ -230,7 +231,11 @@ export function EventFormDialog({ open, onOpenChange, institutionId, event }: Ev
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="eventDate">Fecha</Label>
-              <Input id="eventDate" type="date" {...register('eventDate')} />
+              <Controller
+                name="eventDate"
+                control={control}
+                render={({ field }) => <DateInput id="eventDate" value={field.value ?? ''} onChange={field.onChange} />}
+              />
               {errors.eventDate && <p className="text-sm text-destructive">{errors.eventDate.message}</p>}
             </div>
             <div className="space-y-2">

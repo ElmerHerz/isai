@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { useRolesQuery, useAssignRoleMutation } from '@/modules/security';
 import { useInstitutionsQuery, useBranchesQuery } from '@/modules/general';
+import { useGroupsQuery } from '@/modules/membresia';
 import { getErrorMessage } from '@/lib/toast';
 import type { UserListItem } from '@isai/shared-types';
 
@@ -32,26 +33,36 @@ export function AssignRoleDialog({ open, onOpenChange, user }: AssignRoleDialogP
   const [roleId, setRoleId] = useState('');
   const [institutionId, setInstitutionId] = useState('');
   const [branchId, setBranchId] = useState('');
+  const [groupId, setGroupId] = useState('');
 
   const { data: institutions } = useInstitutionsQuery();
   const { data: branches } = useBranchesQuery(institutionId || '');
+  const { data: groups } = useGroupsQuery(institutionId || '');
 
   useEffect(() => {
     if (open) {
       setRoleId('');
       setInstitutionId('');
       setBranchId('');
+      setGroupId('');
     }
   }, [open]);
 
   useEffect(() => {
     setBranchId('');
+    setGroupId('');
   }, [institutionId]);
 
   const onSubmit = () => {
     if (!roleId) return;
     mutation.mutate(
-      { userId: user.id, roleId, institutionId: institutionId || undefined, branchId: branchId || undefined },
+      {
+        userId: user.id,
+        roleId,
+        institutionId: institutionId || undefined,
+        branchId: branchId || undefined,
+        groupId: groupId || undefined,
+      },
       { onSuccess: () => onOpenChange(false) },
     );
   };
@@ -83,7 +94,7 @@ export function AssignRoleDialog({ open, onOpenChange, user }: AssignRoleDialogP
             </Select>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="assign-institution">Institución (opcional)</Label>
               <Select value={institutionId} onValueChange={setInstitutionId}>
@@ -109,6 +120,21 @@ export function AssignRoleDialog({ open, onOpenChange, user }: AssignRoleDialogP
                   {branches?.map((branch) => (
                     <SelectItem key={branch.id} value={branch.id}>
                       {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="assign-group">Grupo (opcional)</Label>
+              <Select value={groupId} onValueChange={setGroupId} disabled={!institutionId}>
+                <SelectTrigger id="assign-group">
+                  <SelectValue placeholder="Todos los grupos" />
+                </SelectTrigger>
+                <SelectContent>
+                  {groups?.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

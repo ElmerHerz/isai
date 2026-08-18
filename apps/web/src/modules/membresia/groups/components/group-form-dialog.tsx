@@ -14,10 +14,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { PersonCombobox } from '@/modules/membresia/persons/components/person-combobox';
 import { useCatalogItemsQuery, useBranchesQuery } from '@/modules/general';
+import { useAccountsQuery } from '@/modules/finanzas';
 import { useCreateGroupMutation, useUpdateGroupMutation, usePersonsQuery } from '@/modules/membresia';
+import { useAuthStore } from '@/lib/auth-store';
 import { getErrorMessage } from '@/lib/toast';
 import type { GroupWithRelations } from '@isai/shared-types';
+
+const ASSET_ACCOUNT_TYPE = 'ASSET';
 
 const groupSchema = z.object({
   groupTypeId: z.string().min(1, 'Selecciona un tipo'),
@@ -25,6 +30,7 @@ const groupSchema = z.object({
   branchId: z.string().optional(),
   description: z.string().optional(),
   leaderPersonId: z.string().optional(),
+  cashAccountId: z.string().optional(),
 });
 
 type GroupFormValues = z.infer<typeof groupSchema>;
@@ -35,6 +41,7 @@ const EMPTY_VALUES: GroupFormValues = {
   branchId: '',
   description: '',
   leaderPersonId: '',
+  cashAccountId: '',
 };
 
 interface GroupFormDialogProps {
@@ -46,9 +53,13 @@ interface GroupFormDialogProps {
 
 export function GroupFormDialog({ open, onOpenChange, institutionId, group }: GroupFormDialogProps) {
   const isEditing = !!group;
+  const permissions = useAuthStore((state) => state.user?.permissions) ?? [];
+  const canViewPersons = permissions.includes('membership.person.view');
   const { data: groupTypes } = useCatalogItemsQuery('group_type');
   const { data: branches } = useBranchesQuery(institutionId);
-  const { data: persons } = usePersonsQuery(institutionId);
+  const { data: persons } = usePersonsQuery(institutionId, canViewPersons);
+  const { data: accounts } = useAccountsQuery();
+  const cashAccounts = accounts?.filter((a) => a.accountType.code === ASSET_ACCOUNT_TYPE && a.allowsTransactions) ?? [];
   const createMutation = useCreateGroupMutation();
   const updateMutation = useUpdateGroupMutation();
   const mutation = isEditing ? updateMutation : createMutation;
@@ -74,6 +85,7 @@ export function GroupFormDialog({ open, onOpenChange, institutionId, group }: Gr
               branchId: group.branchId ?? '',
               description: group.description ?? '',
               leaderPersonId: group.leaderPersonId ?? '',
+              cashAccountId: group.cashAccountId ?? '',
             }
           : EMPTY_VALUES,
       );
@@ -87,6 +99,7 @@ export function GroupFormDialog({ open, onOpenChange, institutionId, group }: Gr
       branchId: values.branchId || undefined,
       description: values.description || undefined,
       leaderPersonId: values.leaderPersonId || undefined,
+      cashAccountId: values.cashAccountId || undefined,
     };
 
     if (isEditing) {
@@ -164,20 +177,41 @@ export function GroupFormDialog({ open, onOpenChange, institutionId, group }: Gr
               name="leaderPersonId"
               control={control}
               render={({ field }) => (
+                <PersonCombobox
+                  id="leaderPersonId"
+                  persons={persons ?? []}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  placeholder={canViewPersons ? 'Sin líder asignado' : 'No tienes permiso para ver personas'}
+                  disabled={!canViewPersons}
+                />
+              )}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="cashAccountId">Cuenta de caja del fondo (opcional)</Label>
+            <Controller
+              name="cashAccountId"
+              control={control}
+              render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger id="leaderPersonId">
-                    <SelectValue placeholder="Sin líder asignado" />
+                  <SelectTrigger id="cashAccountId">
+                    <SelectValue placeholder="Sin configurar — bloquea registrar movimientos del fondo" />
                   </SelectTrigger>
                   <SelectContent>
-                    {persons?.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.firstName} {p.lastName}
+                    {cashAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.code} · {account.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               )}
             />
+            <p className="text-xs text-muted-foreground">
+              Dónde vive físicamente el dinero del fondo propio de este grupo (ej. "Caja: Fondo Músicos") — distinta de la Caja General de la sucursal. Se puede configurar después.
+            </p>
           </div>
 
           <div className="space-y-2">

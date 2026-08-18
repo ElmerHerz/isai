@@ -66,6 +66,7 @@ model CatalogItem {
   events              Event[]
   eventAttendances    EventAttendance[]
   personRelationships PersonRelationship[]
+  accounts            Account[]
 
   @@unique([catalogCode, code], name: "uq_catalog_items_code")
   @@map("catalog_items")
@@ -142,6 +143,9 @@ model Tenant {
   milestoneTypes MilestoneType[]
   privilegeTypes PrivilegeType[]
   fundTypes      FundType[]
+  accounts       Account[]
+  journalEntries JournalEntry[]
+  projects       Project[]
 
   @@map("tenants")
   @@schema("general")
@@ -164,6 +168,8 @@ model Institution {
   persons   Person[]
   groups    Group[]
   events    Event[]
+  journalEntries JournalEntry[]
+  projects  Project[]
 
   churchDetails      ChurchDetails?
   storeDetails       StoreDetails?
@@ -181,6 +187,10 @@ model Branch {
   isActive      Boolean   @default(true) @map("is_active")
   createdAt     DateTime  @default(now()) @map("created_at")
   deletedAt     DateTime? @map("deleted_at")
+  // Cuenta de caja/efectivo a debitar por defecto al "Contabilizar" una
+  // colecta de esta sucursal. Null = no configurado, el backend bloquea
+  // "Contabilizar" hasta que se asigne — ver EventsService.
+  defaultCashAccountId String? @map("default_cash_account_id")
 
   institution Institution      @relation(fields: [institutionId], references: [id])
   addresses   Address[]
@@ -189,6 +199,9 @@ model Branch {
   persons     Person[]
   groups      Group[]
   events      Event[]
+  journalEntries      JournalEntry[]
+  defaultCashAccount  Account?         @relation("BranchDefaultCashAccount", fields: [defaultCashAccountId], references: [id])
+  projects            Project[]
 
   @@map("branches")
   @@schema("general")

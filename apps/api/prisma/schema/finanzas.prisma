@@ -1,0 +1,185 @@
+// ============================================================
+// SCHEMA: finanzas
+// Módulo: Finanzas — Contabilidad de partida doble (catálogo de cuentas,
+// asientos contables), dimensionada por sucursal y grupo.
+//
+// Recorte 1 (ver plan de sesión): solo lo necesario para el flujo
+// "Contabilizar" desde membresia.event_fund_collections + catálogo de
+// cuentas de solo lectura con saldo + asientos de solo lectura. El
+// formulario de asiento manual y los reportes formales quedan para una
+// fase 2 — ver isai_modulo_finanzas.sql para el diseño completo (incluye
+// piezas no construidas todavía en el backend).
+//
+// finanzas.journal_entry_lines tiene un trigger de constraint DEFERRABLE
+// INITIALLY DEFERRED en la base real que exige que cada asiento cuadre
+// (SUM(debit) = SUM(credit)) al hacer COMMIT — Prisma no modela triggers,
+// pero el backend DEBE crear cada asiento + sus líneas dentro de un mismo
+// prisma.$transaction(), o el trigger falla siempre (ver EventsService).
+// ============================================================
+
+model Account {
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  parentAccountId    String?  @map("parent_account_id")
+  accountTypeId      String   @map("account_type_id")
+  code               String   @db.VarChar(20)
+  name               String   @db.VarChar(150)
+  normalBalance      String   @map("normal_balance") @db.VarChar(6) // 'DEBIT' | 'CREDIT'
+  allowsTransactions Boolean  @default(true) @map("allows_transactions")
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  tenant           Tenant                @relation(fields: [tenantId], references: [id])
+  accountType      CatalogItem           @relation(fields: [accountTypeId], references: [id])
+  parentAccount    Account?              @relation("AccountHierarchy", fields: [parentAccountId], references: [id])
+  childAccounts    Account[]             @relation("AccountHierarchy")
+  journalLines     JournalEntryLine[]
+  fundTypesIncome  FundType[]            @relation("FundTypeIncomeAccount")
+  branchesDefaultCash Branch[]           @relation("BranchDefaultCashAccount")
+  projectsIncome   Project[]             @relation("ProjectIncomeAccount")
+  projectExpenses  ProjectExpense[]      @relation("ProjectExpenseAccount")
+  groupsCash       Group[]               @relation("GroupCashAccount")
+
+  @@unique([tenantId, code], name: "uq_accounts_tenant_code")
+  @@map("accounts")
+  @@schema("finanzas")
+}
+
+model JournalEntry {
+  id            String    @id @default(uuid())
+  tenantId      String    @map("tenant_id")
+  institutionId String    @map("institution_id")
+  branchId      String?   @map("branch_id")
+  entryDate     DateTime  @map("entry_date") @db.Date
+  description   String?
+  status        String    @default("posted") @db.VarChar(20) // 'draft' | 'posted' | 'void'
+  sourceType    String?   @map("source_type") @db.VarChar(50) // 'manual' | 'event_fund_collection' — sin FK dura, ver header
+  sourceId      String?   @map("source_id")
+  createdBy     String?   @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  tenant      Tenant                @relation(fields: [tenantId], references: [id])
+  institution Institution           @relation(fields: [institutionId], references: [id])
+  branch      Branch?               @relation(fields: [branchId], references: [id])
+  createdByUser User?               @relation("JournalEntryCreatedBy", fields: [createdBy], references: [id])
+  lines       JournalEntryLine[]
+  fundCollections EventFundCollection[]
+  projectContributions ProjectContribution[]
+  projectExpenses ProjectExpense[]
+
+  @@map("journal_entries")
+  @@schema("finanzas")
+}
+
+// Campaña de recaudación con meta y fecha (ej. "Equipo de sonido, $13,000").
+// branchId es OBLIGATORIO a propósito (ver plan de sesión): "Contabilizar"
+// necesita saber qué Caja debitar, y esa cuenta vive en
+// general.branches.default_cash_account_id — no existe un concepto de
+// "caja por defecto de la institución", así que todo proyecto se ancla a
+// una sucursal aunque el beneficio sea para toda la iglesia.
+model Project {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  institutionId   String    @map("institution_id")
+  branchId        String    @map("branch_id")
+  name            String    @db.VarChar(150)
+  description     String?
+  goalAmount      Decimal   @map("goal_amount") @db.Decimal(14, 2)
+  targetDate      DateTime? @map("target_date") @db.Date
+  status          String    @default("active") @db.VarChar(20) // 'active' | 'completed' | 'cancelled'
+  // A qué cuenta de ingreso contabilizar sus aportes (ej. "Proyecto Equipo
+  // de Sonido"). Null = falta configurar, bloquea Contabilizar — mismo
+  // patrón que FundType.incomeAccountId.
+  incomeAccountId String?   @map("income_account_id")
+  createdBy       String?   @map("created_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  tenant        Tenant                @relation(fields: [tenantId], references: [id])
+  institution   Institution           @relation(fields: [institutionId], references: [id])
+  branch        Branch                @relation(fields: [branchId], references: [id])
+  incomeAccount Account?              @relation("ProjectIncomeAccount", fields: [incomeAccountId], references: [id])
+  createdByUser User?                 @relation("ProjectCreatedBy", fields: [createdBy], references: [id])
+  contributions ProjectContribution[]
+  expenses      ProjectExpense[]
+  journalEntryLines JournalEntryLine[]
+
+  @@map("projects")
+  @@schema("finanzas")
+}
+
+// Aporte individual a un proyecto — de una Person (miembro o externo, ej.
+// personType='VISITOR') O de un Group ("aportó el grupo X"), nunca ambos
+// (CHECK XOR en la base real, ver SQL de sesión). journalEntryId null =
+// pendiente de contabilizar — el aporte YA cuenta para el KPI de avance del
+// proyecto (se pidió explícitamente que no espere a la revisión contable
+// mensual), pero no mueve el saldo real de Caja hasta que se contabiliza.
+model ProjectContribution {
+  id             String   @id @default(uuid())
+  projectId      String   @map("project_id")
+  personId       String?  @map("person_id")
+  groupId        String?  @map("group_id")
+  amount         Decimal  @db.Decimal(14, 2)
+  contributedAt  DateTime @map("contributed_at") @db.Date
+  notes          String?
+  journalEntryId String?  @map("journal_entry_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  person       Person?       @relation(fields: [personId], references: [id])
+  group        Group?        @relation(fields: [groupId], references: [id])
+  journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id])
+
+  @@map("project_contributions")
+  @@schema("finanzas")
+}
+
+// Gasto de un proyecto (ej. "compra del equipo de sonido") — espejo
+// estructural de ProjectContribution, mismo patrón de dos pasos
+// (registrar → Contabilizar). accountId es la cuenta de GASTO elegida en
+// cada registro (no fija por proyecto, a diferencia de incomeAccountId —
+// un proyecto puede tener varios rubros de gasto distintos).
+model ProjectExpense {
+  id             String   @id @default(uuid())
+  projectId      String   @map("project_id")
+  accountId      String   @map("account_id")
+  amount         Decimal  @db.Decimal(14, 2)
+  incurredAt     DateTime @map("incurred_at") @db.Date
+  notes          String?
+  journalEntryId String?  @map("journal_entry_id")
+  createdBy      String?  @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  account       Account       @relation("ProjectExpenseAccount", fields: [accountId], references: [id])
+  journalEntry  JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  createdByUser User?         @relation("ProjectExpenseCreatedBy", fields: [createdBy], references: [id])
+
+  @@map("project_expenses")
+  @@schema("finanzas")
+}
+
+model JournalEntryLine {
+  id             String   @id @default(uuid())
+  journalEntryId String   @map("journal_entry_id")
+  accountId      String   @map("account_id")
+  groupId        String?  @map("group_id")
+  // Dimensión opcional espejo de groupId — se setea automáticamente al
+  // contabilizar un aporte o gasto de proyecto. Sin reporte que lo use
+  // todavía (ver plan de sesión), pero el dato queda capturado desde ahora.
+  projectId      String?  @map("project_id")
+  debitAmount    Decimal  @default(0) @map("debit_amount") @db.Decimal(14, 2)
+  creditAmount   Decimal  @default(0) @map("credit_amount") @db.Decimal(14, 2)
+  description    String?  @db.VarChar(255)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account      Account      @relation(fields: [accountId], references: [id])
+  group        Group?       @relation(fields: [groupId], references: [id])
+  project      Project?     @relation(fields: [projectId], references: [id])
+
+  @@map("journal_entry_lines")
+  @@schema("finanzas")
+}

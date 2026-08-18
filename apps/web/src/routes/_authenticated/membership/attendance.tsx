@@ -14,6 +14,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import { Label } from '@/components/ui/label';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { TableSkeletonRows } from '@/components/ui/table-skeleton';
@@ -30,7 +31,7 @@ import { useCurrentModuleColor } from '@/components/layout/use-current-module-co
 import { tintBackground, tintForeground } from '@/lib/color';
 import { useIsDarkMode } from '@/lib/theme-store';
 import { useSearchAndSort } from '@/lib/use-search-and-sort';
-import { formatDate } from '@/lib/format-date';
+import { formatDate, todayLocalDateInput } from '@/lib/format-date';
 import { toTimeInputValue } from '@/lib/format-time';
 import { cn } from '@/lib/utils';
 import type { EventWithRelations } from '@isai/shared-types';
@@ -125,7 +126,7 @@ function AttendancePage() {
     setPickedEventId('');
     setScheduleBranchId(branches?.[0]?.id ?? '');
     setScheduleId('');
-    setScheduleDate(new Date().toISOString().slice(0, 10));
+    setScheduleDate(todayLocalDateInput());
     setPickerOpen(true);
   };
 
@@ -482,12 +483,7 @@ function AttendancePage() {
 
               <div className="space-y-1">
                 <Label htmlFor="schedule-date" className="text-xs">Fecha</Label>
-                <Input
-                  id="schedule-date"
-                  type="date"
-                  value={scheduleDate}
-                  onChange={(e) => setScheduleDate(e.target.value)}
-                />
+                <DateInput id="schedule-date" value={scheduleDate} onChange={setScheduleDate} />
               </div>
 
               <Button

@@ -25,6 +25,9 @@ export function useAddGroupMembersMutation(groupId: string) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: groupMembersQueryKey(groupId) });
+      // La lista de grupos trae _count.members — sin esto queda
+      // desactualizada hasta que expire el staleTime (hallazgo de auditoría).
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
       toast.success(
         data.length === 1 ? 'Persona agregada al grupo.' : `${data.length} personas agregadas al grupo.`,
       );

@@ -84,6 +84,55 @@ export async function resolveBranchScope(
   return { unrestricted: false, branchIds };
 }
 
+export interface GroupScope {
+  /** true = ve todos los grupos de ESA institución, sin restricción */
+  unrestricted: boolean;
+  /** solo relevante si unrestricted === false */
+  groupIds: string[];
+}
+
+/**
+ * Igual criterio que resolveBranchScope pero para groupId — usado por
+ * group-funds (un "Tesorero" con groupId puntual solo ve/opera el fondo de
+ * SU grupo). Un rol institucional/tenant-wide (institutionId o branchId sin
+ * groupId propio) da acceso sin restricción a todos los grupos de esa
+ * institución; groupId es independiente de branchId, así que también se
+ * revisan filas con institutionId + branchId puntual pero sin groupId.
+ */
+export async function resolveGroupScope(
+  prisma: PrismaService,
+  ctx: { userId: string; institutionId: string; isSuperadmin: boolean },
+): Promise<GroupScope> {
+  if (ctx.isSuperadmin) {
+    return { unrestricted: true, groupIds: [] };
+  }
+
+  const rows = await prisma.userRole.findMany({
+    where: {
+      userId: ctx.userId,
+      OR: [{ institutionId: null }, { institutionId: ctx.institutionId }],
+    },
+    select: { institutionId: true, groupId: true },
+  });
+
+  const tenantWide = rows.some((r) => r.institutionId === null);
+  const wholeInstitution = rows.some(
+    (r) => r.institutionId === ctx.institutionId && r.groupId === null,
+  );
+  if (tenantWide || wholeInstitution) {
+    return { unrestricted: true, groupIds: [] };
+  }
+
+  const groupIds = [
+    ...new Set(
+      rows
+        .filter((r) => r.institutionId === ctx.institutionId && r.groupId !== null)
+        .map((r) => r.groupId as string),
+    ),
+  ];
+  return { unrestricted: false, groupIds };
+}
+
 export interface AllBranchesScope {
   /** true = ve todas las sucursales del tenant, sin restricción */
   unrestricted: boolean;

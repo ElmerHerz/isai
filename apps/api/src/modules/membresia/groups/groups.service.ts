@@ -4,6 +4,7 @@ import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { AddGroupMemberDto } from './dto/add-group-member.dto';
 import { resolveInstitutionScope, resolveBranchScope } from '../../../common/utils/institution-scope.util';
+import { ensureGroupMember } from './ensure-group-member.util';
 import type { RequestUser } from '../../../common/decorators/current-user.decorator';
 
 // Mismo criterio que persons.service.ts: rutas planas, scope chequeado
@@ -34,10 +35,46 @@ export class GroupsService {
     return institution;
   }
 
-  private async assertBranchBelongsToInstitution(branchId: string, institutionId: string) {
+  // Además de validar que la sucursal pertenezca a la institución, valida
+  // que quien escribe tenga alcance sobre ESA sucursal — mismo fix que
+  // persons.service.ts, ver ahí el comentario completo (hallazgo de
+  // auditoría de sesión).
+  private async assertBranchBelongsToInstitution(
+    branchId: string,
+    institutionId: string,
+    user: RequestUser,
+  ) {
     const branch = await this.prisma.branch.findFirst({ where: { id: branchId, institutionId } });
     if (!branch) {
       throw new BadRequestException('La sucursal no pertenece a la institución indicada.');
+    }
+
+    if (!user.isSuperadmin) {
+      const branchScope = await resolveBranchScope(this.prisma, { ...user, institutionId });
+      if (!branchScope.unrestricted && !branchScope.branchIds.includes(branchId)) {
+        throw new ForbiddenException('No tienes alcance sobre esa sucursal.');
+      }
+    }
+  }
+
+  // Nunca confiar en que el <Select> del frontend ya filtró por tenant —
+  // mismo criterio reforzado en la auditoría de sesión (ver
+  // ProjectsService.assertAccountBelongsToTenant). Además valida que sea de
+  // tipo Activo y transaccionable: el fondo de un grupo necesita una cuenta
+  // real de "dónde vive el dinero", no una de agrupación ni de otro tipo.
+  private async assertCashAccountValid(cashAccountId: string, tenantId: string) {
+    const account = await this.prisma.account.findFirst({
+      where: { id: cashAccountId, tenantId },
+      include: { accountType: { select: { code: true } } },
+    });
+    if (!account) {
+      throw new BadRequestException('Esa cuenta no pertenece a este tenant.');
+    }
+    if (account.accountType.code !== 'ASSET') {
+      throw new BadRequestException('La cuenta de caja del grupo debe ser de tipo Activo.');
+    }
+    if (!account.allowsTransactions) {
+      throw new BadRequestException('Esa cuenta es de agrupación — elige una cuenta que admita movimientos.');
     }
   }
 
@@ -57,6 +94,7 @@ export class GroupsService {
         groupType: true,
         branch: { select: { id: true, name: true } },
         leader: { select: { id: true, firstName: true, lastName: true } },
+        cashAccount: { select: { id: true, code: true, name: true } },
         _count: { select: { members: { where: { leftAt: null } } } },
       },
       orderBy: { name: 'asc' },
@@ -70,6 +108,7 @@ export class GroupsService {
         groupType: true,
         branch: { select: { id: true, name: true } },
         leader: { select: { id: true, firstName: true, lastName: true } },
+        cashAccount: { select: { id: true, code: true, name: true } },
       },
     });
     if (!group) throw new NotFoundException(`Grupo "${id}" no encontrado`);
@@ -102,9 +141,9 @@ export class GroupsService {
   // superadmin: assertInstitutionAccessible ya resuelve y valida la
   // institución (y por tanto el tenant) sin necesitarlo.
   async create(tenantId: string | null, dto: CreateGroupDto, user: RequestUser) {
-    await this.assertInstitutionAccessible(dto.institutionId, tenantId, user);
+    const institution = await this.assertInstitutionAccessible(dto.institutionId, tenantId, user);
     if (dto.branchId) {
-      await this.assertBranchBelongsToInstitution(dto.branchId, dto.institutionId);
+      await this.assertBranchBelongsToInstitution(dto.branchId, dto.institutionId, user);
     }
     if (dto.leaderPersonId) {
       const leader = await this.prisma.person.findFirst({
@@ -112,15 +151,25 @@ export class GroupsService {
       });
       if (!leader) throw new BadRequestException('La persona líder no pertenece a la institución indicada.');
     }
+    if (dto.cashAccountId) {
+      await this.assertCashAccountValid(dto.cashAccountId, institution.tenantId);
+    }
 
-    return this.prisma.group.create({
+    const created = await this.prisma.group.create({
       data: dto,
       include: {
         groupType: true,
         branch: { select: { id: true, name: true } },
         leader: { select: { id: true, firstName: true, lastName: true } },
+        cashAccount: { select: { id: true, code: true, name: true } },
       },
     });
+
+    if (dto.leaderPersonId) {
+      await ensureGroupMember(this.prisma, created.id, dto.leaderPersonId);
+    }
+
+    return created;
   }
 
   async update(id: string, tenantId: string | null, dto: UpdateGroupDto, user: RequestUser) {
@@ -131,7 +180,7 @@ export class GroupsService {
       await this.assertInstitutionAccessible(dto.institutionId, tenantId, user);
     }
     if (dto.branchId) {
-      await this.assertBranchBelongsToInstitution(dto.branchId, institutionId);
+      await this.assertBranchBelongsToInstitution(dto.branchId, institutionId, user);
     }
     if (dto.leaderPersonId) {
       const leader = await this.prisma.person.findFirst({
@@ -139,16 +188,27 @@ export class GroupsService {
       });
       if (!leader) throw new BadRequestException('La persona líder no pertenece a la institución indicada.');
     }
+    if (dto.cashAccountId) {
+      const institution = await this.prisma.institution.findUniqueOrThrow({ where: { id: institutionId } });
+      await this.assertCashAccountValid(dto.cashAccountId, institution.tenantId);
+    }
 
-    return this.prisma.group.update({
+    const updated = await this.prisma.group.update({
       where: { id },
       data: dto,
       include: {
         groupType: true,
         branch: { select: { id: true, name: true } },
         leader: { select: { id: true, firstName: true, lastName: true } },
+        cashAccount: { select: { id: true, code: true, name: true } },
       },
     });
+
+    if (dto.leaderPersonId) {
+      await ensureGroupMember(this.prisma, id, dto.leaderPersonId);
+    }
+
+    return updated;
   }
 
   // --- Pertenencia (group_members) ---------------------------------------

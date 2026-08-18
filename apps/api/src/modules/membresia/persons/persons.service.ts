@@ -77,10 +77,28 @@ export class PersonsService {
     return institution;
   }
 
-  private async assertBranchBelongsToInstitution(branchId: string, institutionId: string) {
+  // Además de validar que la sucursal pertenezca a la institución, valida
+  // que quien escribe tenga alcance sobre ESA sucursal (resolveBranchScope)
+  // — sin esto, un usuario con scope restringido a la sucursal A podría
+  // crear/mover una persona a la sucursal B de la misma institución, fuera
+  // de su propio alcance. Hallazgo de auditoría de sesión (antes no
+  // explotable por falta de UI que asigne scope de sucursal, pero el
+  // service ya no debe depender de eso).
+  private async assertBranchBelongsToInstitution(
+    branchId: string,
+    institutionId: string,
+    user: RequestUser,
+  ) {
     const branch = await this.prisma.branch.findFirst({ where: { id: branchId, institutionId } });
     if (!branch) {
       throw new BadRequestException('La sucursal no pertenece a la institución indicada.');
+    }
+
+    if (!user.isSuperadmin) {
+      const branchScope = await resolveBranchScope(this.prisma, { ...user, institutionId });
+      if (!branchScope.unrestricted && !branchScope.branchIds.includes(branchId)) {
+        throw new ForbiddenException('No tienes alcance sobre esa sucursal.');
+      }
     }
   }
 
@@ -163,7 +181,7 @@ export class PersonsService {
 
     await this.assertInstitutionAccessible(dto.institutionId, tenantId, user);
     if (dto.branchId) {
-      await this.assertBranchBelongsToInstitution(dto.branchId, dto.institutionId);
+      await this.assertBranchBelongsToInstitution(dto.branchId, dto.institutionId, user);
     }
 
     const { birthDate, joinDate, ...rest } = dto;
@@ -187,7 +205,7 @@ export class PersonsService {
       await this.assertInstitutionAccessible(dto.institutionId, tenantId, user);
     }
     if (dto.branchId) {
-      await this.assertBranchBelongsToInstitution(dto.branchId, institutionId);
+      await this.assertBranchBelongsToInstitution(dto.branchId, institutionId, user);
     }
 
     const { birthDate, joinDate, ...rest } = dto;
@@ -304,7 +322,7 @@ export class PersonsService {
 
     await this.assertInstitutionAccessible(institutionId, tenantId, user);
     if (branchId) {
-      await this.assertBranchBelongsToInstitution(branchId, institutionId);
+      await this.assertBranchBelongsToInstitution(branchId, institutionId, user);
     }
 
     const workbook = new ExcelJS.Workbook();
@@ -427,7 +445,7 @@ export class PersonsService {
 
     await this.assertInstitutionAccessible(dto.institutionId, tenantId, user);
     if (dto.branchId) {
-      await this.assertBranchBelongsToInstitution(dto.branchId, dto.institutionId);
+      await this.assertBranchBelongsToInstitution(dto.branchId, dto.institutionId, user);
     }
 
     const { count } = await this.prisma.person.createMany({

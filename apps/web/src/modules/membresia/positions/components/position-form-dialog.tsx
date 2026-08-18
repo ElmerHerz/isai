@@ -14,8 +14,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { DateInput } from '@/components/ui/date-input';
 import { useCatalogItemsQuery } from '@/modules/general';
 import { useGroupsQuery, usePersonsQuery, useCreatePositionMutation, useUpdatePositionMutation } from '@/modules/membresia';
+import { useAuthStore } from '@/lib/auth-store';
 import { getErrorMessage } from '@/lib/toast';
 import type { GroupPositionWithRelations } from '@isai/shared-types';
 
@@ -54,8 +56,10 @@ export function PositionFormDialog({
   defaultGroupId,
 }: PositionFormDialogProps) {
   const isEditing = !!position;
+  const permissions = useAuthStore((state) => state.user?.permissions) ?? [];
+  const canViewPersons = permissions.includes('membership.person.view');
   const { data: groups } = useGroupsQuery(institutionId);
-  const { data: persons } = usePersonsQuery(institutionId);
+  const { data: persons } = usePersonsQuery(institutionId, canViewPersons);
   const { data: boardPositions } = useCatalogItemsQuery('board_position');
   const createMutation = useCreatePositionMutation();
   const updateMutation = useUpdatePositionMutation();
@@ -143,9 +147,9 @@ export function PositionFormDialog({
               name="personId"
               control={control}
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value} onValueChange={field.onChange} disabled={!canViewPersons}>
                   <SelectTrigger id="personId">
-                    <SelectValue placeholder="Selecciona una persona" />
+                    <SelectValue placeholder={canViewPersons ? 'Selecciona una persona' : 'No tienes permiso para ver personas'} />
                   </SelectTrigger>
                   <SelectContent>
                     {persons?.map((p) => (
@@ -186,11 +190,19 @@ export function PositionFormDialog({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="termStart">Vigente desde (vacío = hoy)</Label>
-              <Input id="termStart" type="date" {...register('termStart')} />
+              <Controller
+                name="termStart"
+                control={control}
+                render={({ field }) => <DateInput id="termStart" value={field.value ?? ''} onChange={field.onChange} />}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="termEnd">Vigente hasta (opcional)</Label>
-              <Input id="termEnd" type="date" {...register('termEnd')} />
+              <Controller
+                name="termEnd"
+                control={control}
+                render={({ field }) => <DateInput id="termEnd" value={field.value ?? ''} onChange={field.onChange} />}
+              />
             </div>
           </div>
 

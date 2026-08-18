@@ -5,6 +5,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { GeneralModule } from './modules/general/general.module';
 import { SecurityModule } from './modules/security/security.module';
 import { MembresiaModule } from './modules/membresia/membresia.module';
+import { FinanzasModule } from './modules/finanzas/finanzas.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { ScopeGuard } from './common/guards/scope.guard';
@@ -33,7 +34,8 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     GeneralModule,
     SecurityModule,
     MembresiaModule,
-    // Futuros módulos se agregan aquí: FinanceModule, etc.
+    FinanzasModule,
+    // Futuros módulos se agregan aquí: InventoryModule, etc.
   ],
 
   providers: [

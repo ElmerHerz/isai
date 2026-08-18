@@ -29,13 +29,18 @@ export function PageHeader({ icon: Icon, title, description, action }: PageHeade
         boxShadow: `0 4px 20px -4px ${color}80`,
       }}
     >
-      <div className="flex items-center gap-4">
+      <div className="flex min-w-0 items-center gap-4">
         <span className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
           <Icon className="h-6 w-6" />
         </span>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-          {description && <p className="mt-0.5 text-sm text-white/80">{description}</p>}
+        {/* min-w-0: sin esto, un título/descripción larga (ej. el nombre de
+            un grupo + su institución) fuerza este item de flex más ancho que
+            su contenido envuelto, empujando toda la página más allá del
+            viewport en móvil — el mismo bug de fondo que _authenticated.tsx,
+            solo que acá en el propio banner. */}
+        <div className="min-w-0">
+          <h1 className="break-words text-xl font-bold tracking-tight">{title}</h1>
+          {description && <p className="mt-0.5 break-words text-sm text-white/80">{description}</p>}
         </div>
       </div>
 

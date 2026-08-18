@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
+import { createFileRoute, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
-import { ChevronRight, LogOut, Menu, Moon, Sun } from 'lucide-react';
+import { ChevronRight, Home, LogOut, Menu, Moon, Sun } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth-store';
 import { useMeQuery, useLogoutMutation } from '@/modules/security';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,7 @@ function initials(firstName?: string, lastName?: string) {
 function AuthenticatedLayout() {
   const { data: user } = useMeQuery();
   const logoutMutation = useLogoutMutation();
+  const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { sectionLabel, itemLabel, colorHex } = useCurrentMenuNode();
   const theme = useThemeStore((state) => state.theme);
@@ -40,7 +41,7 @@ function AuthenticatedLayout() {
     <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-background">
       <Sidebar mobileOpen={mobileNavOpen} onMobileOpenChange={setMobileNavOpen} />
 
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="shrink-0 border-b border-slate-200/80 bg-white/80 backdrop-blur dark:border-border dark:bg-background/80">
           <div className="flex items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
             <div className="flex min-w-0 items-center gap-3">
@@ -105,6 +106,16 @@ function AuthenticatedLayout() {
                   </div>
                 </div>
               )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate({ to: '/' })}
+                aria-label="Inicio"
+                title="Inicio"
+                className="px-2 text-muted-foreground"
+              >
+                <Home className="h-4 w-4" />
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"

@@ -46,14 +46,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const exceptionResponse =
       exception instanceof HttpException ? exception.getResponse() : null;
 
+    // Para excepciones NO-HTTP (status >= 500: error de Prisma/driver no
+    // capturado, timeout, etc.) nunca se manda exception.message crudo al
+    // cliente — puede filtrar nombres de tabla/columna, fragmentos de query
+    // u otros detalles internos (hallazgo de auditoría de sesión). El
+    // mensaje real solo va al log del servidor (líneas de abajo); el
+    // cliente recibe un mensaje genérico.
     const message =
       exceptionResponse &&
       typeof exceptionResponse === 'object' &&
       'message' in exceptionResponse
         ? (exceptionResponse as { message: string | string[] }).message
-        : exception instanceof Error
-          ? exception.message
-          : 'Error interno del servidor';
+        : 'Ocurrió un error inesperado. Intenta de nuevo.';
 
     const errorBody: ErrorResponse = {
       statusCode: status,
