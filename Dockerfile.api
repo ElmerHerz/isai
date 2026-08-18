@@ -12,4 +12,4 @@ RUN apk add --no-cache openssl
 ENV NODE_ENV=production
 COPY --from=build /repo .
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma db push --skip-generate --schema=apps/api/prisma/schema && node apps/api/dist/main.js"]
+CMD ["node", "apps/api/dist/main.js"]
