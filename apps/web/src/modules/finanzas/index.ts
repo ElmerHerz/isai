@@ -9,6 +9,8 @@ export { useAccountsQuery, accountsQueryKey } from './accounts/use-accounts.quer
 export { useCreateAccountMutation, type CreateAccountInput } from './accounts/use-create-account.mutation';
 export { useJournalEntriesQuery, journalEntriesQueryKey } from './journal-entries/use-journal-entries.query';
 export { useFundSummaryQuery, fundSummaryQueryKey } from './reports/use-fund-summary.query';
+export { useDashboardKpisQuery, dashboardKpisQueryKey } from './reports/use-dashboard-kpis.query';
+export { useMonthlyTrendQuery, monthlyTrendQueryKey } from './reports/use-monthly-trend.query';
 
 export { useProjectsQuery, projectsQueryKey } from './projects/use-projects.query';
 export { useProjectQuery, projectDetailKey } from './projects/use-project.query';

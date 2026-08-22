@@ -16,4 +16,18 @@ export class ReportsController {
   fundSummary(@CurrentTenant() tenantId: string | null) {
     return this.reportsService.fundSummary(tenantId);
   }
+
+  @Get('dashboard-kpis')
+  @RequirePermission('finance.report.view')
+  @ApiOperation({ summary: 'Ingresos/gastos del mes, saldo de caja y movimientos pendientes de contabilizar' })
+  dashboardKpis(@CurrentTenant() tenantId: string | null) {
+    return this.reportsService.dashboardKpis(tenantId);
+  }
+
+  @Get('monthly-trend')
+  @RequirePermission('finance.report.view')
+  @ApiOperation({ summary: 'Ofrenda/diezmo/talento recogidos por mes, últimos 6 meses' })
+  monthlyTrend(@CurrentTenant() tenantId: string | null) {
+    return this.reportsService.monthlyTrend(tenantId);
+  }
 }

@@ -348,6 +348,21 @@ export interface FundSummaryRow {
   totalCredit: string;
 }
 
+/** Forma que devuelve GET /reports/dashboard-kpis */
+export interface DashboardKpis {
+  incomeThisMonth: string;
+  expenseThisMonth: string;
+  cashBalance: string;
+  pendingCount: number;
+}
+
+/** Forma que devuelve GET /reports/monthly-trend — una fila por mes+tipo de fondo */
+export interface MonthlyTrendRow {
+  month: string; // 'YYYY-MM'
+  fundCode: string; // 'OFRENDA' | 'DIEZMO' | 'TALENTO' | ...
+  total: string;
+}
+
 /** Forma que devuelven GET /projects, GET /projects/:id, POST /projects, PATCH /projects/:id */
 export interface Project {
   id: string;
