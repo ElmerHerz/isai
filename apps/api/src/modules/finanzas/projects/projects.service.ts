@@ -518,6 +518,13 @@ export class ProjectsService {
   // Mismo patrón que PersonsService.buildTemplateWorkbook: el service arma
   // el ExcelJS.Workbook, el controller lo serializa y lo manda con los
   // headers de descarga (ver PersonsController.downloadTemplate).
+  //
+  // Reporte "de verdad", no una tabla genérica: 6 hojas -- Resumen (con
+  // secciones), Aportes por mes (con acumulado hacia la meta), Aportes por
+  // aportante (ranking completo, no solo el top 5 que ya muestra la UI),
+  // Detalle de aportes, Gastos por cuenta y Detalle de gastos. Formato
+  // real (encabezados con relleno, moneda, porcentaje, panel congelado,
+  // autofiltro) para que se pueda abrir y usar directo, no solo ver.
   async buildSummaryWorkbook(
     id: string,
     tenantId: string | null,
@@ -534,90 +541,303 @@ export class ProjectsService {
     // noUncheckedIndexedAccess, aunque en la práctica siempre viene lleno).
     if (!project) throw new NotFoundException(`Proyecto "${id}" no encontrado`);
 
+    const CURRENCY_FMT = '"$"#,##0.00';
+    const PERCENT_FMT = '0.0%';
+    const HEADER_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+    const HEADER_FONT: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' } };
+    const SECTION_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EEF5' } };
+    const THIN_BORDER: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+      bottom: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+    };
+
+    function styleHeaderRow(row: ExcelJS.Row) {
+      row.eachCell((cell) => {
+        cell.fill = HEADER_FILL;
+        cell.font = HEADER_FONT;
+        cell.alignment = { vertical: 'middle' };
+      });
+      row.height = 20;
+    }
+
+    function styleDataRows(sheet: ExcelJS.Worksheet, firstDataRow: number) {
+      for (let r = firstDataRow; r <= sheet.rowCount; r++) {
+        sheet.getRow(r).eachCell((cell) => {
+          cell.border = THIN_BORDER;
+        });
+      }
+    }
+
     const totalContributed = Number(project.totalContributed);
     const totalSpent = Number(project.totalSpent);
     const goalAmount = Number(project.goalAmount);
-    const percent = goalAmount > 0 ? Math.min(100, (totalContributed / goalAmount) * 100) : 0;
+    const percent = goalAmount > 0 ? totalContributed / goalAmount : 0;
+    const daysRemaining = project.targetDate
+      ? Math.ceil((new Date(project.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      : null;
 
-    const contributorKey = (c: (typeof contributions)[number]) =>
-      c.person ? `p:${c.person.id}` : c.group ? `g:${c.group.id}` : 'anon';
-    const distinctContributors = new Set(contributions.map(contributorKey)).size;
+    type Contribution = (typeof contributions)[number];
+    const contributorKey = (c: Contribution) => (c.person ? `p:${c.person.id}` : c.group ? `g:${c.group.id}` : 'anon');
+    const contributorName = (c: Contribution) =>
+      c.person ? `${c.person.firstName} ${c.person.lastName}` : c.group ? `Grupo: ${c.group.name}` : 'Anónimo';
+    const contributorType = (c: Contribution) => (c.person ? 'Persona' : c.group ? 'Grupo' : '—');
+
+    const sortedContributions = [...contributions].sort(
+      (a, b) => new Date(a.contributedAt).getTime() - new Date(b.contributedAt).getTime(),
+    );
+    const sortedExpenses = [...expenses].sort(
+      (a, b) => new Date(a.incurredAt).getTime() - new Date(b.incurredAt).getTime(),
+    );
+
     const contributedPosted = contributions.filter((c) => c.journalEntryId).length;
     const expensesPosted = expenses.filter((e) => e.journalEntryId).length;
+    const contributedPostedAmount = contributions.filter((c) => c.journalEntryId).reduce((s, c) => s + Number(c.amount), 0);
+    const expensesPostedAmount = expenses.filter((e) => e.journalEntryId).reduce((s, e) => s + Number(e.amount), 0);
+
+    const byContributor = new Map<string, { name: string; type: string; count: number; total: number; first: Date; last: Date }>();
+    for (const c of contributions) {
+      const key = contributorKey(c);
+      const date = new Date(c.contributedAt);
+      const entry = byContributor.get(key);
+      if (entry) {
+        entry.count += 1;
+        entry.total += Number(c.amount);
+        if (date < entry.first) entry.first = date;
+        if (date > entry.last) entry.last = date;
+      } else {
+        byContributor.set(key, { name: contributorName(c), type: contributorType(c), count: 1, total: Number(c.amount), first: date, last: date });
+      }
+    }
+    const contributorRanking = [...byContributor.values()].sort((a, b) => b.total - a.total);
+
+    const byAccount = new Map<string, { name: string; count: number; total: number }>();
+    for (const e of expenses) {
+      const key = e.account.id;
+      const entry = byAccount.get(key);
+      const label = `${e.account.code} · ${e.account.name}`;
+      if (entry) {
+        entry.count += 1;
+        entry.total += Number(e.amount);
+      } else {
+        byAccount.set(key, { name: label, count: 1, total: Number(e.amount) });
+      }
+    }
+    const accountRanking = [...byAccount.values()].sort((a, b) => b.total - a.total);
+
+    const byMonth = new Map<string, { count: number; total: number }>();
+    for (const c of sortedContributions) {
+      const d = new Date(c.contributedAt);
+      const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const entry = byMonth.get(month) ?? { count: 0, total: 0 };
+      entry.count += 1;
+      entry.total += Number(c.amount);
+      byMonth.set(month, entry);
+    }
+    const monthlyRows = [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b));
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'ISAI';
     workbook.created = new Date();
 
-    // --- Hoja 1: Resumen ---
-    const summary = workbook.addWorksheet('Resumen');
+    // --- Hoja 1: Resumen ------------------------------------------------
+    const summary = workbook.addWorksheet('Resumen', { views: [{ state: 'frozen', ySplit: 0 }] });
     summary.columns = [
-      { header: 'Indicador', key: 'label', width: 34 },
-      { header: 'Valor', key: 'value', width: 22 },
+      { key: 'label', width: 34 },
+      { key: 'value', width: 24 },
     ];
-    summary.addRows([
-      { label: 'Proyecto', value: project.name },
-      { label: 'Sucursal', value: project.branch.name },
-      { label: 'Estado', value: project.status === 'active' ? 'Activo' : project.status === 'completed' ? 'Completado' : 'Cancelado' },
-      { label: 'Meta', value: goalAmount },
-      { label: 'Fecha objetivo', value: project.targetDate ? new Date(project.targetDate) : 'Sin fecha' },
-      { label: '', value: '' },
-      { label: 'Recaudado', value: totalContributed },
-      { label: 'Gastado', value: totalSpent },
-      { label: 'Disponible', value: totalContributed - totalSpent },
-      { label: '% de avance hacia la meta', value: `${percent.toFixed(1)}%` },
-      { label: '', value: '' },
-      { label: 'Número de aportantes distintos', value: distinctContributors },
-      { label: 'Aporte promedio', value: contributions.length > 0 ? totalContributed / contributions.length : 0 },
-      { label: 'Aportes registrados', value: contributions.length },
-      { label: 'Aportes ya contabilizados', value: contributedPosted },
-      { label: 'Aportes pendientes de contabilizar', value: contributions.length - contributedPosted },
-      { label: 'Gastos registrados', value: expenses.length },
-      { label: 'Gastos ya contabilizados', value: expensesPosted },
-      { label: 'Gastos pendientes de contabilizar', value: expenses.length - expensesPosted },
-    ]);
-    summary.getColumn('label').font = { bold: true };
-    summary.getRow(1).font = { bold: true };
 
-    // --- Hoja 2: Aportes ---
-    const contribSheet = workbook.addWorksheet('Aportes');
+    const addSectionTitle = (title: string) => {
+      const row = summary.addRow([title]);
+      summary.mergeCells(row.number, 1, row.number, 2);
+      row.getCell(1).fill = SECTION_FILL;
+      row.getCell(1).font = { bold: true, size: 12 };
+      row.height = 20;
+    };
+    const addKv = (label: string, value: string | number | Date, fmt?: string) => {
+      const row = summary.addRow([label, value]);
+      row.getCell(1).font = { bold: true };
+      if (fmt) row.getCell(2).numFmt = fmt;
+    };
+
+    const titleRow = summary.addRow([project.name]);
+    summary.mergeCells(titleRow.number, 1, titleRow.number, 2);
+    titleRow.getCell(1).font = { bold: true, size: 16 };
+    titleRow.height = 26;
+    if (project.description) {
+      const descRow = summary.addRow([project.description]);
+      summary.mergeCells(descRow.number, 1, descRow.number, 2);
+      descRow.getCell(1).font = { italic: true, color: { argb: 'FF666666' } };
+    }
+    summary.addRow([]);
+
+    addSectionTitle('Datos generales');
+    addKv('Sucursal', project.branch.name);
+    addKv('Estado', project.status === 'active' ? 'Activo' : project.status === 'completed' ? 'Completado' : 'Cancelado');
+    addKv('Cuenta de ingreso', project.incomeAccount ? `${project.incomeAccount.code} · ${project.incomeAccount.name}` : 'Sin configurar');
+    addKv('Fecha objetivo', project.targetDate ? new Date(project.targetDate) : 'Sin fecha');
+    if (daysRemaining !== null) addKv('Días restantes', daysRemaining >= 0 ? daysRemaining : 'Vencido');
+    summary.addRow([]);
+
+    addSectionTitle('Finanzas');
+    addKv('Meta', goalAmount, CURRENCY_FMT);
+    addKv('Recaudado', totalContributed, CURRENCY_FMT);
+    addKv('Gastado', totalSpent, CURRENCY_FMT);
+    addKv('Disponible', totalContributed - totalSpent, CURRENCY_FMT);
+    addKv('% de avance hacia la meta', percent, PERCENT_FMT);
+    summary.addRow([]);
+
+    addSectionTitle('Aportes');
+    addKv('Aportantes distintos', byContributor.size);
+    addKv('Aportes registrados', contributions.length);
+    addKv('Aporte promedio', contributions.length > 0 ? totalContributed / contributions.length : 0, CURRENCY_FMT);
+    addKv('Aporte más alto', contributions.length > 0 ? Math.max(...contributions.map((c) => Number(c.amount))) : 0, CURRENCY_FMT);
+    addKv('Aporte más bajo', contributions.length > 0 ? Math.min(...contributions.map((c) => Number(c.amount))) : 0, CURRENCY_FMT);
+    addKv('Contabilizados', `${contributedPosted} de ${contributions.length}`);
+    addKv('Monto ya contabilizado', contributedPostedAmount, CURRENCY_FMT);
+    addKv('Monto pendiente de contabilizar', totalContributed - contributedPostedAmount, CURRENCY_FMT);
+    summary.addRow([]);
+
+    addSectionTitle('Gastos');
+    addKv('Gastos registrados', expenses.length);
+    addKv('Contabilizados', `${expensesPosted} de ${expenses.length}`);
+    addKv('Monto ya contabilizado', expensesPostedAmount, CURRENCY_FMT);
+    addKv('Monto pendiente de contabilizar', totalSpent - expensesPostedAmount, CURRENCY_FMT);
+    summary.addRow([]);
+    summary.addRow(['Generado el', new Date()]).getCell(1).font = { italic: true, color: { argb: 'FF999999' } };
+
+    // --- Hoja 2: Aportes por mes -----------------------------------------
+    const monthlySheet = workbook.addWorksheet('Aportes por mes', { views: [{ state: 'frozen', ySplit: 1 }] });
+    monthlySheet.columns = [
+      { header: 'Mes', key: 'month', width: 12 },
+      { header: '# Aportes', key: 'count', width: 12 },
+      { header: 'Monto del mes', key: 'total', width: 16 },
+      { header: 'Acumulado', key: 'cumulative', width: 16 },
+      { header: '% de la meta acumulado', key: 'pctGoal', width: 20 },
+    ];
+    styleHeaderRow(monthlySheet.getRow(1));
+    let cumulative = 0;
+    for (const [month, { count, total }] of monthlyRows) {
+      cumulative += total;
+      monthlySheet.addRow({
+        month,
+        count,
+        total,
+        cumulative,
+        pctGoal: goalAmount > 0 ? cumulative / goalAmount : 0,
+      });
+    }
+    monthlySheet.getColumn('total').numFmt = CURRENCY_FMT;
+    monthlySheet.getColumn('cumulative').numFmt = CURRENCY_FMT;
+    monthlySheet.getColumn('pctGoal').numFmt = PERCENT_FMT;
+    monthlySheet.autoFilter = { from: 'A1', to: 'E1' };
+    styleDataRows(monthlySheet, 2);
+
+    // --- Hoja 3: Aportes por aportante ------------------------------------
+    const contributorSheet = workbook.addWorksheet('Aportes por aportante', { views: [{ state: 'frozen', ySplit: 1 }] });
+    contributorSheet.columns = [
+      { header: 'Aportante', key: 'name', width: 32 },
+      { header: 'Tipo', key: 'type', width: 12 },
+      { header: '# Aportes', key: 'count', width: 12 },
+      { header: 'Monto total', key: 'total', width: 16 },
+      { header: '% del total recaudado', key: 'pct', width: 20 },
+      { header: 'Primer aporte', key: 'first', width: 16 },
+      { header: 'Último aporte', key: 'last', width: 16 },
+    ];
+    styleHeaderRow(contributorSheet.getRow(1));
+    for (const c of contributorRanking) {
+      contributorSheet.addRow({
+        name: c.name,
+        type: c.type,
+        count: c.count,
+        total: c.total,
+        pct: totalContributed > 0 ? c.total / totalContributed : 0,
+        first: c.first,
+        last: c.last,
+      });
+    }
+    contributorSheet.getColumn('total').numFmt = CURRENCY_FMT;
+    contributorSheet.getColumn('pct').numFmt = PERCENT_FMT;
+    contributorSheet.getColumn('first').numFmt = 'dd/mm/yyyy';
+    contributorSheet.getColumn('last').numFmt = 'dd/mm/yyyy';
+    contributorSheet.autoFilter = { from: 'A1', to: 'G1' };
+    styleDataRows(contributorSheet, 2);
+
+    // --- Hoja 4: Detalle de aportes ---------------------------------------
+    const contribSheet = workbook.addWorksheet('Detalle de aportes', { views: [{ state: 'frozen', ySplit: 1 }] });
     contribSheet.columns = [
       { header: 'Fecha', key: 'date', width: 14 },
       { header: 'Aportante', key: 'who', width: 30 },
+      { header: 'Tipo', key: 'type', width: 12 },
       { header: 'Monto', key: 'amount', width: 14 },
-      { header: 'Contabilizado', key: 'posted', width: 16 },
+      { header: 'Acumulado', key: 'cumulative', width: 16 },
+      { header: 'Contabilizado', key: 'posted', width: 14 },
       { header: 'Notas', key: 'notes', width: 30 },
     ];
-    contribSheet.getRow(1).font = { bold: true };
-    for (const c of contributions) {
+    styleHeaderRow(contribSheet.getRow(1));
+    let runningTotal = 0;
+    for (const c of sortedContributions) {
+      runningTotal += Number(c.amount);
       contribSheet.addRow({
         date: new Date(c.contributedAt),
-        who: c.person ? `${c.person.firstName} ${c.person.lastName}` : c.group ? `Grupo: ${c.group.name}` : '—',
+        who: contributorName(c),
+        type: contributorType(c),
         amount: Number(c.amount),
+        cumulative: runningTotal,
         posted: c.journalEntryId ? 'Sí' : 'No',
         notes: c.notes ?? '',
       });
     }
+    contribSheet.getColumn('date').numFmt = 'dd/mm/yyyy';
+    contribSheet.getColumn('amount').numFmt = CURRENCY_FMT;
+    contribSheet.getColumn('cumulative').numFmt = CURRENCY_FMT;
+    contribSheet.autoFilter = { from: 'A1', to: 'G1' };
+    styleDataRows(contribSheet, 2);
 
-    // --- Hoja 3: Gastos ---
-    const expenseSheet = workbook.addWorksheet('Gastos');
+    // --- Hoja 5: Gastos por cuenta -----------------------------------------
+    const accountSheet = workbook.addWorksheet('Gastos por cuenta', { views: [{ state: 'frozen', ySplit: 1 }] });
+    accountSheet.columns = [
+      { header: 'Cuenta', key: 'name', width: 32 },
+      { header: '# Gastos', key: 'count', width: 12 },
+      { header: 'Monto total', key: 'total', width: 16 },
+      { header: '% del total gastado', key: 'pct', width: 18 },
+    ];
+    styleHeaderRow(accountSheet.getRow(1));
+    for (const a of accountRanking) {
+      accountSheet.addRow({ name: a.name, count: a.count, total: a.total, pct: totalSpent > 0 ? a.total / totalSpent : 0 });
+    }
+    accountSheet.getColumn('total').numFmt = CURRENCY_FMT;
+    accountSheet.getColumn('pct').numFmt = PERCENT_FMT;
+    accountSheet.autoFilter = { from: 'A1', to: 'D1' };
+    styleDataRows(accountSheet, 2);
+
+    // --- Hoja 6: Detalle de gastos ------------------------------------------
+    const expenseSheet = workbook.addWorksheet('Detalle de gastos', { views: [{ state: 'frozen', ySplit: 1 }] });
     expenseSheet.columns = [
       { header: 'Fecha', key: 'date', width: 14 },
       { header: 'Cuenta', key: 'account', width: 30 },
       { header: 'Monto', key: 'amount', width: 14 },
-      { header: 'Contabilizado', key: 'posted', width: 16 },
+      { header: 'Acumulado', key: 'cumulative', width: 16 },
+      { header: 'Contabilizado', key: 'posted', width: 14 },
       { header: 'Notas', key: 'notes', width: 30 },
     ];
-    expenseSheet.getRow(1).font = { bold: true };
-    for (const e of expenses) {
+    styleHeaderRow(expenseSheet.getRow(1));
+    let runningSpent = 0;
+    for (const e of sortedExpenses) {
+      runningSpent += Number(e.amount);
       expenseSheet.addRow({
         date: new Date(e.incurredAt),
         account: `${e.account.code} · ${e.account.name}`,
         amount: Number(e.amount),
+        cumulative: runningSpent,
         posted: e.journalEntryId ? 'Sí' : 'No',
         notes: e.notes ?? '',
       });
     }
+    expenseSheet.getColumn('date').numFmt = 'dd/mm/yyyy';
+    expenseSheet.getColumn('amount').numFmt = CURRENCY_FMT;
+    expenseSheet.getColumn('cumulative').numFmt = CURRENCY_FMT;
+    expenseSheet.autoFilter = { from: 'A1', to: 'F1' };
+    styleDataRows(expenseSheet, 2);
 
     return { workbook, projectName: project.name };
   }
