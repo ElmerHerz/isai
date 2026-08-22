@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
 import {
+  AlertTriangle,
   ArrowLeft,
   Calendar,
   CheckCircle2,
@@ -9,9 +10,11 @@ import {
   Clock,
   Download,
   Flag,
+  Gauge,
   Landmark,
   MapPin,
   Pencil,
+  PiggyBank,
   Plus,
   Receipt,
   Target,
@@ -41,6 +44,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { QueryErrorState } from '@/components/ui/query-error-state';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { CollapsibleSection } from '@/components/ui/collapsible-section';
 import { PageHeader } from '@/components/layout/page-header';
 import { formatDate, daysUntilLocal } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -102,9 +106,34 @@ function StatTile({ icon: Icon, label, value, tone }: { icon: LucideIcon; label:
 const MONTH_LABELS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 interface ProjectStatsTabProps {
-  project: { id: string; name: string };
+  project: { id: string; name: string; goalAmount: string; targetDate?: string | null; createdAt: string; totalContributed: string };
   contributions?: ProjectContribution[];
   expenses?: ProjectExpense[];
+}
+
+// Meses de calendario completos entre dos fechas (no días/30) -- para
+// "meses transcurridos"/"meses restantes" un mes de 28 días y uno de 31
+// deben contar como "1 mes" por igual.
+function monthsBetween(from: Date, to: Date): number {
+  return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+}
+
+// Ancla siempre al día 1 vía el constructor numérico (año, mes, día) --
+// nunca setMonth() sobre una fecha con día 29-31, porque en un mes con
+// menos días eso hace que Date haga overflow y salte un mes entero (ej.
+// 31 de agosto + 1 mes = 31 de septiembre, que no existe -> 1 de octubre).
+function addMonths(date: Date, months: number): Date {
+  return new Date(date.getFullYear(), date.getMonth() + Math.ceil(months), 1);
+}
+
+// "YYYY-MM" -> Date del día 1 de ese mes, en hora LOCAL (constructor
+// numérico, no parseo de string) -- new Date('YYYY-MM-01') se interpreta
+// como medianoche UTC, que en cualquier huso horario detrás de UTC (ej.
+// Centroamérica, UTC-6) cae la noche del último día del mes ANTERIOR en
+// hora local, corriendo todos los cálculos un mes hacia atrás.
+function monthKeyToDate(monthKey: string): Date {
+  const [year, month] = monthKey.split('-').map(Number);
+  return new Date(year!, month! - 1, 1);
 }
 
 function ProjectStatsTab({ project, contributions, expenses }: ProjectStatsTabProps) {
@@ -146,6 +175,64 @@ function ProjectStatsTab({ project, contributions, expenses }: ProjectStatsTabPr
     };
   }, [contributions, expenses]);
 
+  // Proyección: a partir del ritmo real desde que arrancó el proyecto
+  // (recaudado / meses transcurridos), estima cuándo se alcanzaría la meta
+  // si se sigue aportando a ese mismo ritmo, y si eso llega a tiempo para
+  // la fecha objetivo. "Aporte mínimo necesario" es lo contrario: dado lo
+  // que falta y los meses que quedan hasta la fecha objetivo, cuánto habría
+  // que aportar por mes para llegar justo a la meta.
+  const projection = useMemo(() => {
+    if (!stats) return null;
+    const goalAmount = Number(project.goalAmount);
+    const totalContributed = Number(project.totalContributed);
+    const remaining = Math.max(0, goalAmount - totalContributed);
+    const now = new Date();
+    const createdAt = new Date(project.createdAt);
+    const monthsElapsed = Math.max(1, monthsBetween(createdAt, now) + 1);
+    const monthlyRate = totalContributed / monthsElapsed;
+    const monthsToGoal = monthlyRate > 0 ? remaining / monthlyRate : null;
+    const estimatedDate = remaining <= 0 ? now : monthsToGoal !== null ? addMonths(now, monthsToGoal) : null;
+
+    let monthsUntilTarget: number | null = null;
+    let minMonthlyNeeded: number | null = null;
+    let onTrack: boolean | null = null;
+    if (project.targetDate) {
+      const target = new Date(project.targetDate);
+      monthsUntilTarget = Math.max(0, monthsBetween(now, target));
+      minMonthlyNeeded = remaining <= 0 ? 0 : monthsUntilTarget > 0 ? remaining / monthsUntilTarget : remaining;
+      onTrack = remaining <= 0 ? true : estimatedDate !== null ? estimatedDate <= target : false;
+    }
+
+    // Serie para la gráfica: acumulado real mes a mes + continuación
+    // proyectada (punteada) al mismo ritmo, hasta llegar al 100% o un tope
+    // de 12 meses hacia adelante (para no alargar el eje al infinito
+    // cuando el ritmo es muy bajo).
+    let running = 0;
+    const actual = stats.monthly.map(([month, amount]) => {
+      running += amount;
+      return { month, cumulative: running, pct: goalAmount > 0 ? running / goalAmount : 0 };
+    });
+    const projected: { month: string; cumulative: number; pct: number }[] = [];
+    if (monthlyRate > 0 && goalAmount > 0) {
+      let cursor = running;
+      let d =
+        stats.monthly.length > 0
+          ? monthKeyToDate(stats.monthly[stats.monthly.length - 1]![0])
+          : new Date(now.getFullYear(), now.getMonth(), 1);
+      for (let i = 0; i < 12 && cursor < goalAmount; i++) {
+        d = addMonths(d, 1);
+        cursor += monthlyRate;
+        projected.push({
+          month: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+          cumulative: cursor,
+          pct: cursor / goalAmount,
+        });
+      }
+    }
+
+    return { monthlyRate, remaining, monthsUntilTarget, minMonthlyNeeded, onTrack, estimatedDate, actual, projected };
+  }, [stats, project.goalAmount, project.totalContributed, project.createdAt, project.targetDate]);
+
   return (
     <div className="space-y-6">
       <Card className="rounded-2xl">
@@ -161,7 +248,7 @@ function ProjectStatsTab({ project, contributions, expenses }: ProjectStatsTabPr
         </CardContent>
       </Card>
 
-      {!stats ? (
+      {!stats || !projection ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-20 w-full rounded-xl" />
@@ -169,47 +256,253 @@ function ProjectStatsTab({ project, contributions, expenses }: ProjectStatsTabPr
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <StatTile icon={Users} label="Aportantes distintos" value={String(stats.distinctContributors)} tone="blue" />
-            <StatTile icon={CircleDollarSign} label="Aporte promedio" value={formatAmount(stats.avgContribution)} tone="slate" />
-            <StatTile icon={CheckCircle2} label="Aportes contabilizados" value={String(stats.postedContributions)} tone="emerald" />
-            <StatTile icon={Clock} label="Aportes pendientes" value={String(stats.pendingContributions)} tone="amber" />
-            <StatTile icon={CheckCircle2} label="Gastos contabilizados" value={String(stats.postedExpenses)} tone="emerald" />
-            <StatTile icon={Clock} label="Gastos pendientes" value={String(stats.pendingExpenses)} tone="amber" />
-          </div>
-
           <Card className="rounded-2xl">
             <CardContent className="p-5">
-              <h3 className="mb-3 text-sm font-semibold">Aportes por mes</h3>
-              {stats.monthly.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Todavía no hay aportes registrados.</p>
-              ) : (
-                <MonthlyContributionsBars monthly={stats.monthly} />
-              )}
+              <CollapsibleSection icon={Gauge} title="Indicadores" defaultOpen>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <StatTile icon={Users} label="Aportantes distintos" value={String(stats.distinctContributors)} tone="blue" />
+                  <StatTile icon={CircleDollarSign} label="Aporte promedio" value={formatAmount(stats.avgContribution)} tone="slate" />
+                  <StatTile icon={CheckCircle2} label="Aportes contabilizados" value={String(stats.postedContributions)} tone="emerald" />
+                  <StatTile icon={Clock} label="Aportes pendientes" value={String(stats.pendingContributions)} tone="amber" />
+                  <StatTile icon={CheckCircle2} label="Gastos contabilizados" value={String(stats.postedExpenses)} tone="emerald" />
+                  <StatTile icon={Clock} label="Gastos pendientes" value={String(stats.pendingExpenses)} tone="amber" />
+                </div>
+              </CollapsibleSection>
             </CardContent>
           </Card>
 
           <Card className="rounded-2xl">
             <CardContent className="p-5">
-              <h3 className="mb-3 text-sm font-semibold">Top aportantes</h3>
-              {stats.topContributors.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Todavía no hay aportes registrados.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {stats.topContributors.map((c, i) => (
-                    <li key={i} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
-                      <span className="min-w-0 truncate">{c.label}</span>
-                      <span className="shrink-0 text-muted-foreground">
-                        {c.count} {c.count === 1 ? 'aporte' : 'aportes'} · <span className="font-medium text-foreground">{formatAmount(c.total)}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <CollapsibleSection icon={TrendingUp} title="Proyección hacia la meta" defaultOpen>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <StatTile icon={Gauge} label="Ritmo mensual promedio" value={formatAmount(projection.monthlyRate)} tone="blue" />
+                    <StatTile
+                      icon={Calendar}
+                      label="Fecha estimada de cumplimiento"
+                      value={projection.estimatedDate ? formatDate(projection.estimatedDate.toISOString()) : 'Sin datos'}
+                      tone="violet"
+                    />
+                    {project.targetDate && (
+                      <StatTile
+                        icon={PiggyBank}
+                        label="Aporte mensual mínimo necesario"
+                        value={projection.minMonthlyNeeded !== null ? formatAmount(projection.minMonthlyNeeded) : '—'}
+                        tone="amber"
+                      />
+                    )}
+                    {project.targetDate && (
+                      <StatTile
+                        icon={projection.onTrack ? CheckCircle2 : AlertTriangle}
+                        label="¿Va a tiempo?"
+                        value={projection.onTrack ? 'Sí, a tiempo' : 'No, en riesgo'}
+                        tone={projection.onTrack ? 'emerald' : 'rose'}
+                      />
+                    )}
+                  </div>
+
+                  {project.targetDate && (
+                    <div
+                      className={cn(
+                        'rounded-xl border p-3 text-sm',
+                        projection.onTrack
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300'
+                          : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300',
+                      )}
+                    >
+                      {projection.remaining <= 0
+                        ? '¡Meta alcanzada! Ya se recaudó el monto completo.'
+                        : projection.onTrack
+                          ? `A este ritmo (${formatAmount(projection.monthlyRate)}/mes) se alcanzaría la meta antes de la fecha objetivo.`
+                          : `A este ritmo (${formatAmount(projection.monthlyRate)}/mes) NO se alcanzaría la meta a tiempo. Se necesitan al menos ${formatAmount(projection.minMonthlyNeeded ?? 0)}/mes para llegar a la fecha objetivo.`}
+                    </div>
+                  )}
+
+                  {projection.actual.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Todavía no hay aportes registrados para proyectar.</p>
+                  ) : (
+                    <ProjectionLineChart
+                      actual={projection.actual}
+                      projected={projection.projected}
+                      targetDate={project.targetDate ?? null}
+                    />
+                  )}
+                </div>
+              </CollapsibleSection>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl">
+            <CardContent className="p-5">
+              <CollapsibleSection icon={TrendingUp} title="Aportes por mes" defaultOpen={false}>
+                {stats.monthly.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Todavía no hay aportes registrados.</p>
+                ) : (
+                  <MonthlyContributionsBars monthly={stats.monthly} />
+                )}
+              </CollapsibleSection>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl">
+            <CardContent className="p-5">
+              <CollapsibleSection icon={Users} title="Top aportantes" defaultOpen={false}>
+                {stats.topContributors.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Todavía no hay aportes registrados.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {stats.topContributors.map((c, i) => (
+                      <li key={i} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
+                        <span className="min-w-0 truncate">{c.label}</span>
+                        <span className="shrink-0 text-muted-foreground">
+                          {c.count} {c.count === 1 ? 'aporte' : 'aportes'} · <span className="font-medium text-foreground">{formatAmount(c.total)}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CollapsibleSection>
             </CardContent>
           </Card>
         </>
       )}
+    </div>
+  );
+}
+
+interface TrendPoint {
+  month: string;
+  cumulative: number;
+  pct: number;
+}
+
+// Línea de % de la meta acumulado: sólida para lo real, punteada para la
+// proyección (mismo ritmo promedio hacia adelante) -- el punto de quiebre
+// entre ambas comparte coordenada, así la línea punteada "sale" justo
+// donde termina la sólida. Línea de referencia horizontal en 100% = meta,
+// y una marca vertical en la fecha objetivo si cae dentro del rango
+// visible. Una sola serie -> sin leyenda de color (el título ya la nombra),
+// pero sí hace falta distinguir sólido/punteado, así que se anota en texto.
+function ProjectionLineChart({
+  actual,
+  projected,
+  targetDate,
+}: {
+  actual: TrendPoint[];
+  projected: TrendPoint[];
+  targetDate: string | null;
+}) {
+  const [hover, setHover] = useState<{ point: TrendPoint; x: number; y: number; projected: boolean } | null>(null);
+
+  const all = [...actual, ...projected];
+  const maxPct = Math.max(...all.map((p) => p.pct), 1);
+  const yMax = Math.max(1.1, maxPct * 1.15);
+  const chartH = 180;
+  const chartW = Math.max(320, all.length * 56);
+  const padL = 8;
+  const padR = 8;
+
+  const xFor = (i: number) => padL + (i / Math.max(1, all.length - 1)) * (chartW - padL - padR);
+  const yFor = (pct: number) => chartH - (pct / yMax) * (chartH - 10);
+
+  const actualPts = actual.map((p, i) => ({ ...p, x: xFor(i), y: yFor(p.pct) }));
+  const projectedPts = projected.map((p, i) => ({ ...p, x: xFor(actual.length + i), y: yFor(p.pct) }));
+  const dashedPts = actualPts.length > 0 ? [actualPts[actualPts.length - 1]!, ...projectedPts] : projectedPts;
+
+  const goalY = yFor(1);
+
+  // Marca de la fecha objetivo, si cae dentro del rango de meses mostrado.
+  let targetX: number | null = null;
+  if (targetDate) {
+    const targetMonth = targetDate.slice(0, 7);
+    const idx = all.findIndex((p) => p.month === targetMonth);
+    if (idx >= 0) targetX = xFor(idx);
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <svg width={chartW} height={chartH + 28} role="img" aria-label="Proyección de avance hacia la meta">
+        {/* Línea de meta (100%) */}
+        <line x1={0} x2={chartW} y1={goalY} y2={goalY} stroke="#eda100" strokeWidth={1} strokeDasharray="3 3" />
+        <text x={chartW - 2} y={goalY - 4} textAnchor="end" fontSize={10} fill="#eda100">
+          Meta
+        </text>
+
+        {/* Marca de fecha objetivo */}
+        {targetX !== null && (
+          <line x1={targetX} x2={targetX} y1={0} y2={chartH} stroke="#898781" strokeWidth={1} strokeDasharray="2 2" />
+        )}
+
+        {/* Real (sólido) */}
+        {actualPts.length > 1 && (
+          <polyline
+            points={actualPts.map((p) => `${p.x},${p.y}`).join(' ')}
+            fill="none"
+            stroke="#2a78d6"
+            strokeWidth={2}
+          />
+        )}
+        {/* Proyectado (punteado) */}
+        {dashedPts.length > 1 && (
+          <polyline
+            points={dashedPts.map((p) => `${p.x},${p.y}`).join(' ')}
+            fill="none"
+            stroke="#2a78d6"
+            strokeWidth={2}
+            strokeDasharray="5 4"
+            opacity={0.7}
+          />
+        )}
+
+        {actualPts.map((p) => (
+          <circle
+            key={`a-${p.month}`}
+            cx={p.x}
+            cy={p.y}
+            r={4}
+            fill="#2a78d6"
+            onMouseEnter={() => setHover({ point: p, x: p.x, y: p.y, projected: false })}
+            onMouseLeave={() => setHover(null)}
+          />
+        ))}
+        {projectedPts.map((p) => (
+          <circle
+            key={`p-${p.month}`}
+            cx={p.x}
+            cy={p.y}
+            r={4}
+            fill="#fcfcfb"
+            stroke="#2a78d6"
+            strokeWidth={2}
+            onMouseEnter={() => setHover({ point: p, x: p.x, y: p.y, projected: true })}
+            onMouseLeave={() => setHover(null)}
+          />
+        ))}
+
+        {all.map((p, i) =>
+          i % Math.max(1, Math.ceil(all.length / 8)) === 0 ? (
+            <text key={`label-${i}-${p.month}`} x={xFor(i)} y={chartH + 16} textAnchor="middle" fontSize={10} className="fill-muted-foreground">
+              {MONTH_LABELS[Number(p.month.slice(5, 7)) - 1]}
+            </text>
+          ) : null,
+        )}
+      </svg>
+      {hover && (
+        <div className="mt-1 text-xs text-muted-foreground">
+          {MONTH_LABELS[Number(hover.point.month.slice(5, 7)) - 1]}
+          {hover.projected ? ' (proyectado)' : ''}:{' '}
+          <span className="font-medium text-foreground">{formatAmount(hover.point.cumulative)}</span>{' '}
+          <span className="text-muted-foreground">({(hover.point.pct * 100).toFixed(0)}% de la meta)</span>
+        </div>
+      )}
+      <p className="mt-2 text-xs text-muted-foreground">
+        <span className="inline-block h-0.5 w-4 align-middle" style={{ backgroundColor: '#2a78d6' }} /> Real &nbsp;
+        <span
+          className="inline-block h-0.5 w-4 align-middle"
+          style={{ backgroundImage: 'repeating-linear-gradient(90deg, #2a78d6 0 4px, transparent 4px 7px)' }}
+        />{' '}
+        Proyectado
+      </p>
     </div>
   );
 }
@@ -391,17 +684,17 @@ function ProjectDetailPage() {
           <TabsContent value="movimientos" className="space-y-6">
         <Card className="rounded-2xl">
           <CardContent className="p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-sm font-semibold">
-                <Users className="h-4 w-4" />
-                Aportes
-              </h2>
-              <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
-                <Plus className="mr-1.5 h-4 w-4" />
-                Agregar
-              </Button>
-            </div>
-
+            <CollapsibleSection
+              icon={Users}
+              title="Aportes"
+              defaultOpen
+              action={
+                <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Agregar
+                </Button>
+              }
+            >
             {isContributionsLoading && (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -461,22 +754,23 @@ function ProjectDetailPage() {
                 </li>
               ))}
             </ul>
+            </CollapsibleSection>
           </CardContent>
         </Card>
 
         <Card className="rounded-2xl">
           <CardContent className="p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-sm font-semibold">
-                <Receipt className="h-4 w-4" />
-                Gastos
-              </h2>
-              <Button variant="outline" size="sm" onClick={() => setAddExpenseOpen(true)}>
-                <Plus className="mr-1.5 h-4 w-4" />
-                Agregar
-              </Button>
-            </div>
-
+            <CollapsibleSection
+              icon={Receipt}
+              title="Gastos"
+              defaultOpen={false}
+              action={
+                <Button variant="outline" size="sm" onClick={() => setAddExpenseOpen(true)}>
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Agregar
+                </Button>
+              }
+            >
             {isExpensesLoading && (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => (
@@ -536,6 +830,7 @@ function ProjectDetailPage() {
                 </li>
               ))}
             </ul>
+            </CollapsibleSection>
           </CardContent>
         </Card>
           </TabsContent>
