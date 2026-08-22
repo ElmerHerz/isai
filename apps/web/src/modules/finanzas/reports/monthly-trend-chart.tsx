@@ -99,11 +99,13 @@ export function MonthlyTrendChart({ rows }: Props) {
 
       <div className="overflow-x-auto">
         <svg
-          width={chartW}
+          viewBox={`0 0 ${chartW} ${chartH + 32}`}
+          width="100%"
           height={chartH + 32}
+          preserveAspectRatio="none"
           role="img"
           aria-label="Tendencia mensual de ofrenda, diezmo y talento, últimos 6 meses"
-          className="min-w-full"
+          style={{ minWidth: chartW }}
         >
           {/* Líneas guía horizontales, recesivas */}
           {[0, 0.5, 1].map((f) => (

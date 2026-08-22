@@ -468,7 +468,15 @@ function ProjectionLineChart({
 
   return (
     <div className="overflow-x-auto">
-      <svg width={chartW} height={chartH} role="img" aria-label="Proyección de avance hacia la meta">
+      <svg
+        viewBox={`0 0 ${chartW} ${chartH}`}
+        width="100%"
+        height={chartH}
+        preserveAspectRatio="none"
+        style={{ minWidth: chartW }}
+        role="img"
+        aria-label="Proyección de avance hacia la meta"
+      >
         {/* Líneas guía horizontales + etiquetas del eje Y */}
         {yTicks.map((t) => (
           <g key={t}>
@@ -593,7 +601,15 @@ function MonthlyContributionsBars({ monthly }: { monthly: [string, number][] }) 
 
   return (
     <div className="overflow-x-auto">
-      <svg width={monthly.length * colW} height={chartH + 28} role="img" aria-label="Aportes por mes">
+      <svg
+        viewBox={`0 0 ${monthly.length * colW} ${chartH + 28}`}
+        width="100%"
+        height={chartH + 28}
+        preserveAspectRatio="none"
+        style={{ minWidth: monthly.length * colW }}
+        role="img"
+        aria-label="Aportes por mes"
+      >
         <line x1={0} x2={monthly.length * colW} y1={chartH} y2={chartH} stroke="#c3c2b7" strokeWidth={1} />
         {monthly.map(([month, value], i) => {
           const h = Math.max((value / max) * (chartH - 8), 2);
