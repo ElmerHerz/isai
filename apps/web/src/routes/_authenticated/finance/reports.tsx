@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
-import { BarChart3, TrendingUp, TrendingDown, Wallet, ListTodo } from 'lucide-react';
+import { BarChart3, TrendingUp, TrendingDown, Wallet, ListTodo, LineChart, ListTree } from 'lucide-react';
 import { useFundSummaryQuery, useDashboardKpisQuery, useMonthlyTrendQuery, useProjectsQuery } from '@/modules/finanzas';
 import { useInstitutionsQuery } from '@/modules/general';
 import { MonthlyTrendChart } from '@/modules/finanzas/reports/monthly-trend-chart';
@@ -10,6 +10,7 @@ import { TableSkeletonRows } from '@/components/ui/table-skeleton';
 import { Skeleton } from '@/components/ui/skeleton';
 import { QueryErrorState } from '@/components/ui/query-error-state';
 import { Card, CardContent } from '@/components/ui/card';
+import { CollapsibleSection } from '@/components/ui/collapsible-section';
 import { PageHeader } from '@/components/layout/page-header';
 import { useCurrentModuleColor } from '@/components/layout/use-current-module-color';
 import { tintBackground, tintForeground } from '@/lib/color';
@@ -133,29 +134,36 @@ function ReportsPage() {
       <motion.div initial="hidden" animate="show" variants={fadeUp} className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-3">
           <CardContent className="p-4">
-            <h3 className="mb-3 text-sm font-medium">Ofrenda, diezmo y talento — últimos 6 meses</h3>
-            {trendLoading ? (
-              <Skeleton className="h-[220px] w-full" />
-            ) : (
-              <MonthlyTrendChart rows={trend ?? []} />
-            )}
+            <CollapsibleSection icon={LineChart} title="Ofrenda, diezmo y talento — últimos 6 meses" defaultOpen>
+              {trendLoading ? (
+                <Skeleton className="h-[220px] w-full" />
+              ) : (
+                <MonthlyTrendChart rows={trend ?? []} />
+              )}
+            </CollapsibleSection>
           </CardContent>
         </Card>
 
         <Card className="lg:col-span-2">
-          <CardContent className="space-y-4 p-4">
-            <h3 className="text-sm font-medium">Avance de proyectos activos</h3>
-            {activeProjects.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No hay proyectos activos.</p>
-            ) : (
-              activeProjects.map((p) => <ProjectProgress key={p.id} project={p} />)
-            )}
+          <CardContent className="p-4">
+            <CollapsibleSection icon={TrendingUp} title="Avance de proyectos activos" defaultOpen={false}>
+              <div className="space-y-4">
+                {activeProjects.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No hay proyectos activos.</p>
+                ) : (
+                  activeProjects.map((p) => <ProjectProgress key={p.id} project={p} />)
+                )}
+              </div>
+            </CollapsibleSection>
           </CardContent>
         </Card>
       </motion.div>
 
       {/* --- Detalle por sucursal/grupo/cuenta --- */}
       <motion.div initial="hidden" animate="show" variants={fadeUp} className="mt-4">
+        <Card className="rounded-2xl">
+          <CardContent className="p-4">
+            <CollapsibleSection icon={ListTree} title="Detalle por sucursal, grupo y cuenta" defaultOpen={false}>
         <div className="overflow-hidden rounded-2xl border shadow-sm">
           {/* Móvil: tarjetas apiladas. */}
           <div className="divide-y sm:hidden">
@@ -239,6 +247,9 @@ function ReportsPage() {
             </Table>
           </div>
         </div>
+            </CollapsibleSection>
+          </CardContent>
+        </Card>
       </motion.div>
     </div>
   );

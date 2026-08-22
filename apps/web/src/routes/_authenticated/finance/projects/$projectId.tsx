@@ -186,9 +186,18 @@ function ProjectStatsTab({ project, contributions, expenses }: ProjectStatsTabPr
     const goalAmount = Number(project.goalAmount);
     const totalContributed = Number(project.totalContributed);
     const remaining = Math.max(0, goalAmount - totalContributed);
+    // startMonth vía .slice(0,7) del string, nunca new Date(project.createdAt)
+    // + getFullYear()/getMonth() -- createdAt llega como ISO con hora, y
+    // leerlo en hora local puede correr el mes si el huso horario del
+    // navegador está detrás de UTC (mismo motivo que en las demás fechas
+    // de este archivo). El día 1 de ese mes es la base de todo el cálculo
+    // de meses transcurridos/restantes.
     const now = new Date();
-    const createdAt = new Date(project.createdAt);
-    const monthsElapsed = Math.max(1, monthsBetween(createdAt, now) + 1);
+    const nowMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startMonth = monthKeyToDate(project.createdAt.slice(0, 7));
+    const monthIndexOf = (monthKey: string) => monthsBetween(startMonth, monthKeyToDate(monthKey));
+
+    const monthsElapsed = Math.max(1, monthsBetween(startMonth, nowMonth) + 1);
     const monthlyRate = totalContributed / monthsElapsed;
     const monthsToGoal = monthlyRate > 0 ? remaining / monthlyRate : null;
     const estimatedDate = remaining <= 0 ? now : monthsToGoal !== null ? addMonths(now, monthsToGoal) : null;
@@ -197,40 +206,48 @@ function ProjectStatsTab({ project, contributions, expenses }: ProjectStatsTabPr
     let minMonthlyNeeded: number | null = null;
     let onTrack: boolean | null = null;
     if (project.targetDate) {
-      const target = new Date(project.targetDate);
-      monthsUntilTarget = Math.max(0, monthsBetween(now, target));
+      const targetMonth = monthKeyToDate(project.targetDate.slice(0, 7));
+      monthsUntilTarget = Math.max(0, monthsBetween(nowMonth, targetMonth));
       minMonthlyNeeded = remaining <= 0 ? 0 : monthsUntilTarget > 0 ? remaining / monthsUntilTarget : remaining;
-      onTrack = remaining <= 0 ? true : estimatedDate !== null ? estimatedDate <= target : false;
+      onTrack = remaining <= 0 ? true : estimatedDate !== null ? estimatedDate <= targetMonth : false;
     }
 
-    // Serie para la gráfica: acumulado real mes a mes + continuación
-    // proyectada (punteada) al mismo ritmo, hasta llegar al 100% o un tope
-    // de 12 meses hacia adelante (para no alargar el eje al infinito
-    // cuando el ritmo es muy bajo).
     let running = 0;
-    const actual = stats.monthly.map(([month, amount]) => {
+    const actual: TrendPoint[] = stats.monthly.map(([month, amount]) => {
       running += amount;
-      return { month, cumulative: running, pct: goalAmount > 0 ? running / goalAmount : 0 };
+      return { month, monthIndex: monthIndexOf(month), cumulative: running, pct: goalAmount > 0 ? running / goalAmount : 0 };
     });
-    const projected: { month: string; cumulative: number; pct: number }[] = [];
+
+    // .slice(0,7) sobre el string, no parseo+lectura local del ISO completo
+    // -- mismo motivo que en las demás fechas: evita el corrimiento de un
+    // día (y a veces de mes) al leer una fecha UTC en hora local detrás de
+    // UTC.
+    const targetMonthIndex = project.targetDate ? monthIndexOf(project.targetDate.slice(0, 7)) : null;
+
+    const projected: TrendPoint[] = [];
     if (monthlyRate > 0 && goalAmount > 0) {
       let cursor = running;
-      let d =
-        stats.monthly.length > 0
-          ? monthKeyToDate(stats.monthly[stats.monthly.length - 1]![0])
-          : new Date(now.getFullYear(), now.getMonth(), 1);
-      for (let i = 0; i < 12 && cursor < goalAmount; i++) {
+      let d = stats.monthly.length > 0 ? monthKeyToDate(stats.monthly[stats.monthly.length - 1]![0]) : new Date(startMonth);
+      const cap = Math.max(24, (targetMonthIndex ?? 0) + 3);
+      for (let i = 0; i < cap && cursor < goalAmount; i++) {
         d = addMonths(d, 1);
         cursor += monthlyRate;
-        projected.push({
-          month: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-          cumulative: cursor,
-          pct: cursor / goalAmount,
-        });
+        const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        projected.push({ month, monthIndex: monthIndexOf(month), cumulative: cursor, pct: cursor / goalAmount });
       }
     }
 
-    return { monthlyRate, remaining, monthsUntilTarget, minMonthlyNeeded, onTrack, estimatedDate, actual, projected };
+    // Línea ideal: ritmo constante que llevaría exactamente al 100% en la
+    // fecha objetivo -- de (mes 0, 0%) a (mes de la fecha objetivo, 100%).
+    const ideal: TrendPoint[] =
+      targetMonthIndex !== null && targetMonthIndex > 0
+        ? [
+            { month: stats.monthly[0]?.[0] ?? '', monthIndex: 0, cumulative: 0, pct: 0 },
+            { month: '', monthIndex: targetMonthIndex, cumulative: goalAmount, pct: 1 },
+          ]
+        : [];
+
+    return { monthlyRate, remaining, monthsUntilTarget, minMonthlyNeeded, onTrack, estimatedDate, actual, projected, ideal, targetMonthIndex };
   }, [stats, project.goalAmount, project.totalContributed, project.createdAt, project.targetDate]);
 
   return (
@@ -324,7 +341,8 @@ function ProjectStatsTab({ project, contributions, expenses }: ProjectStatsTabPr
                     <ProjectionLineChart
                       actual={projection.actual}
                       projected={projection.projected}
-                      targetDate={project.targetDate ?? null}
+                      ideal={projection.ideal}
+                      startMonth={`${new Date(project.createdAt).getFullYear()}-${String(new Date(project.createdAt).getMonth() + 1).padStart(2, '0')}`}
                     />
                   )}
                 </div>
@@ -372,77 +390,122 @@ function ProjectStatsTab({ project, contributions, expenses }: ProjectStatsTabPr
 
 interface TrendPoint {
   month: string;
+  monthIndex: number;
   cumulative: number;
   pct: number;
 }
 
-// Línea de % de la meta acumulado: sólida para lo real, punteada para la
-// proyección (mismo ritmo promedio hacia adelante) -- el punto de quiebre
-// entre ambas comparte coordenada, así la línea punteada "sale" justo
-// donde termina la sólida. Línea de referencia horizontal en 100% = meta,
-// y una marca vertical en la fecha objetivo si cae dentro del rango
-// visible. Una sola serie -> sin leyenda de color (el título ya la nombra),
-// pero sí hace falta distinguir sólido/punteado, así que se anota en texto.
+function monthIndexLabel(startMonth: string, index: number): string {
+  const d = addMonths(monthKeyToDate(startMonth), index);
+  const yy = String(d.getFullYear()).slice(2);
+  return `${MONTH_LABELS[d.getMonth()]} '${yy}`;
+}
+
+// Línea de % de la meta acumulado, con tres series sobre el mismo eje X
+// numérico (meses desde que arrancó el proyecto, no posición en un
+// arreglo -- así real/proyectado/ideal quedan alineados de verdad así
+// tengan distinta cantidad de puntos):
+//   - Real (sólida): lo que ya se aportó, mes a mes.
+//   - Proyectado (punteada, mismo azul): continúa al ritmo promedio actual.
+//   - Ideal (punteada gris): ritmo constante que llevaría exacto al 100%
+//     en la fecha objetivo -- la vara con la que se compara si "vamos
+//     bien" o no.
+// Eje Y con porcentaje real (0%..100%+) y eje X con TODOS los meses del
+// rango (con año, para no confundir si cruza a otro año), no solo cada
+// N puntos -- por eso el ancho del SVG crece con la cantidad de meses en
+// vez de mantenerse fijo.
 function ProjectionLineChart({
   actual,
   projected,
-  targetDate,
+  ideal,
+  startMonth,
 }: {
   actual: TrendPoint[];
   projected: TrendPoint[];
-  targetDate: string | null;
+  ideal: TrendPoint[];
+  startMonth: string;
 }) {
   const [hover, setHover] = useState<{ point: TrendPoint; x: number; y: number; projected: boolean } | null>(null);
 
-  const all = [...actual, ...projected];
+  const all = [...actual, ...projected, ...ideal];
+  const maxIndex = Math.max(...all.map((p) => p.monthIndex), 1);
   const maxPct = Math.max(...all.map((p) => p.pct), 1);
   const yMax = Math.max(1.1, maxPct * 1.15);
-  const chartH = 180;
-  const chartW = Math.max(320, all.length * 56);
-  const padL = 8;
-  const padR = 8;
 
-  const xFor = (i: number) => padL + (i / Math.max(1, all.length - 1)) * (chartW - padL - padR);
-  const yFor = (pct: number) => chartH - (pct / yMax) * (chartH - 10);
+  const chartH = 200;
+  const padTop = 14;
+  const padBottom = 22;
+  const padL = 44; // espacio para las etiquetas del eje Y
+  const padR = 46; // espacio para que "Meta" no se corte a la derecha
+  const monthStep = 42;
+  const chartW = Math.max(360, padL + padR + maxIndex * monthStep);
+  const plotH = chartH - padTop - padBottom;
 
-  const actualPts = actual.map((p, i) => ({ ...p, x: xFor(i), y: yFor(p.pct) }));
-  const projectedPts = projected.map((p, i) => ({ ...p, x: xFor(actual.length + i), y: yFor(p.pct) }));
+  const xFor = (monthIndex: number) => padL + (monthIndex / maxIndex) * (chartW - padL - padR);
+  const yFor = (pct: number) => padTop + plotH - (pct / yMax) * plotH;
+
+  const actualPts = actual.map((p) => ({ ...p, x: xFor(p.monthIndex), y: yFor(p.pct) }));
+  const projectedPts = projected.map((p) => ({ ...p, x: xFor(p.monthIndex), y: yFor(p.pct) }));
   const dashedPts = actualPts.length > 0 ? [actualPts[actualPts.length - 1]!, ...projectedPts] : projectedPts;
+  const idealPts = ideal.map((p) => ({ ...p, x: xFor(p.monthIndex), y: yFor(p.pct) }));
 
   const goalY = yFor(1);
 
-  // Marca de la fecha objetivo, si cae dentro del rango de meses mostrado.
-  let targetX: number | null = null;
-  if (targetDate) {
-    const targetMonth = targetDate.slice(0, 7);
-    const idx = all.findIndex((p) => p.month === targetMonth);
-    if (idx >= 0) targetX = xFor(idx);
-  }
+  const targetX = ideal.length > 1 ? xFor(ideal[1]!.monthIndex) : null;
+
+  // Marcas del eje Y: 0%, 25%, 50%, 75%, 100% y, si el rango sube más
+  // (proyección o ideal por encima de la meta), un escalón más arriba.
+  const yTicks: number[] = [];
+  for (let t = 0; t <= yMax + 0.001; t += 0.25) yTicks.push(t);
+
+  // Marcas del eje X: un mes por marca si el rango es corto, más
+  // espaciadas si es largo -- pero siempre incluye el primer y el último
+  // mes visible, para no perder los extremos.
+  const xStep = maxIndex <= 8 ? 1 : maxIndex <= 16 ? 2 : maxIndex <= 30 ? 3 : Math.ceil(maxIndex / 10);
+  const xTicks: number[] = [];
+  for (let m = 0; m <= maxIndex; m += xStep) xTicks.push(m);
+  if (xTicks[xTicks.length - 1] !== maxIndex) xTicks.push(maxIndex);
 
   return (
     <div className="overflow-x-auto">
-      <svg width={chartW} height={chartH + 28} role="img" aria-label="Proyección de avance hacia la meta">
-        {/* Línea de meta (100%) */}
-        <line x1={0} x2={chartW} y1={goalY} y2={goalY} stroke="#eda100" strokeWidth={1} strokeDasharray="3 3" />
-        <text x={chartW - 2} y={goalY - 4} textAnchor="end" fontSize={10} fill="#eda100">
+      <svg width={chartW} height={chartH} role="img" aria-label="Proyección de avance hacia la meta">
+        {/* Líneas guía horizontales + etiquetas del eje Y */}
+        {yTicks.map((t) => (
+          <g key={t}>
+            <line x1={padL} x2={chartW - padR} y1={yFor(t)} y2={yFor(t)} stroke="#e1e0d9" strokeWidth={1} />
+            <text x={padL - 6} y={yFor(t)} dy={3} textAnchor="end" fontSize={10} className="fill-muted-foreground">
+              {Math.round(t * 100)}%
+            </text>
+          </g>
+        ))}
+
+        {/* Línea de meta (100%), más marcada que las guías normales */}
+        <line x1={padL} x2={chartW - padR} y1={goalY} y2={goalY} stroke="#eda100" strokeWidth={1.5} strokeDasharray="3 3" />
+        <text x={chartW - padR + 4} y={goalY} dy={3} fontSize={10} fill="#eda100">
           Meta
         </text>
 
         {/* Marca de fecha objetivo */}
         {targetX !== null && (
-          <line x1={targetX} x2={targetX} y1={0} y2={chartH} stroke="#898781" strokeWidth={1} strokeDasharray="2 2" />
+          <line x1={targetX} x2={targetX} y1={padTop} y2={padTop + plotH} stroke="#898781" strokeWidth={1} strokeDasharray="2 2" />
+        )}
+
+        {/* Ideal (punteada gris) */}
+        {idealPts.length > 1 && (
+          <polyline
+            points={idealPts.map((p) => `${p.x},${p.y}`).join(' ')}
+            fill="none"
+            stroke="#898781"
+            strokeWidth={1.5}
+            strokeDasharray="4 3"
+          />
         )}
 
         {/* Real (sólido) */}
         {actualPts.length > 1 && (
-          <polyline
-            points={actualPts.map((p) => `${p.x},${p.y}`).join(' ')}
-            fill="none"
-            stroke="#2a78d6"
-            strokeWidth={2}
-          />
+          <polyline points={actualPts.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke="#2a78d6" strokeWidth={2} />
         )}
-        {/* Proyectado (punteado) */}
+        {/* Proyectado (punteado, mismo azul) */}
         {dashedPts.length > 1 && (
           <polyline
             points={dashedPts.map((p) => `${p.x},${p.y}`).join(' ')}
@@ -479,29 +542,41 @@ function ProjectionLineChart({
           />
         ))}
 
-        {all.map((p, i) =>
-          i % Math.max(1, Math.ceil(all.length / 8)) === 0 ? (
-            <text key={`label-${i}-${p.month}`} x={xFor(i)} y={chartH + 16} textAnchor="middle" fontSize={10} className="fill-muted-foreground">
-              {MONTH_LABELS[Number(p.month.slice(5, 7)) - 1]}
-            </text>
-          ) : null,
-        )}
+        {/* Eje X: etiquetas de mes + año en todas las marcas calculadas */}
+        {xTicks.map((m) => (
+          <text key={m} x={xFor(m)} y={chartH - 4} textAnchor="middle" fontSize={10} className="fill-muted-foreground">
+            {monthIndexLabel(startMonth, m)}
+          </text>
+        ))}
       </svg>
       {hover && (
         <div className="mt-1 text-xs text-muted-foreground">
-          {MONTH_LABELS[Number(hover.point.month.slice(5, 7)) - 1]}
+          {monthIndexLabel(startMonth, hover.point.monthIndex)}
           {hover.projected ? ' (proyectado)' : ''}:{' '}
           <span className="font-medium text-foreground">{formatAmount(hover.point.cumulative)}</span>{' '}
           <span className="text-muted-foreground">({(hover.point.pct * 100).toFixed(0)}% de la meta)</span>
         </div>
       )}
-      <p className="mt-2 text-xs text-muted-foreground">
-        <span className="inline-block h-0.5 w-4 align-middle" style={{ backgroundColor: '#2a78d6' }} /> Real &nbsp;
-        <span
-          className="inline-block h-0.5 w-4 align-middle"
-          style={{ backgroundImage: 'repeating-linear-gradient(90deg, #2a78d6 0 4px, transparent 4px 7px)' }}
-        />{' '}
-        Proyectado
+      <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-0.5 w-4" style={{ backgroundColor: '#2a78d6' }} /> Real
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span
+            className="inline-block h-0.5 w-4"
+            style={{ backgroundImage: 'repeating-linear-gradient(90deg, #2a78d6 0 4px, transparent 4px 7px)' }}
+          />
+          Proyectado
+        </span>
+        {ideal.length > 1 && (
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block h-0.5 w-4"
+              style={{ backgroundImage: 'repeating-linear-gradient(90deg, #898781 0 4px, transparent 4px 7px)' }}
+            />
+            Ideal (ritmo necesario para llegar a tiempo)
+          </span>
+        )}
       </p>
     </div>
   );
