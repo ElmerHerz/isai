@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import ExcelJS from 'exceljs';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -511,5 +512,113 @@ export class ProjectsService {
         include: expensesInclude,
       });
     });
+  }
+
+  // --- Exportar a Excel ---------------------------------------------------
+  // Mismo patrón que PersonsService.buildTemplateWorkbook: el service arma
+  // el ExcelJS.Workbook, el controller lo serializa y lo manda con los
+  // headers de descarga (ver PersonsController.downloadTemplate).
+  async buildSummaryWorkbook(
+    id: string,
+    tenantId: string | null,
+    user: RequestUser,
+  ): Promise<{ workbook: ExcelJS.Workbook; projectName: string }> {
+    const [project, contributions, expenses] = await Promise.all([
+      this.findOne(id, tenantId, user),
+      this.findContributions(id, tenantId, user),
+      this.findExpenses(id, tenantId, user),
+    ]);
+    // findOne ya lanza NotFoundException si no existe/no es accesible —
+    // este guard es solo para que TS estreche el tipo (withTotals lo tipa
+    // como posible undefined por destructuring de arreglo bajo
+    // noUncheckedIndexedAccess, aunque en la práctica siempre viene lleno).
+    if (!project) throw new NotFoundException(`Proyecto "${id}" no encontrado`);
+
+    const totalContributed = Number(project.totalContributed);
+    const totalSpent = Number(project.totalSpent);
+    const goalAmount = Number(project.goalAmount);
+    const percent = goalAmount > 0 ? Math.min(100, (totalContributed / goalAmount) * 100) : 0;
+
+    const contributorKey = (c: (typeof contributions)[number]) =>
+      c.person ? `p:${c.person.id}` : c.group ? `g:${c.group.id}` : 'anon';
+    const distinctContributors = new Set(contributions.map(contributorKey)).size;
+    const contributedPosted = contributions.filter((c) => c.journalEntryId).length;
+    const expensesPosted = expenses.filter((e) => e.journalEntryId).length;
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'ISAI';
+    workbook.created = new Date();
+
+    // --- Hoja 1: Resumen ---
+    const summary = workbook.addWorksheet('Resumen');
+    summary.columns = [
+      { header: 'Indicador', key: 'label', width: 34 },
+      { header: 'Valor', key: 'value', width: 22 },
+    ];
+    summary.addRows([
+      { label: 'Proyecto', value: project.name },
+      { label: 'Sucursal', value: project.branch.name },
+      { label: 'Estado', value: project.status === 'active' ? 'Activo' : project.status === 'completed' ? 'Completado' : 'Cancelado' },
+      { label: 'Meta', value: goalAmount },
+      { label: 'Fecha objetivo', value: project.targetDate ? new Date(project.targetDate) : 'Sin fecha' },
+      { label: '', value: '' },
+      { label: 'Recaudado', value: totalContributed },
+      { label: 'Gastado', value: totalSpent },
+      { label: 'Disponible', value: totalContributed - totalSpent },
+      { label: '% de avance hacia la meta', value: `${percent.toFixed(1)}%` },
+      { label: '', value: '' },
+      { label: 'Número de aportantes distintos', value: distinctContributors },
+      { label: 'Aporte promedio', value: contributions.length > 0 ? totalContributed / contributions.length : 0 },
+      { label: 'Aportes registrados', value: contributions.length },
+      { label: 'Aportes ya contabilizados', value: contributedPosted },
+      { label: 'Aportes pendientes de contabilizar', value: contributions.length - contributedPosted },
+      { label: 'Gastos registrados', value: expenses.length },
+      { label: 'Gastos ya contabilizados', value: expensesPosted },
+      { label: 'Gastos pendientes de contabilizar', value: expenses.length - expensesPosted },
+    ]);
+    summary.getColumn('label').font = { bold: true };
+    summary.getRow(1).font = { bold: true };
+
+    // --- Hoja 2: Aportes ---
+    const contribSheet = workbook.addWorksheet('Aportes');
+    contribSheet.columns = [
+      { header: 'Fecha', key: 'date', width: 14 },
+      { header: 'Aportante', key: 'who', width: 30 },
+      { header: 'Monto', key: 'amount', width: 14 },
+      { header: 'Contabilizado', key: 'posted', width: 16 },
+      { header: 'Notas', key: 'notes', width: 30 },
+    ];
+    contribSheet.getRow(1).font = { bold: true };
+    for (const c of contributions) {
+      contribSheet.addRow({
+        date: new Date(c.contributedAt),
+        who: c.person ? `${c.person.firstName} ${c.person.lastName}` : c.group ? `Grupo: ${c.group.name}` : '—',
+        amount: Number(c.amount),
+        posted: c.journalEntryId ? 'Sí' : 'No',
+        notes: c.notes ?? '',
+      });
+    }
+
+    // --- Hoja 3: Gastos ---
+    const expenseSheet = workbook.addWorksheet('Gastos');
+    expenseSheet.columns = [
+      { header: 'Fecha', key: 'date', width: 14 },
+      { header: 'Cuenta', key: 'account', width: 30 },
+      { header: 'Monto', key: 'amount', width: 14 },
+      { header: 'Contabilizado', key: 'posted', width: 16 },
+      { header: 'Notas', key: 'notes', width: 30 },
+    ];
+    expenseSheet.getRow(1).font = { bold: true };
+    for (const e of expenses) {
+      expenseSheet.addRow({
+        date: new Date(e.incurredAt),
+        account: `${e.account.code} · ${e.account.name}`,
+        amount: Number(e.amount),
+        posted: e.journalEntryId ? 'Sí' : 'No',
+        notes: e.notes ?? '',
+      });
+    }
+
+    return { workbook, projectName: project.name };
   }
 }

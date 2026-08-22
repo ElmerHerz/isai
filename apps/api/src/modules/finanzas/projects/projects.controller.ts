@@ -1,7 +1,8 @@
 import {
-  Controller, Get, Post, Patch, Delete, Param, Query, Body, ParseUUIDPipe, HttpCode, HttpStatus,
+  Controller, Get, Post, Patch, Delete, Param, Query, Body, ParseUUIDPipe, HttpCode, HttpStatus, Res,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import type { FastifyReply } from 'fastify';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -37,6 +38,24 @@ export class ProjectsController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.projectsService.findOne(id, tenantId, user);
+  }
+
+  @Get(':id/export')
+  @RequirePermission('finance.report.export')
+  @ApiOperation({ summary: 'Descargar el resumen estadístico del proyecto en Excel (KPIs, aportes, gastos)' })
+  async exportSummary(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
+    @Res() res: FastifyReply,
+  ) {
+    const { workbook, projectName } = await this.projectsService.buildSummaryWorkbook(id, tenantId, user);
+    const buffer = await workbook.xlsx.writeBuffer();
+    const safeName = projectName.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '');
+    res
+      .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      .header('Content-Disposition', `attachment; filename="proyecto-${safeName}.xlsx"`)
+      .send(Buffer.from(buffer));
   }
 
   @Post()

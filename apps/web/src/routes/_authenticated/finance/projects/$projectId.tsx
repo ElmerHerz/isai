@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
 import {
@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   CircleDollarSign,
   Clock,
+  Download,
   Flag,
   Landmark,
   MapPin,
@@ -33,11 +34,13 @@ import {
 import { ProjectFormDialog } from '@/modules/finanzas/projects/components/project-form-dialog';
 import { AddContributionDialog } from '@/modules/finanzas/projects/components/add-contribution-dialog';
 import { AddExpenseDialog } from '@/modules/finanzas/projects/components/add-expense-dialog';
+import { useExportProjectSummary } from '@/modules/finanzas/projects/use-export-project-summary';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { QueryErrorState } from '@/components/ui/query-error-state';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/layout/page-header';
 import { formatDate, daysUntilLocal } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -90,6 +93,169 @@ function StatTile({ icon: Icon, label, value, tone }: { icon: LucideIcon; label:
         <span className="truncate">{label}</span>
       </div>
       <p className="mt-1 truncate text-lg font-bold sm:text-xl">{value}</p>
+    </div>
+  );
+}
+
+// --- Tab de estadísticas -----------------------------------------------------
+
+const MONTH_LABELS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+interface ProjectStatsTabProps {
+  project: { id: string; name: string };
+  contributions?: ProjectContribution[];
+  expenses?: ProjectExpense[];
+}
+
+function ProjectStatsTab({ project, contributions, expenses }: ProjectStatsTabProps) {
+  const { download, isDownloading } = useExportProjectSummary(project.id, project.name);
+
+  const stats = useMemo(() => {
+    if (!contributions || !expenses) return null;
+
+    const byContributor = new Map<string, { label: string; total: number; count: number }>();
+    for (const c of contributions) {
+      const key = c.personId ?? (c.groupId ? `g:${c.groupId}` : 'anon');
+      const entry = byContributor.get(key) ?? { label: contributorLabel(c), total: 0, count: 0 };
+      entry.total += Number(c.amount);
+      entry.count += 1;
+      byContributor.set(key, entry);
+    }
+    const topContributors = [...byContributor.values()].sort((a, b) => b.total - a.total).slice(0, 5);
+
+    const postedContributions = contributions.filter((c) => c.journalEntryId).length;
+    const postedExpenses = expenses.filter((e) => e.journalEntryId).length;
+    const totalContributed = contributions.reduce((sum, c) => sum + Number(c.amount), 0);
+
+    const byMonth = new Map<string, number>();
+    for (const c of contributions) {
+      const month = c.contributedAt.slice(0, 7);
+      byMonth.set(month, (byMonth.get(month) ?? 0) + Number(c.amount));
+    }
+    const monthly = [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b));
+
+    return {
+      distinctContributors: byContributor.size,
+      avgContribution: contributions.length > 0 ? totalContributed / contributions.length : 0,
+      postedContributions,
+      pendingContributions: contributions.length - postedContributions,
+      postedExpenses,
+      pendingExpenses: expenses.length - postedExpenses,
+      topContributors,
+      monthly,
+    };
+  }, [contributions, expenses]);
+
+  return (
+    <div className="space-y-6">
+      <Card className="rounded-2xl">
+        <CardContent className="flex flex-col items-start justify-between gap-3 p-5 sm:flex-row sm:items-center">
+          <div>
+            <h2 className="text-sm font-semibold">Resumen estadístico</h2>
+            <p className="text-xs text-muted-foreground">Aportantes, promedio, avance mensual y estado de contabilización.</p>
+          </div>
+          <Button size="sm" onClick={() => void download()} disabled={isDownloading}>
+            <Download className="mr-1.5 h-4 w-4" />
+            {isDownloading ? 'Generando...' : 'Descargar Excel'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {!stats ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full rounded-xl" />
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <StatTile icon={Users} label="Aportantes distintos" value={String(stats.distinctContributors)} tone="blue" />
+            <StatTile icon={CircleDollarSign} label="Aporte promedio" value={formatAmount(stats.avgContribution)} tone="slate" />
+            <StatTile icon={CheckCircle2} label="Aportes contabilizados" value={String(stats.postedContributions)} tone="emerald" />
+            <StatTile icon={Clock} label="Aportes pendientes" value={String(stats.pendingContributions)} tone="amber" />
+            <StatTile icon={CheckCircle2} label="Gastos contabilizados" value={String(stats.postedExpenses)} tone="emerald" />
+            <StatTile icon={Clock} label="Gastos pendientes" value={String(stats.pendingExpenses)} tone="amber" />
+          </div>
+
+          <Card className="rounded-2xl">
+            <CardContent className="p-5">
+              <h3 className="mb-3 text-sm font-semibold">Aportes por mes</h3>
+              {stats.monthly.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Todavía no hay aportes registrados.</p>
+              ) : (
+                <MonthlyContributionsBars monthly={stats.monthly} />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl">
+            <CardContent className="p-5">
+              <h3 className="mb-3 text-sm font-semibold">Top aportantes</h3>
+              {stats.topContributors.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Todavía no hay aportes registrados.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {stats.topContributors.map((c, i) => (
+                    <li key={i} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
+                      <span className="min-w-0 truncate">{c.label}</span>
+                      <span className="shrink-0 text-muted-foreground">
+                        {c.count} {c.count === 1 ? 'aporte' : 'aportes'} · <span className="font-medium text-foreground">{formatAmount(c.total)}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Barra simple de una sola serie -- una serie no necesita leyenda (el
+// título de la card ya la nombra), mismo criterio de marcas que el panel
+// de Finanzas (extremo superior redondeado, hover con tooltip).
+function MonthlyContributionsBars({ monthly }: { monthly: [string, number][] }) {
+  const [hover, setHover] = useState<{ month: string; value: number } | null>(null);
+  const max = Math.max(...monthly.map(([, v]) => v), 1);
+  const chartH = 140;
+  const colW = 64;
+
+  return (
+    <div className="overflow-x-auto">
+      <svg width={monthly.length * colW} height={chartH + 28} role="img" aria-label="Aportes por mes">
+        <line x1={0} x2={monthly.length * colW} y1={chartH} y2={chartH} stroke="#c3c2b7" strokeWidth={1} />
+        {monthly.map(([month, value], i) => {
+          const h = Math.max((value / max) * (chartH - 8), 2);
+          const cx = i * colW + colW / 2;
+          return (
+            <g key={month}>
+              <rect
+                x={cx - 16}
+                y={chartH - h}
+                width={32}
+                height={h}
+                rx={4}
+                fill="#2a78d6"
+                opacity={hover && hover.month !== month ? 0.55 : 1}
+                onMouseEnter={() => setHover({ month, value })}
+                onMouseLeave={() => setHover(null)}
+                style={{ transition: 'opacity 120ms ease' }}
+              />
+              <text x={cx} y={chartH + 16} textAnchor="middle" fontSize={11} className="fill-muted-foreground">
+                {MONTH_LABELS[Number(month.slice(5, 7)) - 1]}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      {hover && (
+        <div className="mt-1 text-xs text-muted-foreground">
+          {MONTH_LABELS[Number(hover.month.slice(5, 7)) - 1]}: <span className="font-medium text-foreground">{formatAmount(hover.value)}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -216,6 +382,13 @@ function ProjectDetailPage() {
           </CardContent>
         </Card>
 
+        <Tabs defaultValue="movimientos">
+          <TabsList>
+            <TabsTrigger value="movimientos">Aportes y gastos</TabsTrigger>
+            <TabsTrigger value="estadisticas">Estadísticas</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="movimientos" className="space-y-6">
         <Card className="rounded-2xl">
           <CardContent className="p-6">
             <div className="mb-4 flex items-center justify-between">
@@ -365,6 +538,12 @@ function ProjectDetailPage() {
             </ul>
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="estadisticas">
+            <ProjectStatsTab project={project} contributions={contributions} expenses={expenses} />
+          </TabsContent>
+        </Tabs>
       </motion.div>
 
       <ProjectFormDialog
