@@ -468,11 +468,10 @@ function ProjectionLineChart({
 
   return (
     <div className="overflow-x-auto">
-      <div style={{ minWidth: chartW, height: chartH }}>
       <svg
-        viewBox={`0 0 ${chartW} ${chartH}`}
-        preserveAspectRatio="none"
-        style={{ width: '100%', height: '100%', display: 'block' }}
+        width={chartW}
+        height={chartH}
+        className="mx-auto block"
         role="img"
         aria-label="Proyección de avance hacia la meta"
       >
@@ -556,7 +555,6 @@ function ProjectionLineChart({
           </text>
         ))}
       </svg>
-      </div>
       {hover && (
         <div className="mt-1 text-xs text-muted-foreground">
           {monthIndexLabel(startMonth, hover.point.monthIndex)}
@@ -601,11 +599,10 @@ function MonthlyContributionsBars({ monthly }: { monthly: [string, number][] }) 
 
   return (
     <div className="overflow-x-auto">
-      <div style={{ minWidth: monthly.length * colW, height: chartH + 28 }}>
       <svg
-        viewBox={`0 0 ${monthly.length * colW} ${chartH + 28}`}
-        preserveAspectRatio="none"
-        style={{ width: '100%', height: '100%', display: 'block' }}
+        width={monthly.length * colW}
+        height={chartH + 28}
+        className="mx-auto block"
         role="img"
         aria-label="Aportes por mes"
       >
@@ -634,7 +631,6 @@ function MonthlyContributionsBars({ monthly }: { monthly: [string, number][] }) 
           );
         })}
       </svg>
-      </div>
       {hover && (
         <div className="mt-1 text-xs text-muted-foreground">
           {MONTH_LABELS[Number(hover.month.slice(5, 7)) - 1]}: <span className="font-medium text-foreground">{formatAmount(hover.value)}</span>
