@@ -64,6 +64,12 @@ export {
 } from './groups/use-add-group-members.mutation';
 export { useRemoveGroupMemberMutation } from './groups/use-remove-group-member.mutation';
 
+export { useAttendanceTrendQuery, attendanceTrendKey } from './reports/use-attendance-trend.query';
+export { useAttendanceByBranchQuery, attendanceByBranchKey } from './reports/use-attendance-by-branch.query';
+export { useAttendanceAbsencesQuery, attendanceAbsencesKey } from './reports/use-attendance-absences.query';
+export { useReportSchedulesQuery, reportSchedulesKey } from './reports/use-report-schedules.query';
+export type { AttendanceReportFilters } from './reports/attendance-report-filters';
+
 export { usePositionsQuery, positionsQueryKey } from './positions/use-positions.query';
 export {
   useCreatePositionMutation,

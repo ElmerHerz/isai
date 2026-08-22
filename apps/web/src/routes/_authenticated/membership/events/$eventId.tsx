@@ -32,6 +32,7 @@ import { AttendanceEditor } from '@/modules/membresia/events/components/attendan
 import { AddEventPrivilegeDialog } from '@/modules/membresia/events/components/add-event-privilege-dialog';
 import { AddFundCollectionDialog } from '@/modules/membresia/events/components/add-fund-collection-dialog';
 import { Card, CardContent } from '@/components/ui/card';
+import { CollapsibleSection } from '@/components/ui/collapsible-section';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -166,11 +167,9 @@ function EventDetailPage() {
 
         <Card className="rounded-2xl">
           <CardContent className="p-6">
-            <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
-              <ClipboardCheck className="h-4 w-4" />
-              Asistencia
-            </h2>
-            <AttendanceEditor event={event} />
+            <CollapsibleSection icon={ClipboardCheck} title="Asistencia" defaultOpen>
+              <AttendanceEditor event={event} />
+            </CollapsibleSection>
           </CardContent>
         </Card>
 
@@ -178,142 +177,144 @@ function EventDetailPage() {
           <div className="grid gap-6 lg:grid-cols-2">
             <Card className="rounded-2xl">
               <CardContent className="p-6">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="flex items-center gap-2 text-sm font-semibold">
-                    <Star className="h-4 w-4" />
-                    Privilegios
-                  </h2>
-                  <Button variant="outline" size="sm" onClick={() => setAddPrivilegeOpen(true)}>
-                    <Plus className="mr-1.5 h-4 w-4" />
-                    Agregar
-                  </Button>
-                </div>
+                <CollapsibleSection
+                  icon={Star}
+                  title="Privilegios"
+                  defaultOpen={false}
+                  action={
+                    <Button variant="outline" size="sm" onClick={() => setAddPrivilegeOpen(true)}>
+                      <Plus className="mr-1.5 h-4 w-4" />
+                      Agregar
+                    </Button>
+                  }
+                >
+                  {isPrivilegesLoading && (
+                    <div className="space-y-2">
+                      {Array.from({ length: 2 }).map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                      ))}
+                    </div>
+                  )}
 
-                {isPrivilegesLoading && (
-                  <div className="space-y-2">
-                    {Array.from({ length: 2 }).map((_, i) => (
-                      <Skeleton key={i} className="h-12 w-full rounded-lg" />
-                    ))}
-                  </div>
-                )}
+                  {isPrivilegesError && (
+                    <QueryErrorState message="No se pudieron cargar los privilegios." onRetry={() => refetchPrivileges()} />
+                  )}
 
-                {isPrivilegesError && (
-                  <QueryErrorState message="No se pudieron cargar los privilegios." onRetry={() => refetchPrivileges()} />
-                )}
+                  {!isPrivilegesLoading && !isPrivilegesError && privileges?.length === 0 && (
+                    <p className="text-sm text-muted-foreground">Todavía no se han asignado privilegios.</p>
+                  )}
 
-                {!isPrivilegesLoading && !isPrivilegesError && privileges?.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Todavía no se han asignado privilegios.</p>
-                )}
-
-                <ul className="space-y-2">
-                  {privileges?.map((privilege) => (
-                    <li
-                      key={privilege.id}
-                      className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
-                          {privilege.person.firstName} {privilege.person.lastName}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">{privilege.privilegeType.name}</p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="shrink-0"
-                        onClick={() => setRemovingPrivilege(privilege)}
-                        aria-label="Quitar"
-                        title="Quitar"
+                  <ul className="space-y-2">
+                    {privileges?.map((privilege) => (
+                      <li
+                        key={privilege.id}
+                        className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2"
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {privilege.person.firstName} {privilege.person.lastName}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">{privilege.privilegeType.name}</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0"
+                          onClick={() => setRemovingPrivilege(privilege)}
+                          aria-label="Quitar"
+                          title="Quitar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </CollapsibleSection>
               </CardContent>
             </Card>
 
             <Card className="rounded-2xl">
               <CardContent className="p-6">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="flex items-center gap-2 text-sm font-semibold">
-                    <Coins className="h-4 w-4" />
-                    Fondos recogidos
-                  </h2>
-                  <Button variant="outline" size="sm" onClick={() => setAddFundOpen(true)}>
-                    <Plus className="mr-1.5 h-4 w-4" />
-                    Agregar
-                  </Button>
-                </div>
+                <CollapsibleSection
+                  icon={Coins}
+                  title="Fondos recogidos"
+                  defaultOpen={false}
+                  action={
+                    <Button variant="outline" size="sm" onClick={() => setAddFundOpen(true)}>
+                      <Plus className="mr-1.5 h-4 w-4" />
+                      Agregar
+                    </Button>
+                  }
+                >
+                  {isFundCollectionsLoading && (
+                    <div className="space-y-2">
+                      {Array.from({ length: 2 }).map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                      ))}
+                    </div>
+                  )}
 
-                {isFundCollectionsLoading && (
-                  <div className="space-y-2">
-                    {Array.from({ length: 2 }).map((_, i) => (
-                      <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                  {isFundCollectionsError && (
+                    <QueryErrorState
+                      message="No se pudieron cargar los fondos."
+                      onRetry={() => refetchFundCollections()}
+                    />
+                  )}
+
+                  {!isFundCollectionsLoading && !isFundCollectionsError && fundCollections?.length === 0 && (
+                    <p className="text-sm text-muted-foreground">Todavía no se han registrado fondos.</p>
+                  )}
+
+                  <ul className="space-y-2">
+                    {fundCollections?.map((fc) => (
+                      <li key={fc.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{fc.fundType.name}</p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="text-sm font-medium">${Number(fc.amount).toFixed(2)}</span>
+                          {fc.journalEntryId ? (
+                            <span
+                              className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                              title="Ya tiene asiento contable"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Contabilizado
+                            </span>
+                          ) : (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setPostingFund(fc)}
+                                aria-label="Contabilizar"
+                                title="Contabilizar"
+                              >
+                                <Landmark className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setRemovingFund(fc)}
+                                aria-label="Eliminar"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </li>
                     ))}
-                  </div>
-                )}
+                  </ul>
 
-                {isFundCollectionsError && (
-                  <QueryErrorState
-                    message="No se pudieron cargar los fondos."
-                    onRetry={() => refetchFundCollections()}
-                  />
-                )}
-
-                {!isFundCollectionsLoading && !isFundCollectionsError && fundCollections?.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Todavía no se han registrado fondos.</p>
-                )}
-
-                <ul className="space-y-2">
-                  {fundCollections?.map((fc) => (
-                    <li key={fc.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{fc.fundType.name}</p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <span className="text-sm font-medium">${Number(fc.amount).toFixed(2)}</span>
-                        {fc.journalEntryId ? (
-                          <span
-                            className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
-                            title="Ya tiene asiento contable"
-                          >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            Contabilizado
-                          </span>
-                        ) : (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setPostingFund(fc)}
-                              aria-label="Contabilizar"
-                              title="Contabilizar"
-                            >
-                              <Landmark className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setRemovingFund(fc)}
-                              aria-label="Eliminar"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-
-                {(fundCollections?.length ?? 0) > 0 && (
-                  <div className="mt-3 flex items-center justify-between border-t pt-3 text-sm font-semibold">
-                    <span>Total</span>
-                    <span>${fundTotal.toFixed(2)}</span>
-                  </div>
-                )}
+                  {(fundCollections?.length ?? 0) > 0 && (
+                    <div className="mt-3 flex items-center justify-between border-t pt-3 text-sm font-semibold">
+                      <span>Total</span>
+                      <span>${fundTotal.toFixed(2)}</span>
+                    </div>
+                  )}
+                </CollapsibleSection>
               </CardContent>
             </Card>
           </div>

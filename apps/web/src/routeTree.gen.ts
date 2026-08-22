@@ -20,6 +20,7 @@ import { Route as AuthenticatedGeneralPharmacyLicensesRouteImport } from './rout
 import { Route as AuthenticatedGeneralSettingsRouteImport } from './routes/_authenticated/general/settings'
 import { Route as AuthenticatedMembershipAttendanceRouteImport } from './routes/_authenticated/membership/attendance'
 import { Route as AuthenticatedMembershipPositionsRouteImport } from './routes/_authenticated/membership/positions'
+import { Route as AuthenticatedMembershipReportsRouteImport } from './routes/_authenticated/membership/reports'
 import { Route as AuthenticatedSecurityAuditRouteImport } from './routes/_authenticated/security/audit'
 import { Route as AuthenticatedSecurityRolesRouteImport } from './routes/_authenticated/security/roles'
 import { Route as AuthenticatedSecurityUsersRouteImport } from './routes/_authenticated/security/users'
@@ -98,6 +99,12 @@ const AuthenticatedMembershipPositionsRoute =
   AuthenticatedMembershipPositionsRouteImport.update({
     id: '/membership/positions',
     path: '/membership/positions',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMembershipReportsRoute =
+  AuthenticatedMembershipReportsRouteImport.update({
+    id: '/membership/reports',
+    path: '/membership/reports',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedSecurityAuditRoute =
@@ -214,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/general/settings': typeof AuthenticatedGeneralSettingsRoute
   '/membership/attendance': typeof AuthenticatedMembershipAttendanceRoute
   '/membership/positions': typeof AuthenticatedMembershipPositionsRoute
+  '/membership/reports': typeof AuthenticatedMembershipReportsRoute
   '/security/audit': typeof AuthenticatedSecurityAuditRoute
   '/security/roles': typeof AuthenticatedSecurityRolesRoute
   '/security/users': typeof AuthenticatedSecurityUsersRoute
@@ -243,6 +251,7 @@ export interface FileRoutesByTo {
   '/general/settings': typeof AuthenticatedGeneralSettingsRoute
   '/membership/attendance': typeof AuthenticatedMembershipAttendanceRoute
   '/membership/positions': typeof AuthenticatedMembershipPositionsRoute
+  '/membership/reports': typeof AuthenticatedMembershipReportsRoute
   '/security/audit': typeof AuthenticatedSecurityAuditRoute
   '/security/roles': typeof AuthenticatedSecurityRolesRoute
   '/security/users': typeof AuthenticatedSecurityUsersRoute
@@ -274,6 +283,7 @@ export interface FileRoutesById {
   '/_authenticated/general/settings': typeof AuthenticatedGeneralSettingsRoute
   '/_authenticated/membership/attendance': typeof AuthenticatedMembershipAttendanceRoute
   '/_authenticated/membership/positions': typeof AuthenticatedMembershipPositionsRoute
+  '/_authenticated/membership/reports': typeof AuthenticatedMembershipReportsRoute
   '/_authenticated/security/audit': typeof AuthenticatedSecurityAuditRoute
   '/_authenticated/security/roles': typeof AuthenticatedSecurityRolesRoute
   '/_authenticated/security/users': typeof AuthenticatedSecurityUsersRoute
@@ -305,6 +315,7 @@ export interface FileRouteTypes {
     | '/general/settings'
     | '/membership/attendance'
     | '/membership/positions'
+    | '/membership/reports'
     | '/security/audit'
     | '/security/roles'
     | '/security/users'
@@ -334,6 +345,7 @@ export interface FileRouteTypes {
     | '/general/settings'
     | '/membership/attendance'
     | '/membership/positions'
+    | '/membership/reports'
     | '/security/audit'
     | '/security/roles'
     | '/security/users'
@@ -364,6 +376,7 @@ export interface FileRouteTypes {
     | '/_authenticated/general/settings'
     | '/_authenticated/membership/attendance'
     | '/_authenticated/membership/positions'
+    | '/_authenticated/membership/reports'
     | '/_authenticated/security/audit'
     | '/_authenticated/security/roles'
     | '/_authenticated/security/users'
@@ -465,6 +478,13 @@ declare module '@tanstack/react-router' {
       path: '/membership/positions'
       fullPath: '/membership/positions'
       preLoaderRoute: typeof AuthenticatedMembershipPositionsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/membership/reports': {
+      id: '/_authenticated/membership/reports'
+      path: '/membership/reports'
+      fullPath: '/membership/reports'
+      preLoaderRoute: typeof AuthenticatedMembershipReportsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/security/audit': {
@@ -599,6 +619,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedGeneralSettingsRoute: typeof AuthenticatedGeneralSettingsRoute
   AuthenticatedMembershipAttendanceRoute: typeof AuthenticatedMembershipAttendanceRoute
   AuthenticatedMembershipPositionsRoute: typeof AuthenticatedMembershipPositionsRoute
+  AuthenticatedMembershipReportsRoute: typeof AuthenticatedMembershipReportsRoute
   AuthenticatedSecurityAuditRoute: typeof AuthenticatedSecurityAuditRoute
   AuthenticatedSecurityRolesRoute: typeof AuthenticatedSecurityRolesRoute
   AuthenticatedSecurityUsersRoute: typeof AuthenticatedSecurityUsersRoute
@@ -630,6 +651,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMembershipAttendanceRoute:
     AuthenticatedMembershipAttendanceRoute,
   AuthenticatedMembershipPositionsRoute: AuthenticatedMembershipPositionsRoute,
+  AuthenticatedMembershipReportsRoute: AuthenticatedMembershipReportsRoute,
   AuthenticatedSecurityAuditRoute: AuthenticatedSecurityAuditRoute,
   AuthenticatedSecurityRolesRoute: AuthenticatedSecurityRolesRoute,
   AuthenticatedSecurityUsersRoute: AuthenticatedSecurityUsersRoute,

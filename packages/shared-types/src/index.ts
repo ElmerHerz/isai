@@ -548,6 +548,47 @@ export interface EventRosterEntry {
   attendance: EventAttendanceWithStatus | null;
 }
 
+/** Forma que devuelve GET /reports/attendance-trend?institutionId=... — un punto por evento */
+export interface AttendanceTrendPoint {
+  eventId: string;
+  eventDate: string;
+  title: string;
+  present: number;
+  absent: number;
+  late: number;
+  excused: number;
+  total: number;
+}
+
+/** Forma que devuelve GET /reports/attendance-by-branch?institutionId=... */
+export interface AttendanceByBranchRow {
+  branchId: string | null;
+  branchName: string;
+  present: number;
+  absent: number;
+  late: number;
+  excused: number;
+  total: number;
+}
+
+/** Forma que devuelve GET /reports/attendance-absences?institutionId=...&limit=... */
+export interface AttendanceAbsenceRow {
+  personId: string;
+  firstName: string;
+  lastName: string;
+  /** Cuántas veces faltó dentro de los últimos `considered` cultos de su sucursal */
+  absences: number;
+  considered: number;
+}
+
+/** Forma que devuelve GET /reports/schedules?institutionId=... — para filtrar los reportes de asistencia */
+export interface ReportScheduleOption {
+  id: string;
+  label: string;
+  branchId: string;
+  branchName: string;
+}
+
 /** Fila de seguridad.audit_logs — una mutación (POST/PUT/PATCH/DELETE) registrada automáticamente */
 export interface AuditLog {
   id: string;

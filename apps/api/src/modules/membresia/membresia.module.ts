@@ -8,6 +8,7 @@ import { AttendanceTagsModule } from './attendance-tags/attendance-tags.module';
 import { MilestoneTypesModule } from './milestone-types/milestone-types.module';
 import { PrivilegeTypesModule } from './privilege-types/privilege-types.module';
 import { FundTypesModule } from './fund-types/fund-types.module';
+import { MembershipReportsModule } from './reports/reports.module';
 
 /**
  * MembresiaModule — Schema "membresia" de Postgres
@@ -32,6 +33,7 @@ import { FundTypesModule } from './fund-types/fund-types.module';
     MilestoneTypesModule,
     PrivilegeTypesModule,
     FundTypesModule,
+    MembershipReportsModule,
   ],
   exports: [
     PersonsModule,
@@ -42,6 +44,7 @@ import { FundTypesModule } from './fund-types/fund-types.module';
     MilestoneTypesModule,
     PrivilegeTypesModule,
     FundTypesModule,
+    MembershipReportsModule,
   ],
 })
 export class MembresiaModule {}
