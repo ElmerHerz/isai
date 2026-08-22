@@ -98,14 +98,13 @@ export function MonthlyTrendChart({ rows }: Props) {
       </div>
 
       <div className="overflow-x-auto">
+        <div style={{ minWidth: chartW, height: chartH + 32 }}>
         <svg
           viewBox={`0 0 ${chartW} ${chartH + 32}`}
-          width="100%"
-          height={chartH + 32}
           preserveAspectRatio="none"
           role="img"
           aria-label="Tendencia mensual de ofrenda, diezmo y talento, últimos 6 meses"
-          style={{ minWidth: chartW }}
+          style={{ width: '100%', height: '100%', display: 'block' }}
         >
           {/* Líneas guía horizontales, recesivas */}
           {[0, 0.5, 1].map((f) => (
@@ -150,7 +149,7 @@ export function MonthlyTrendChart({ rows }: Props) {
                       rx={isTop ? 4 : 0}
                       fill={slots[ci % slots.length]}
                       opacity={isHovered ? 1 : hover ? 0.55 : 1}
-                      onMouseEnter={() => setHover({ month, code, value: v, x: cx, y })}
+                      onMouseEnter={() => setHover({ month, code, value: v, x: cx / chartW, y })}
                       onMouseLeave={() => setHover(null)}
                       style={{ cursor: 'default', transition: 'opacity 120ms ease' }}
                     />
@@ -163,12 +162,13 @@ export function MonthlyTrendChart({ rows }: Props) {
             );
           })}
         </svg>
+        </div>
       </div>
 
       {hover && (
         <div
           className="pointer-events-none relative -mt-2"
-          style={{ transform: `translateX(${hover.x - 60}px)` }}
+          style={{ transform: `translateX(calc(${hover.x * 100}% - 60px))` }}
         >
           <div className="w-[120px] rounded-md border bg-popover px-2 py-1 text-center text-xs shadow-md">
             <div className="font-medium text-popover-foreground">{FUND_LABELS[hover.code] ?? hover.code}</div>
