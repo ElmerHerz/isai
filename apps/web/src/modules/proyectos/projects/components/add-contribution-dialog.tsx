@@ -16,7 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { DateInput } from '@/components/ui/date-input';
 import { usePersonsQuery, useGroupsQuery } from '@/modules/membresia';
 import { PersonFormDialog } from '@/modules/membresia/persons/components/person-form-dialog';
-import { useCreateProjectContributionMutation } from '@/modules/finanzas';
+import { useCreateProjectContributionMutation } from '@/modules/proyectos';
 import { useAuthStore } from '@/lib/auth-store';
 import { getErrorMessage } from '@/lib/toast';
 import { cn } from '@/lib/utils';

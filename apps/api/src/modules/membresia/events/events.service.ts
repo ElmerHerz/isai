@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { LedgerService } from '../../finanzas/ledger/ledger.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { RecordAttendanceDto } from './dto/record-attendance.dto';
@@ -38,7 +39,10 @@ function toTimeDate(value: string): Date {
 // inline, sin @RequireScope().
 @Injectable()
 export class EventsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ledger: LedgerService,
+  ) {}
 
   private async assertInstitutionAccessible(institutionId: string, tenantId: string | null, user: RequestUser) {
     const institution = await this.prisma.institution.findFirst({
@@ -505,34 +509,25 @@ export class EventsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const journalEntry = await tx.journalEntry.create({
-        data: {
-          tenantId: institution.tenantId,
-          institutionId: event.institutionId,
-          branchId: effectiveBranchId,
-          entryDate: event.eventDate,
-          description: `Colecta: ${collection.fundType.name} — ${event.title}`,
-          sourceType: 'event_fund_collection',
-          sourceId: collection.id,
-          createdBy: user.userId,
-        },
-      });
-
-      await tx.journalEntryLine.createMany({
-        data: [
+      const journalEntry = await this.ledger.postEntry(tx, {
+        tenantId: institution.tenantId,
+        institutionId: event.institutionId,
+        branchId: effectiveBranchId,
+        entryDate: event.eventDate,
+        description: `Colecta: ${collection.fundType.name} — ${event.title}`,
+        sourceType: 'event_fund_collection',
+        sourceId: collection.id,
+        createdBy: user.userId,
+        lines: [
           {
-            journalEntryId: journalEntry.id,
             accountId: branch.defaultCashAccountId!,
             groupId: event.groupId,
             debitAmount: collection.amount,
-            creditAmount: 0,
             description: 'Caja',
           },
           {
-            journalEntryId: journalEntry.id,
             accountId: collection.fundType.incomeAccountId!,
             groupId: event.groupId,
-            debitAmount: 0,
             creditAmount: collection.amount,
             description: collection.fundType.name,
           },

@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
+import { LedgerModule } from '../../finanzas/ledger/ledger.module';
 import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
 
 @Module({
+  imports: [LedgerModule],
   controllers: [EventsController],
   providers: [EventsService],
   exports: [EventsService],

@@ -107,11 +107,11 @@ export class ReportsService {
              JOIN membresia.events ev ON ev.id = fc.event_id
              JOIN general.institutions i ON i.id = ev.institution_id
              WHERE i.tenant_id = ${tenantId}::uuid AND fc.journal_entry_id IS NULL)
-          + (SELECT count(*)::int FROM finanzas.project_contributions pc
-               JOIN finanzas.projects p ON p.id = pc.project_id
+          + (SELECT count(*)::int FROM proyectos.project_contributions pc
+               JOIN proyectos.projects p ON p.id = pc.project_id
                WHERE p.tenant_id = ${tenantId}::uuid AND pc.journal_entry_id IS NULL)
-          + (SELECT count(*)::int FROM finanzas.project_expenses pe
-               JOIN finanzas.projects p ON p.id = pe.project_id
+          + (SELECT count(*)::int FROM proyectos.project_expenses pe
+               JOIN proyectos.projects p ON p.id = pe.project_id
                WHERE p.tenant_id = ${tenantId}::uuid AND pe.journal_entry_id IS NULL)
           AS total
       `,

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { GroupsService } from '../../membresia/groups/groups.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { CreateGroupFundMovementDto } from './dto/create-group-fund-movement.dto';
 import { resolveGroupScope } from '../../../common/utils/institution-scope.util';
 import type { RequestUser } from '../../../common/decorators/current-user.decorator';
@@ -20,10 +21,8 @@ const GROUP_FUND_SOURCE_TYPE = 'group_fund_movement';
 // cada movimiento se contabiliza de inmediato (POST crea el asiento en el
 // mismo paso). El asiento de 2 líneas es el mismo patrón de siempre (debe
 // Caja/haber cuenta de ingreso para un ingreso, debe cuenta de gasto/haber
-// Caja para un gasto) — copia propia de createBalancedEntry, tercera
-// duplicación de este patrón (eventos, proyectos, ahora grupos). Vale la
-// pena extraer un LedgerService compartido la próxima vez que se toque esto,
-// no urgente ahora.
+// Caja para un gasto) — armado vía LedgerService.postEntry (Fase 1 de
+// Finanzas, ver docs/finanzas-mejoras-propuestas.md §3), no inline.
 //
 // El "saldo del fondo" NO se calcula con SUM(debit-credit) filtrando por
 // group_id como hace AccountsService con account_id: acá AMBAS líneas de
@@ -51,6 +50,7 @@ export class GroupFundsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly groupsService: GroupsService,
+    private readonly ledger: LedgerService,
   ) {}
 
   // Lista para la pantalla "Fondos de Grupo" en Finanzas — reutiliza
@@ -219,56 +219,23 @@ export class GroupFundsService {
     const entryDate = new Date(dto.movementDate);
 
     return this.prisma.$transaction(async (tx) => {
-      const journalEntry = await tx.journalEntry.create({
-        data: {
-          tenantId: institution.tenantId,
-          institutionId: group.institutionId,
-          branchId,
-          entryDate,
-          description: dto.notes ?? `Fondo de ${group.name}`,
-          sourceType: GROUP_FUND_SOURCE_TYPE,
-          createdBy: user.userId,
-        },
-      });
-
-      await tx.journalEntryLine.createMany({
-        data:
+      const journalEntry = await this.ledger.postEntry(tx, {
+        tenantId: institution.tenantId,
+        institutionId: group.institutionId,
+        branchId,
+        entryDate,
+        description: dto.notes ?? `Fondo de ${group.name}`,
+        sourceType: GROUP_FUND_SOURCE_TYPE,
+        createdBy: user.userId,
+        lines:
           dto.type === 'income'
             ? [
-                {
-                  journalEntryId: journalEntry.id,
-                  accountId: cashAccountId,
-                  groupId,
-                  debitAmount: amount,
-                  creditAmount: 0,
-                  description: 'Caja',
-                },
-                {
-                  journalEntryId: journalEntry.id,
-                  accountId: dto.accountId,
-                  groupId,
-                  debitAmount: 0,
-                  creditAmount: amount,
-                  description: `Fondo de ${group.name}`,
-                },
+                { accountId: cashAccountId, groupId, debitAmount: amount, description: 'Caja' },
+                { accountId: dto.accountId, groupId, creditAmount: amount, description: `Fondo de ${group.name}` },
               ]
             : [
-                {
-                  journalEntryId: journalEntry.id,
-                  accountId: dto.accountId,
-                  groupId,
-                  debitAmount: amount,
-                  creditAmount: 0,
-                  description: `Fondo de ${group.name}`,
-                },
-                {
-                  journalEntryId: journalEntry.id,
-                  accountId: cashAccountId,
-                  groupId,
-                  debitAmount: 0,
-                  creditAmount: amount,
-                  description: 'Caja',
-                },
+                { accountId: dto.accountId, groupId, debitAmount: amount, description: `Fondo de ${group.name}` },
+                { accountId: cashAccountId, groupId, creditAmount: amount, description: 'Caja' },
               ],
       });
 

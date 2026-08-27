@@ -33,11 +33,11 @@ import {
   useProjectExpensesQuery,
   useRemoveProjectExpenseMutation,
   usePostProjectExpenseToLedgerMutation,
-} from '@/modules/finanzas';
-import { ProjectFormDialog } from '@/modules/finanzas/projects/components/project-form-dialog';
-import { AddContributionDialog } from '@/modules/finanzas/projects/components/add-contribution-dialog';
-import { AddExpenseDialog } from '@/modules/finanzas/projects/components/add-expense-dialog';
-import { useExportProjectSummary } from '@/modules/finanzas/projects/use-export-project-summary';
+} from '@/modules/proyectos';
+import { ProjectFormDialog } from '@/modules/proyectos/projects/components/project-form-dialog';
+import { AddContributionDialog } from '@/modules/proyectos/projects/components/add-contribution-dialog';
+import { AddExpenseDialog } from '@/modules/proyectos/projects/components/add-expense-dialog';
+import { useExportProjectSummary } from '@/modules/proyectos/projects/use-export-project-summary';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';

@@ -5,7 +5,8 @@ import { Building2, Landmark, LayoutGrid, ShieldCheck, Sparkles, Target, Users }
 import { useMeQuery } from '@/modules/security';
 import { useTenantsQuery, useInstitutionsQuery, useMyMenuQuery } from '@/modules/general';
 import { useGroupsQuery, usePersonsQuery } from '@/modules/membresia';
-import { useProjectsQuery, useGroupFundsSummaryQuery } from '@/modules/finanzas';
+import { useGroupFundsSummaryQuery } from '@/modules/finanzas';
+import { useProjectsQuery } from '@/modules/proyectos';
 import { Card, CardContent } from '@/components/ui/card';
 import { resolveIcon } from '@/components/layout/icon-map';
 import { tintBackground, tintForeground } from '@/lib/color';

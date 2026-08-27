@@ -16,7 +16,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { DateInput } from '@/components/ui/date-input';
 import { useBranchesQuery } from '@/modules/general';
-import { useAccountsQuery, useCreateProjectMutation, useUpdateProjectMutation } from '@/modules/finanzas';
+import { useAccountsQuery } from '@/modules/finanzas';
+import { useCreateProjectMutation, useUpdateProjectMutation } from '@/modules/proyectos';
 import { getErrorMessage } from '@/lib/toast';
 import type { Project } from '@isai/shared-types';
 

@@ -12,7 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { DateInput } from '@/components/ui/date-input';
-import { useAccountsQuery, useCreateProjectExpenseMutation } from '@/modules/finanzas';
+import { useAccountsQuery } from '@/modules/finanzas';
+import { useCreateProjectExpenseMutation } from '@/modules/proyectos';
 import { getErrorMessage } from '@/lib/toast';
 import { todayLocalDateInput } from '@/lib/format-date';
 

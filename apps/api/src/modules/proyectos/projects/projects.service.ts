@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, ConflictException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import ExcelJS from 'exceljs';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { LedgerService } from '../../finanzas/ledger/ledger.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { CreateProjectContributionDto } from './dto/create-project-contribution.dto';
@@ -28,7 +28,10 @@ const expensesInclude = {
 // patrón "Contabilizar" que EventsService::postFundCollectionToLedger.
 @Injectable()
 export class ProjectsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ledger: LedgerService,
+  ) {}
 
   private async assertInstitutionAccessible(institutionId: string, tenantId: string | null, user: RequestUser) {
     const institution = await this.prisma.institution.findFirst({
@@ -268,70 +271,11 @@ export class ProjectsService {
   }
 
   // --- Contabilizar (finanzas) -------------------------------------------
-  // Un solo lugar arma cualquier asiento de 2 líneas balanceado (dentro de
-  // un $transaction, obligatorio por el trigger deferred de balance — ver
-  // finanzas.prisma) — lo usan tanto postContributionToLedger como
-  // postExpenseToLedger, para que la lógica contable nunca diverja entre
-  // los dos flujos (ver plan de sesión: "lo más correcto, no lo más
-  // fácil").
-  private async createBalancedEntry(
-    tx: Prisma.TransactionClient,
-    params: {
-      tenantId: string;
-      institutionId: string;
-      branchId: string;
-      entryDate: Date;
-      description: string;
-      sourceType: string;
-      sourceId: string;
-      debitAccountId: string;
-      debitDescription: string;
-      creditAccountId: string;
-      creditDescription: string;
-      amount: Prisma.Decimal;
-      groupId?: string | null;
-      projectId?: string | null;
-      createdBy: string;
-    },
-  ) {
-    const journalEntry = await tx.journalEntry.create({
-      data: {
-        tenantId: params.tenantId,
-        institutionId: params.institutionId,
-        branchId: params.branchId,
-        entryDate: params.entryDate,
-        description: params.description,
-        sourceType: params.sourceType,
-        sourceId: params.sourceId,
-        createdBy: params.createdBy,
-      },
-    });
-
-    await tx.journalEntryLine.createMany({
-      data: [
-        {
-          journalEntryId: journalEntry.id,
-          accountId: params.debitAccountId,
-          groupId: params.groupId,
-          projectId: params.projectId,
-          debitAmount: params.amount,
-          creditAmount: 0,
-          description: params.debitDescription,
-        },
-        {
-          journalEntryId: journalEntry.id,
-          accountId: params.creditAccountId,
-          groupId: params.groupId,
-          projectId: params.projectId,
-          debitAmount: 0,
-          creditAmount: params.amount,
-          description: params.creditDescription,
-        },
-      ],
-    });
-
-    return journalEntry;
-  }
+  // El asiento de 2 líneas se arma vía LedgerService.postEntry (Fase 1 de
+  // Finanzas, ver docs/finanzas-mejoras-propuestas.md §3) — antes había un
+  // helper privado propio acá (createBalancedEntry), ahora compartido con
+  // EventsService y GroupFundsService para que la lógica contable nunca
+  // diverja entre los distintos orígenes de asiento.
 
   // Mismo patrón exacto que EventsService::postFundCollectionToLedger —
   // debe Caja de la sucursal del proyecto, haber la cuenta de ingreso del
@@ -365,7 +309,7 @@ export class ProjectsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const journalEntry = await this.createBalancedEntry(tx, {
+      const journalEntry = await this.ledger.postEntry(tx, {
         tenantId: project.tenantId,
         institutionId: project.institutionId,
         branchId: project.branchId,
@@ -373,14 +317,23 @@ export class ProjectsService {
         description: `Aporte a proyecto: ${project.name}`,
         sourceType: 'project_contribution',
         sourceId: contribution.id,
-        debitAccountId: branch.defaultCashAccountId!,
-        debitDescription: 'Caja',
-        creditAccountId: project.incomeAccountId!,
-        creditDescription: project.name,
-        amount: contribution.amount,
-        groupId: contribution.groupId,
-        projectId: project.id,
         createdBy: user.userId,
+        lines: [
+          {
+            accountId: branch.defaultCashAccountId!,
+            groupId: contribution.groupId,
+            projectId: project.id,
+            debitAmount: contribution.amount,
+            description: 'Caja',
+          },
+          {
+            accountId: project.incomeAccountId!,
+            groupId: contribution.groupId,
+            projectId: project.id,
+            creditAmount: contribution.amount,
+            description: project.name,
+          },
+        ],
       });
 
       // Reclamo atómico contra dos "Contabilizar" simultáneos sobre el mismo
@@ -481,7 +434,7 @@ export class ProjectsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const journalEntry = await this.createBalancedEntry(tx, {
+      const journalEntry = await this.ledger.postEntry(tx, {
         tenantId: project.tenantId,
         institutionId: project.institutionId,
         branchId: project.branchId,
@@ -489,13 +442,21 @@ export class ProjectsService {
         description: `Gasto de proyecto: ${project.name}`,
         sourceType: 'project_expense',
         sourceId: expense.id,
-        debitAccountId: expense.accountId,
-        debitDescription: project.name,
-        creditAccountId: branch.defaultCashAccountId!,
-        creditDescription: 'Caja',
-        amount: expense.amount,
-        projectId: project.id,
         createdBy: user.userId,
+        lines: [
+          {
+            accountId: expense.accountId,
+            projectId: project.id,
+            debitAmount: expense.amount,
+            description: project.name,
+          },
+          {
+            accountId: branch.defaultCashAccountId!,
+            projectId: project.id,
+            creditAmount: expense.amount,
+            description: 'Caja',
+          },
+        ],
       });
 
       // Mismo reclamo atómico que postContributionToLedger.

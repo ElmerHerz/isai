@@ -1,0 +1,96 @@
+// ============================================================
+// SCHEMA: proyectos
+// Módulo: Proyectos — campañas de recaudación con meta y fecha (aportes,
+// gastos, "Contabilizar"). Separado de finanzas como schema propio — ver
+// docs/finanzas-mejoras-propuestas.md §6: conceptualmente es un feature de
+// recaudación de iglesia, no del motor contable genérico, aunque sigue
+// consultando finanzas.accounts/journal_entries vía relaciones cruzadas y
+// contabilizando a través de LedgerService (finanzas/ledger).
+// ============================================================
+
+// branchId es OBLIGATORIO a propósito (ver plan de sesión): "Contabilizar"
+// necesita saber qué Caja debitar, y esa cuenta vive en
+// general.branches.default_cash_account_id — no existe un concepto de
+// "caja por defecto de la institución", así que todo proyecto se ancla a
+// una sucursal aunque el beneficio sea para toda la iglesia.
+model Project {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  institutionId   String    @map("institution_id")
+  branchId        String    @map("branch_id")
+  name            String    @db.VarChar(150)
+  description     String?
+  goalAmount      Decimal   @map("goal_amount") @db.Decimal(14, 2)
+  targetDate      DateTime? @map("target_date") @db.Date
+  status          String    @default("active") @db.VarChar(20) // 'active' | 'completed' | 'cancelled'
+  // A qué cuenta de ingreso contabilizar sus aportes (ej. "Proyecto Equipo
+  // de Sonido"). Null = falta configurar, bloquea Contabilizar — mismo
+  // patrón que FundType.incomeAccountId.
+  incomeAccountId String?   @map("income_account_id")
+  createdBy       String?   @map("created_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  tenant        Tenant                @relation(fields: [tenantId], references: [id])
+  institution   Institution           @relation(fields: [institutionId], references: [id])
+  branch        Branch                @relation(fields: [branchId], references: [id])
+  incomeAccount Account?              @relation("ProjectIncomeAccount", fields: [incomeAccountId], references: [id])
+  createdByUser User?                 @relation("ProjectCreatedBy", fields: [createdBy], references: [id])
+  contributions ProjectContribution[]
+  expenses      ProjectExpense[]
+  journalEntryLines JournalEntryLine[]
+
+  @@map("projects")
+  @@schema("proyectos")
+}
+
+// Aporte individual a un proyecto — de una Person (miembro o externo, ej.
+// personType='VISITOR') O de un Group ("aportó el grupo X"), nunca ambos
+// (CHECK XOR en la base real, ver SQL de sesión). journalEntryId null =
+// pendiente de contabilizar — el aporte YA cuenta para el KPI de avance del
+// proyecto (se pidió explícitamente que no espere a la revisión contable
+// mensual), pero no mueve el saldo real de Caja hasta que se contabiliza.
+model ProjectContribution {
+  id             String   @id @default(uuid())
+  projectId      String   @map("project_id")
+  personId       String?  @map("person_id")
+  groupId        String?  @map("group_id")
+  amount         Decimal  @db.Decimal(14, 2)
+  contributedAt  DateTime @map("contributed_at") @db.Date
+  notes          String?
+  journalEntryId String?  @map("journal_entry_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  person       Person?       @relation(fields: [personId], references: [id])
+  group        Group?        @relation(fields: [groupId], references: [id])
+  journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id])
+
+  @@map("project_contributions")
+  @@schema("proyectos")
+}
+
+// Gasto de un proyecto (ej. "compra del equipo de sonido") — espejo
+// estructural de ProjectContribution, mismo patrón de dos pasos
+// (registrar → Contabilizar). accountId es la cuenta de GASTO elegida en
+// cada registro (no fija por proyecto, a diferencia de incomeAccountId —
+// un proyecto puede tener varios rubros de gasto distintos).
+model ProjectExpense {
+  id             String   @id @default(uuid())
+  projectId      String   @map("project_id")
+  accountId      String   @map("account_id")
+  amount         Decimal  @db.Decimal(14, 2)
+  incurredAt     DateTime @map("incurred_at") @db.Date
+  notes          String?
+  journalEntryId String?  @map("journal_entry_id")
+  createdBy      String?  @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  account       Account       @relation("ProjectExpenseAccount", fields: [accountId], references: [id])
+  journalEntry  JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  createdByUser User?         @relation("ProjectExpenseCreatedBy", fields: [createdBy], references: [id])
+
+  @@map("project_expenses")
+  @@schema("proyectos")
+}
