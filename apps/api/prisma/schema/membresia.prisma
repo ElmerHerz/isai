@@ -223,6 +223,12 @@ model Event {
   institutionId String    @map("institution_id")
   branchId      String?   @map("branch_id")
   groupId       String?   @map("group_id")
+  // Roster = solo personas activas SIN ninguna membresía de grupo actual
+  // (GroupMember.leftAt IS NULL) — mutuamente excluyente con groupId (chk
+  // en la base real: no tiene sentido "solo este grupo" Y "solo sin grupo"
+  // a la vez). Pensado para tomar asistencia de visitas/personas todavía
+  // no ubicadas en ninguna célula/sociedad — ver EventsService.getRoster.
+  ungroupedOnly Boolean   @default(false) @map("ungrouped_only")
   scheduleId    String?   @map("schedule_id")
   eventTypeId   String    @map("event_type_id")
   title         String    @db.VarChar(150)

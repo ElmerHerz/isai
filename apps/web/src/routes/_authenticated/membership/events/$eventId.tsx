@@ -53,7 +53,8 @@ const fadeUp: Variants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
 };
 
-function scopeLabel(event: { group?: { name: string } | null; branch?: { name: string } | null }) {
+function scopeLabel(event: { group?: { name: string } | null; branch?: { name: string } | null; ungroupedOnly?: boolean }) {
+  if (event.ungroupedOnly) return 'Personas sin grupo';
   if (event.group) return event.group.name;
   if (event.branch) return event.branch.name;
   return 'Toda la institución';

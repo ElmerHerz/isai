@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
-import { ClipboardCheck, Plus } from 'lucide-react';
+import { ArrowDownNarrowWide, ArrowUpNarrowWide, ClipboardCheck, Plus } from 'lucide-react';
 import { useInstitutionsQuery, useBranchesQuery, useBranchSchedulesQuery } from '@/modules/general';
-import { useEventsQuery, useCreateEventMutation } from '@/modules/membresia';
-import { EventFormDialog } from '@/modules/membresia/events/components/event-form-dialog';
+import { useEventsQuery, useCreateEventMutation, useGroupsQuery } from '@/modules/membresia';
+import { EventFormDialog, UNGROUPED_SENTINEL } from '@/modules/membresia/events/components/event-form-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -46,6 +46,7 @@ const fadeUp: Variants = {
 };
 
 function scopeLabel(event: EventWithRelations) {
+  if (event.ungroupedOnly) return 'Personas sin grupo';
   if (event.group) return event.group.name;
   if (event.branch) return event.branch.name;
   return 'Toda la institución';
@@ -67,6 +68,7 @@ function AttendancePage() {
 
   const { data: events, isLoading, isError, refetch } = useEventsQuery(institutionId);
   const { data: branches } = useBranchesQuery(institutionId);
+  const { data: groups } = useGroupsQuery(institutionId);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [manualCreateOpen, setManualCreateOpen] = useState(false);
@@ -74,6 +76,10 @@ function AttendancePage() {
   const [scheduleBranchId, setScheduleBranchId] = useState('');
   const [scheduleId, setScheduleId] = useState('');
   const [scheduleDate, setScheduleDate] = useState('');
+  // '' = usar lo que ya trae el horario (su groupId, o toda la sucursal si
+  // no tiene); UNGROUPED_SENTINEL = forzar solo personas sin grupo; un uuid
+  // = forzar ese grupo puntual, aunque el horario no esté ligado a ninguno.
+  const [scheduleGroupId, setScheduleGroupId] = useState('');
 
   const { data: schedules } = useBranchSchedulesQuery(scheduleBranchId);
   const createEventMutation = useCreateEventMutation();
@@ -120,12 +126,18 @@ function AttendancePage() {
       alcance: (e) => scopeLabel(e),
       estado: (e) => (e._count.attendances > 0 ? 'Registrada' : 'Sin registrar'),
     },
+    // Más recientes primero por defecto — el culto que se acaba de dar es
+    // casi siempre el que se necesita editar, y no debería quedar al final
+    // de la lista/página (ver reporte de usuario: vista móvil sin control
+    // de orden obligaba a bajar hasta el fondo para llegar a él).
+    'desc',
   );
 
   const openPicker = () => {
     setPickedEventId('');
     setScheduleBranchId(branches?.[0]?.id ?? '');
     setScheduleId('');
+    setScheduleGroupId('');
     setScheduleDate(todayLocalDateInput());
     setPickerOpen(true);
   };
@@ -153,11 +165,20 @@ function AttendancePage() {
       return;
     }
 
+    // Por defecto ('') se respeta lo que ya trae el horario; el selector de
+    // Grupo de arriba permite forzar un grupo puntual o "sin grupo" aunque
+    // el horario no esté ligado a ninguno.
+    const isUngrouped = scheduleGroupId === UNGROUPED_SENTINEL;
+    const effectiveGroupId = scheduleGroupId && !isUngrouped ? scheduleGroupId : schedule.groupId ?? undefined;
+    const ungroupedOnly = isUngrouped || undefined;
+    const hasScope = !!effectiveGroupId || isUngrouped;
+
     createEventMutation.mutate(
       {
         institutionId,
-        branchId: schedule.groupId ? undefined : schedule.branchId,
-        groupId: schedule.groupId ?? undefined,
+        branchId: hasScope ? undefined : schedule.branchId,
+        groupId: isUngrouped ? undefined : effectiveGroupId,
+        ungroupedOnly,
         scheduleId: schedule.id,
         eventTypeId: schedule.scheduleTypeId,
         title: schedule.label || schedule.scheduleType.name,
@@ -207,6 +228,23 @@ function AttendancePage() {
         <StatChip icon={ClipboardCheck} label="Con asistencia" value={stats.taken} tone="success" />
         <StatChip icon={ClipboardCheck} label="Sin registrar" value={stats.pending} tone="warning" />
         <TableSearch value={search} onChange={setSearch} placeholder="Buscar evento..." />
+        {/* Solo en móvil: la tabla de escritorio ya tiene su propio encabezado
+            ordenable (SortableTableHead), pero la vista de tarjetas no tiene
+            ningún control de orden — sin este botón, cambiar el orden en
+            móvil era imposible. */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="sm:hidden"
+          onClick={() => toggleSort('fecha')}
+        >
+          {sortKey === 'fecha' && sortDirection === 'asc' ? (
+            <ArrowUpNarrowWide className="mr-1.5 h-4 w-4" />
+          ) : (
+            <ArrowDownNarrowWide className="mr-1.5 h-4 w-4" />
+          )}
+          {sortKey === 'fecha' && sortDirection === 'asc' ? 'Más antiguas primero' : 'Más recientes primero'}
+        </Button>
       </div>
 
       <motion.div initial="hidden" animate="show" variants={fadeUp} className="mt-6">
@@ -459,7 +497,14 @@ function AttendancePage() {
                 </Select>
               )}
 
-              <Select value={scheduleId} onValueChange={setScheduleId} disabled={!scheduleBranchId}>
+              <Select
+                value={scheduleId}
+                onValueChange={(value) => {
+                  setScheduleId(value);
+                  setScheduleGroupId('');
+                }}
+                disabled={!scheduleBranchId}
+              >
                 <SelectTrigger>
                   <SelectValue
                     placeholder={
@@ -480,6 +525,23 @@ function AttendancePage() {
                   ))}
                 </SelectContent>
               </Select>
+
+              <div className="space-y-1">
+                <Label htmlFor="schedule-group" className="text-xs">Grupo (opcional)</Label>
+                <Select value={scheduleGroupId} onValueChange={setScheduleGroupId} disabled={!scheduleId}>
+                  <SelectTrigger id="schedule-group">
+                    <SelectValue placeholder="Usar lo que trae el horario" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={UNGROUPED_SENTINEL}>Personas sin grupo asignado</SelectItem>
+                    {groups?.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               <div className="space-y-1">
                 <Label htmlFor="schedule-date" className="text-xs">Fecha</Label>

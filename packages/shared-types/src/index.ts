@@ -504,6 +504,8 @@ export interface Event {
   institutionId: string;
   branchId?: string | null;
   groupId?: string | null;
+  /** true = roster son solo personas activas sin ningún grupo actual — mutuamente excluyente con groupId */
+  ungroupedOnly: boolean;
   scheduleId?: string | null;
   eventTypeId: string;
   title: string;

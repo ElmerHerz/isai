@@ -24,10 +24,11 @@ export function useSearchAndSort<T>(
   sortAccessors: Record<string, (item: T) => string | number>,
   defaultSortKey: string,
   filterAccessors: Record<string, (item: T) => string> = {},
+  defaultSortDirection: SortDirection = 'asc',
 ) {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState(defaultSortKey);
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortDirection, setSortDirection] = useState<SortDirection>(defaultSortDirection);
   const [filters, setFilters] = useState<Record<string, Set<string>>>({});
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);

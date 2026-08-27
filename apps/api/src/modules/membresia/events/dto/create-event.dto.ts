@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsUUID, IsDateString, MaxLength, Matches } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsUUID, IsBoolean, IsDateString, MaxLength, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { emptyToUndefined } from '../../../../common/utils/empty-to-undefined.transform';
@@ -22,6 +22,11 @@ export class CreateEventDto {
   @IsUUID()
   @IsOptional()
   groupId?: string;
+
+  @ApiPropertyOptional({ description: 'true = roster son solo personas activas SIN ningún grupo actual — mutuamente excluyente con groupId' })
+  @IsBoolean()
+  @IsOptional()
+  ungroupedOnly?: boolean;
 
   @ApiPropertyOptional({ description: 'Horario recurrente del que "nació" este evento, opcional' })
   @IsUUID()

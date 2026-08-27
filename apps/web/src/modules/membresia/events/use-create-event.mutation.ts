@@ -8,6 +8,7 @@ export interface CreateEventInput {
   institutionId: string;
   branchId?: string;
   groupId?: string;
+  ungroupedOnly?: boolean;
   scheduleId?: string;
   eventTypeId: string;
   title: string;

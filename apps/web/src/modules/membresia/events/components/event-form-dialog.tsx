@@ -22,6 +22,12 @@ import { getErrorMessage } from '@/lib/toast';
 import type { EventWithRelations } from '@isai/shared-types';
 
 const EVENT_TYPE_CATALOG_CODE = 'schedule_type';
+// Sentinel de UI para el 3er estado del selector de Grupo — el valor vacío
+// ('') ya significa "toda la sucursal/institución", así que "personas sin
+// ningún grupo" necesita un valor propio que jamás choque con un UUID real.
+// Se exporta para que otros selectores de grupo (ej. el de "Nueva
+// asistencia" en attendance.tsx) usen el mismo sentinel.
+export const UNGROUPED_SENTINEL = '__ungrouped__';
 
 const eventSchema = z.object({
   eventTypeId: z.string().min(1, 'Selecciona un tipo'),
@@ -93,7 +99,7 @@ export function EventFormDialog({ open, onOpenChange, institutionId, event }: Ev
               endTime: toTimeInputValue(event.endTime),
               branchId: event.branchId ?? '',
               scheduleId: event.scheduleId ?? '',
-              groupId: event.groupId ?? '',
+              groupId: event.ungroupedOnly ? UNGROUPED_SENTINEL : event.groupId ?? '',
               notes: event.notes ?? '',
             }
           : EMPTY_VALUES,
@@ -126,16 +132,19 @@ export function EventFormDialog({ open, onOpenChange, institutionId, event }: Ev
 
   const onSubmit = (values: EventFormValues) => {
     const onSuccess = () => onOpenChange(false);
+    const isUngrouped = values.groupId === UNGROUPED_SENTINEL;
+    const realGroupId = isUngrouped ? undefined : values.groupId || undefined;
     const dto = {
       ...values,
       startTime: values.startTime || undefined,
       endTime: values.endTime || undefined,
       scheduleId: values.scheduleId || undefined,
-      // groupId con valor manda sobre branchId (ver docs/membresia-diseno.md
-      // sección 3) — si el usuario eligió un grupo, no tiene sentido mandar
-      // también una sucursal, así que se descarta acá mismo.
-      branchId: values.groupId ? undefined : values.branchId || undefined,
-      groupId: values.groupId || undefined,
+      // groupId (o "sin grupo") con valor manda sobre branchId (ver
+      // docs/membresia-diseno.md sección 3) — si el usuario eligió uno de
+      // los dos, no tiene sentido mandar también una sucursal.
+      branchId: realGroupId || isUngrouped ? undefined : values.branchId || undefined,
+      groupId: realGroupId,
+      ungroupedOnly: isUngrouped || undefined,
       notes: values.notes || undefined,
     };
 
@@ -259,6 +268,7 @@ export function EventFormDialog({ open, onOpenChange, institutionId, event }: Ev
                     <SelectValue placeholder="Sin grupo — aplica a sucursal/institución" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value={UNGROUPED_SENTINEL}>Personas sin grupo asignado</SelectItem>
                     {groups?.map((group) => (
                       <SelectItem key={group.id} value={group.id}>
                         {group.name}
@@ -269,7 +279,9 @@ export function EventFormDialog({ open, onOpenChange, institutionId, event }: Ev
               )}
             />
             <p className="text-xs text-muted-foreground">
-              Con grupo, la asistencia se toma solo a sus miembros actuales — ignora la sucursal de arriba.
+              Con grupo, la asistencia se toma solo a sus miembros actuales. "Personas sin grupo asignado" toma solo
+              a quienes no están en ninguna célula/sociedad todavía (ej. visitas recientes) — ambos ignoran la
+              sucursal de arriba.
             </p>
           </div>
 

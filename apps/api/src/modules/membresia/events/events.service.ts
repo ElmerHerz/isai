@@ -86,6 +86,14 @@ export class EventsService {
     }
   }
 
+  // Refleja chk_events_group_scope de la base real — un evento no puede ser
+  // "solo este grupo" Y "solo sin grupo" a la vez.
+  private assertGroupScopeConsistent(groupId?: string, ungroupedOnly?: boolean) {
+    if (groupId && ungroupedOnly) {
+      throw new BadRequestException('Un evento no puede ser de un grupo específico y de "personas sin grupo" a la vez.');
+    }
+  }
+
   async findAll(institutionId: string, tenantId: string | null, user: RequestUser, groupId?: string) {
     await this.assertInstitutionAccessible(institutionId, tenantId, user);
 
@@ -162,12 +170,14 @@ export class EventsService {
     if (dto.groupId) {
       await this.assertGroupBelongsToInstitution(dto.groupId, dto.institutionId);
     }
+    this.assertGroupScopeConsistent(dto.groupId, dto.ungroupedOnly);
 
     return this.prisma.event.create({
       data: {
         institutionId: dto.institutionId,
         branchId: dto.branchId,
         groupId: dto.groupId,
+        ungroupedOnly: dto.ungroupedOnly,
         scheduleId: dto.scheduleId,
         eventTypeId: dto.eventTypeId,
         title: dto.title,
@@ -194,13 +204,18 @@ export class EventsService {
     if (dto.groupId) {
       await this.assertGroupBelongsToInstitution(dto.groupId, institutionId);
     }
+    this.assertGroupScopeConsistent(dto.groupId, dto.ungroupedOnly);
 
     return this.prisma.event.update({
       where: { id },
       data: {
         institutionId: dto.institutionId,
         branchId: dto.branchId,
-        groupId: dto.groupId,
+        // Mandar uno de los dos apaga el otro — mismo criterio que
+        // branchId/groupId ya siguen en EventFormDialog, no depende de que
+        // el caller se acuerde de limpiar el campo contrario él mismo.
+        groupId: dto.ungroupedOnly ? null : dto.groupId,
+        ungroupedOnly: dto.groupId ? false : dto.ungroupedOnly,
         scheduleId: dto.scheduleId,
         eventTypeId: dto.eventTypeId,
         title: dto.title,
@@ -221,9 +236,12 @@ export class EventsService {
   // --- Asistencia -----------------------------------------------------------
 
   // Construye el roster elegible para el evento: si tiene groupId, solo los
-  // miembros ACTUALES de ese grupo; si no, las personas activas de la
-  // institución (filtradas por sucursal si el evento aplica a una sola) —
-  // ver docs/membresia-diseno.md sección 4.
+  // miembros ACTUALES de ese grupo; si ungroupedOnly, solo personas activas
+  // SIN ninguna membresía de grupo actual (pensado para visitas/personas
+  // todavía no ubicadas en ninguna célula/sociedad — ver conversación de
+  // sesión); si ninguno de los dos, las personas activas de la institución
+  // (filtradas por sucursal si el evento aplica a una sola) — ver
+  // docs/membresia-diseno.md sección 4.
   async getRoster(eventId: string, tenantId: string | null, user: RequestUser) {
     const event = await this.findOne(eventId, tenantId, user);
 
@@ -241,6 +259,9 @@ export class EventsService {
             deletedAt: null,
             isActive: true,
             ...(event.branchId ? { branchId: event.branchId } : {}),
+            // "none" = NOT EXISTS una membresía con leftAt null — Prisma
+            // traduce esto a un anti-join, no hace falta SQL crudo.
+            ...(event.ungroupedOnly ? { groupMembers: { none: { leftAt: null } } } : {}),
           },
           select: { id: true, firstName: true, lastName: true },
           orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
