@@ -33,6 +33,32 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+// El refresh token es de un solo uso (el backend lo rota y, si detecta que
+// uno ya rotado se reutiliza, lo interpreta como robo y revoca TODA la
+// familia de tokens del usuario — ver AuthService.refresh). React Query
+// refetchea todas las queries activas al recuperar foco de ventana
+// (default de la librería, no desactivado en main.tsx); si el access token
+// ya expiró (15 min de inactividad), eso dispara varios 401 casi
+// simultáneos. Sin este candado, cada uno llamaba /auth/refresh por su
+// cuenta con el mismo refresh token: el primero lo rotaba con éxito, y el
+// segundo (mismo token, ya usado) activaba la detección de robo y tumbaba
+// la sesión entera — el bug real detrás de "después de un rato de
+// inactividad hay que recargar la página". Un solo refresh en vuelo,
+// compartido por todos los 401 concurrentes, lo evita de raíz.
+let refreshPromise: Promise<{ accessToken: string; refreshToken: string }> | null = null;
+
+function refreshTokens(refreshToken: string) {
+  if (!refreshPromise) {
+    refreshPromise = axios
+      .post<{ accessToken: string; refreshToken: string }>('/api/v1/auth/refresh', { refreshToken })
+      .then((res) => res.data)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
 // ─── Interceptor de Response: Maneja 401 (token expirado) + toast de error ─
 apiClient.interceptors.response.use(
   (response) => response,
@@ -50,10 +76,7 @@ apiClient.interceptors.response.use(
         const refreshToken = useAuthStore.getState().refreshToken;
         if (!refreshToken) throw new Error('No refresh token');
 
-        const { data } = await axios.post<{
-          accessToken: string;
-          refreshToken: string;
-        }>('/api/v1/auth/refresh', { refreshToken });
+        const data = await refreshTokens(refreshToken);
 
         useAuthStore.getState().setTokens(data.accessToken, data.refreshToken);
 
@@ -64,10 +87,13 @@ apiClient.interceptors.response.use(
 
         return apiClient(originalRequest as AxiosRequestConfig);
       } catch {
-        // Refresh falló → se está redirigiendo a /login, un toast justo
-        // antes no sirve de nada.
+        // Refresh falló → la sesión ya no es recuperable. Un toast disparado
+        // justo antes de `window.location.href` no alcanza a mostrarse (la
+        // navegación completa descarta el documento actual) — se le avisa a
+        // /login vía query param para que sea ESA página, ya cargada, la que
+        // muestre el mensaje.
         useAuthStore.getState().logout();
-        window.location.href = '/login';
+        window.location.href = '/login?reason=expired';
         return Promise.reject(error);
       }
     }

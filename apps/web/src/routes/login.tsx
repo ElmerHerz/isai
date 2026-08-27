@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useLoginMutation } from '@/modules/security';
 import { useAuthStore } from '@/lib/auth-store';
+import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -185,6 +186,18 @@ function LoginPage() {
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
   });
+
+  // El interceptor de axios redirige acá con ?reason=expired cuando el
+  // refresh token ya venció (ver api-client.ts) — un toast disparado justo
+  // antes de esa redirección dura completa nunca llega a mostrarse, así que
+  // es esta página, ya cargada, la que lo muestra. Se limpia el query param
+  // enseguida para que recargar /login no repita el aviso.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('reason') === 'expired') {
+      toast.error('Tu sesión expiró. Inicia sesión de nuevo.');
+      window.history.replaceState(null, '', '/login');
+    }
+  }, []);
 
   const onSubmit = (values: LoginFormValues) => {
     loginMutation.mutate(values, {
