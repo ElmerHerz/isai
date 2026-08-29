@@ -1,0 +1,145 @@
+// Schema "comercio" — compras y ventas a terceros, construido ENCIMA de
+// "inventario" (docs/comercio-mejoras-propuestas.md §1) — nunca al revés,
+// InventarioModule no sabe que ComercioModule existe. Rebanada 1:
+// Proveedores + Compras. Rebanada 2: Clientes + Ventas.
+//
+// Regla: este módulo (ComercioModule) es el único que accede al schema
+// "comercio" de Prisma — mover existencia pasa por
+// InventoryService.applyMovement (Inventario), contabilizar por
+// LedgerService.postEntry (Finanzas), nunca escritura directa a esos schemas.
+
+model Supplier {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  name      String   @db.VarChar(150)
+  taxId     String?  @map("tax_id") @db.VarChar(30)
+  phone     String?  @db.VarChar(30)
+  email     String?  @db.VarChar(255)
+  address   String?  @db.VarChar(255)
+  notes     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  purchases Purchase[]
+
+  @@map("suppliers")
+  @@schema("comercio")
+}
+
+// Mismo patrón registrar→Contabilizar de 2 pasos que Gastos de
+// Proyecto/Fondo de Grupo. journalEntryId null hasta "Contabilizar" — ahí
+// InventoryService.applyMovement mueve la existencia y LedgerService.postEntry
+// contabiliza, ambos en la misma transacción (ver PurchasesService.postToLedger).
+model Purchase {
+  id                     String    @id @default(uuid())
+  tenantId               String    @map("tenant_id")
+  institutionId          String    @map("institution_id")
+  branchId               String    @map("branch_id")
+  supplierId             String    @map("supplier_id")
+  purchaseDate           DateTime  @map("purchase_date") @db.Date
+  // El número que TRAE el proveedor en su factura — texto libre, sin folio
+  // propio (Compras no pasa por DocumentSequencesService en v1).
+  supplierDocumentNumber String?   @map("supplier_document_number") @db.VarChar(50)
+  paymentMethod          String?   @map("payment_method") @db.VarChar(20) // 'cash' | 'transfer' | 'credit'
+  notes                  String?
+  journalEntryId         String?   @map("journal_entry_id")
+  createdBy              String?   @map("created_by")
+  createdAt              DateTime  @default(now()) @map("created_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  institution  Institution   @relation(fields: [institutionId], references: [id])
+  branch       Branch        @relation(fields: [branchId], references: [id])
+  supplier     Supplier      @relation(fields: [supplierId], references: [id])
+  journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  lines        PurchaseLine[]
+
+  @@map("purchases")
+  @@schema("comercio")
+}
+
+// Se agregan una a la vez ("Agregar línea"), no todas juntas al crear la
+// compra — mismo patrón ya probado de finanzas.BudgetLine. Sin edición
+// después de agregada: se quita y se vuelve a agregar.
+model PurchaseLine {
+  id         String  @id @default(uuid())
+  purchaseId String  @map("purchase_id")
+  productId  String  @map("product_id")
+  quantity   Decimal @db.Decimal(14, 3)
+  unitCost   Decimal @map("unit_cost") @db.Decimal(14, 2)
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id])
+
+  @@map("purchase_lines")
+  @@schema("comercio")
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  name      String   @db.VarChar(150)
+  taxId     String?  @map("tax_id") @db.VarChar(30)
+  phone     String?  @map("phone") @db.VarChar(30)
+  email     String?  @db.VarChar(255)
+  notes     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  sales  Sale[]
+
+  @@map("customers")
+  @@schema("comercio")
+}
+
+// Venta atómica — a diferencia de Purchase, NO tiene un estado "pendiente de
+// contabilizar": nace ya completa (encabezado + líneas + folio + movimiento
+// de existencia + asiento contable), todo en una sola transacción
+// (SalesService.create), porque una venta de mostrador ya se cobró en el
+// momento. Sin editar/eliminar después de creada.
+model Sale {
+  id             String    @id @default(uuid())
+  tenantId       String    @map("tenant_id")
+  institutionId  String    @map("institution_id")
+  branchId       String    @map("branch_id")
+  // null = Consumidor Final — no exige registrar a quien compra.
+  customerId     String?   @map("customer_id")
+  saleDate       DateTime  @map("sale_date") @db.Date
+  paymentMethod  String    @map("payment_method") @db.VarChar(20) // 'cash' | 'transfer' | 'card' | 'credit'
+  documentType   String    @map("document_type") @db.VarChar(20) // 'invoice' | 'receipt'
+  // Folio real vía DocumentSequencesService — siempre asignado al crear, a
+  // diferencia de Purchase.supplierDocumentNumber (texto libre, opcional).
+  documentNumber String    @map("document_number") @db.VarChar(30)
+  notes          String?
+  journalEntryId String?   @map("journal_entry_id")
+  createdBy      String?   @map("created_by")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  institution  Institution   @relation(fields: [institutionId], references: [id])
+  branch       Branch        @relation(fields: [branchId], references: [id])
+  customer     Customer?     @relation(fields: [customerId], references: [id])
+  journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  lines        SaleLine[]
+
+  @@map("sales")
+  @@schema("comercio")
+}
+
+model SaleLine {
+  id        String  @id @default(uuid())
+  saleId    String  @map("sale_id")
+  productId String  @map("product_id")
+  quantity  Decimal @db.Decimal(14, 3)
+  unitPrice Decimal @map("unit_price") @db.Decimal(14, 2)
+  // Copiado de Product.averageCost AL MOMENTO de la venta — el margen
+  // histórico no cambia si el costo promedio se sigue moviendo después.
+  unitCost  Decimal @map("unit_cost") @db.Decimal(14, 2)
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("sale_lines")
+  @@schema("comercio")
+}

@@ -6,6 +6,7 @@ import type { FundType } from '@isai/shared-types';
 export interface CreateFundTypeInput {
   code: string;
   name: string;
+  tracksDonors?: boolean;
   /** Solo para superadmin — a qué tenant pertenece el tipo de fondo nuevo. */
   tenantId?: string;
 }

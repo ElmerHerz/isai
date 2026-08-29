@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useCatalogItemsQuery } from '@/modules/general';
 import { useAccountsQuery, useCreateAccountMutation } from '@/modules/finanzas';
 import { getErrorMessage } from '@/lib/toast';
@@ -52,11 +53,12 @@ const accountSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido').max(150),
   accountTypeId: z.string().min(1, 'Selecciona un tipo'),
   parentAccountId: z.string().optional(),
+  isGrouping: z.boolean(),
 });
 
 type AccountFormValues = z.infer<typeof accountSchema>;
 
-const EMPTY_VALUES: AccountFormValues = { code: '', name: '', accountTypeId: '', parentAccountId: '' };
+const EMPTY_VALUES: AccountFormValues = { code: '', name: '', accountTypeId: '', parentAccountId: '', isGrouping: false };
 
 interface AccountFormDialogProps {
   open: boolean;
@@ -66,8 +68,10 @@ interface AccountFormDialogProps {
 }
 
 // Solo alta — sin edición todavía (ver plan de sesión, recorte 1 de
-// finanzas). Cuentas siempre transaccionables; el signo (débito/crédito) lo
-// deriva el backend del tipo elegido, no se pide acá.
+// finanzas). El signo (débito/crédito) lo deriva el backend del tipo
+// elegido, no se pide acá. Transaccionable por defecto; "Cuenta de
+// agrupación" la deja como encabezado sin movimientos propios (ej. "4000
+// Ingresos"), ver docs/finanzas-mejoras-propuestas.md §4.
 export function AccountFormDialog({ open, onOpenChange, tenantId }: AccountFormDialogProps) {
   const { data: accountTypes } = useCatalogItemsQuery(ACCOUNT_TYPE_CATALOG_CODE);
   const { data: accounts } = useAccountsQuery(tenantId);
@@ -105,6 +109,7 @@ export function AccountFormDialog({ open, onOpenChange, tenantId }: AccountFormD
         name: values.name,
         accountTypeId: values.accountTypeId,
         parentAccountId: values.parentAccountId || undefined,
+        allowsTransactions: !values.isGrouping,
         tenantId,
       },
       { onSuccess: () => onOpenChange(false) },
@@ -184,6 +189,22 @@ export function AccountFormDialog({ open, onOpenChange, tenantId }: AccountFormD
               <Input id="name" placeholder="Proyecto: Equipo de Sonido" {...register('name')} />
               {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
             </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <Label htmlFor="isGrouping">Cuenta de agrupación</Label>
+              <p className="text-xs text-muted-foreground">
+                Solo para organizar (ej. "4000 Ingresos" como encabezado) — no admite movimientos propios.
+              </p>
+            </div>
+            <Controller
+              name="isGrouping"
+              control={control}
+              render={({ field }) => (
+                <Switch id="isGrouping" checked={field.value} onCheckedChange={field.onChange} />
+              )}
+            />
           </div>
 
           {mutation.isError && (

@@ -1,5 +1,7 @@
 import { Injectable, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { resolveAllBranchesScope, branchScopeSql } from '../../../common/utils/institution-scope.util';
+import type { RequestUser } from '../../../common/decorators/current-user.decorator';
 import { CreateAccountDto } from './dto/create-account.dto';
 
 const ACCOUNT_TYPE_CATALOG_CODE = 'account_type';
@@ -14,15 +16,23 @@ const NORMAL_BALANCE_BY_ACCOUNT_TYPE: Record<string, 'DEBIT' | 'CREDIT'> = {
   INCOME: 'CREDIT',
 };
 
-// Alta/edición limitada a esto por ahora: crear cuentas nuevas (siempre
-// transaccionables — allowsTransactions=true, sin UI para cuentas "de
-// agrupación" todavía). El resto sigue de solo lectura, ver plan de sesión.
+// Alta/edición limitada a esto por ahora: crear cuentas nuevas, transaccionables
+// por defecto o de agrupación (allowsTransactions=false, ej. "4000 Ingresos"
+// como encabezado sin movimientos propios) si se indica explícitamente. El
+// resto sigue de solo lectura, ver plan de sesión.
 @Injectable()
 export class AccountsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(tenantId: string | null) {
+  async findAll(tenantId: string | null, user: RequestUser) {
     if (!tenantId) return [];
+
+    // El catálogo de cuentas (nombres/códigos) es tenant-wide a propósito —
+    // no es sensible por sucursal. El SALDO sí: un usuario restringido a una
+    // sucursal solo debe ver lo contabilizado ahí, no el total del tenant
+    // (hallazgo de sesión: AccountsService no filtraba alcance en absoluto).
+    const scope = await resolveAllBranchesScope(this.prisma, user);
+    const scopeFilter = branchScopeSql(scope, 'e.institution_id', 'e.branch_id');
 
     const [accounts, balanceRows] = await Promise.all([
       this.prisma.account.findMany({
@@ -49,7 +59,7 @@ export class AccountsService {
         FROM finanzas.journal_entry_lines l
         JOIN finanzas.journal_entries e ON e.id = l.journal_entry_id
         JOIN finanzas.accounts a ON a.id = l.account_id
-        WHERE a.tenant_id = ${tenantId}::uuid
+        WHERE a.tenant_id = ${tenantId}::uuid AND ${scopeFilter}
         GROUP BY l.account_id
       `,
     ]);
@@ -96,6 +106,7 @@ export class AccountsService {
         accountTypeId: dto.accountTypeId,
         parentAccountId: dto.parentAccountId,
         normalBalance: NORMAL_BALANCE_BY_ACCOUNT_TYPE[accountType.code] ?? 'DEBIT',
+        allowsTransactions: dto.allowsTransactions ?? true,
       },
       include: { accountType: { select: { code: true, name: true } } },
     });

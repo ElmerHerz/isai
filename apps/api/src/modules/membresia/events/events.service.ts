@@ -7,6 +7,7 @@ import { UpdateEventDto } from './dto/update-event.dto';
 import { RecordAttendanceDto } from './dto/record-attendance.dto';
 import { CreateEventPrivilegeDto } from './dto/create-event-privilege.dto';
 import { CreateEventFundCollectionDto } from './dto/create-event-fund-collection.dto';
+import { CreateFundCollectionDonorDto } from './dto/create-fund-collection-donor.dto';
 import { resolveInstitutionScope, resolveBranchScope } from '../../../common/utils/institution-scope.util';
 import type { RequestUser } from '../../../common/decorators/current-user.decorator';
 
@@ -418,7 +419,7 @@ export class EventsService {
 
     return this.prisma.eventFundCollection.findMany({
       where: { eventId },
-      include: { fundType: { select: { id: true, code: true, name: true } } },
+      include: { fundType: { select: { id: true, code: true, name: true, tracksDonors: true } } },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -444,7 +445,7 @@ export class EventsService {
 
     return this.prisma.eventFundCollection.create({
       data: { eventId, fundTypeId: dto.fundTypeId, amount: dto.amount, notes: dto.notes },
-      include: { fundType: { select: { id: true, code: true, name: true } } },
+      include: { fundType: { select: { id: true, code: true, name: true, tracksDonors: true } } },
     });
   }
 
@@ -458,6 +459,88 @@ export class EventsService {
     }
 
     await this.prisma.eventFundCollection.delete({ where: { id: collectionId } });
+  }
+
+  // --- Donantes de una colecta (§8.1) --------------------------------------
+  // Opcional por tipo de fondo (FundType.tracksDonors) — muchas iglesias
+  // registran la ofrenda deliberadamente anónima. La suma de donantes nunca
+  // puede superar el total de la colecta (se valida acá, no en la base).
+
+  async findFundCollectionDonors(
+    eventId: string,
+    collectionId: string,
+    tenantId: string | null,
+    user: RequestUser,
+  ) {
+    await this.findOne(eventId, tenantId, user);
+
+    const collection = await this.prisma.eventFundCollection.findFirst({ where: { id: collectionId, eventId } });
+    if (!collection) throw new NotFoundException(`Registro de fondo "${collectionId}" no encontrado`);
+
+    return this.prisma.eventFundCollectionDonor.findMany({
+      where: { collectionId },
+      include: { person: { select: { id: true, firstName: true, lastName: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async addFundCollectionDonor(
+    eventId: string,
+    collectionId: string,
+    tenantId: string | null,
+    dto: CreateFundCollectionDonorDto,
+    user: RequestUser,
+  ) {
+    const event = await this.findOne(eventId, tenantId, user);
+
+    const collection = await this.prisma.eventFundCollection.findFirst({
+      where: { id: collectionId, eventId },
+      include: { fundType: true, donors: true },
+    });
+    if (!collection) throw new NotFoundException(`Registro de fondo "${collectionId}" no encontrado`);
+    if (!collection.fundType.tracksDonors) {
+      throw new BadRequestException(`El tipo de fondo "${collection.fundType.name}" no identifica donantes por nombre.`);
+    }
+
+    const person = await this.prisma.person.findFirst({
+      where: { id: dto.personId, institutionId: event.institutionId, deletedAt: null },
+    });
+    if (!person) {
+      throw new BadRequestException('La persona no pertenece a la institución de este evento.');
+    }
+
+    const alreadyIdentified = collection.donors.reduce((sum, d) => sum + Number(d.amount), 0);
+    if (alreadyIdentified + dto.amount > Number(collection.amount)) {
+      throw new BadRequestException(
+        `La suma de donantes identificados ($${(alreadyIdentified + dto.amount).toFixed(2)}) no puede superar el total de la colecta ($${Number(collection.amount).toFixed(2)}).`,
+      );
+    }
+
+    return this.prisma.eventFundCollectionDonor.create({
+      data: {
+        collectionId,
+        personId: dto.personId,
+        amount: dto.amount,
+        paymentMethod: dto.paymentMethod,
+        notes: dto.notes,
+      },
+      include: { person: { select: { id: true, firstName: true, lastName: true } } },
+    });
+  }
+
+  async removeFundCollectionDonor(
+    eventId: string,
+    collectionId: string,
+    donorId: string,
+    tenantId: string | null,
+    user: RequestUser,
+  ) {
+    await this.findOne(eventId, tenantId, user);
+
+    const row = await this.prisma.eventFundCollectionDonor.findFirst({ where: { id: donorId, collectionId } });
+    if (!row) throw new NotFoundException(`Donante "${donorId}" no encontrado`);
+
+    await this.prisma.eventFundCollectionDonor.delete({ where: { id: donorId } });
   }
 
   // --- Contabilizar (finanzas) -----------------------------------------------
@@ -552,7 +635,7 @@ export class EventsService {
 
       return tx.eventFundCollection.findUniqueOrThrow({
         where: { id: collectionId },
-        include: { fundType: { select: { id: true, code: true, name: true } } },
+        include: { fundType: { select: { id: true, code: true, name: true, tracksDonors: true } } },
       });
     });
   }

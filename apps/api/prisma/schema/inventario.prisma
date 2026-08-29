@@ -1,0 +1,204 @@
+// Schema "inventario" — módulo BASE de docs/comercio-mejoras-propuestas.md,
+// independiente de que la institución venda algo a un tercero (eso es
+// "comercio", construido encima, ver ese schema cuando exista). Cualquier
+// institución (una iglesia sin tienda, una ferretería, etc.) puede activar
+// solo esto para llevar su propio catálogo/existencias/consumo interno.
+//
+// Regla: este módulo (InventarioModule) es el único que accede al schema
+// "inventario" de Prisma — cualquier otro módulo que necesite mover
+// existencia pasa por InventoryService.applyMovement, nunca escribe acá
+// directo (mismo criterio que LedgerService.postEntry en Finanzas).
+
+// Catálogo plano de categorías, propio del tenant — mismo patrón que
+// membresia.FundType. Sin jerarquía de subcategorías en v1.
+model ProductCategory {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  name      String   @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  products Product[]
+
+  @@unique([tenantId, name], name: "uq_product_categories_tenant_name")
+  @@map("product_categories")
+  @@schema("inventario")
+}
+
+model Product {
+  id              String   @id @default(uuid())
+  tenantId        String   @map("tenant_id")
+  categoryId      String?  @map("category_id")
+  sku             String?  @db.VarChar(50)
+  // UPC/EAN impreso de fábrica — un lector común es un dispositivo
+  // "keyboard wedge" (escribe el código + Enter como si fuera un teclado
+  // físico), así que esta columna + una búsqueda por ella es toda la
+  // integración que hace falta, sin SDK ni driver.
+  barcode         String?  @db.VarChar(64)
+  name            String   @db.VarChar(150)
+  description     String?
+  // general.catalog_items, catalog_code='product_unit' (unidad, caja, libra, litro)
+  unitCode        String   @map("unit_code") @db.VarChar(30)
+  // null = nunca se vende, solo uso interno (ver InventoryMovement futuro,
+  // movement_type='internal_use') — mismo Product sirve para ambos casos.
+  salePrice       Decimal? @map("sale_price") @db.Decimal(14, 2)
+  averageCost     Decimal  @default(0) @map("average_cost") @db.Decimal(14, 2)
+  tracksInventory Boolean  @default(true) @map("tracks_inventory")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id])
+  category ProductCategory? @relation(fields: [categoryId], references: [id])
+  stocks    ProductStock[]
+  movements InventoryMovement[]
+  purchaseLines PurchaseLine[]
+  saleLines SaleLine[]
+  units     ProductUnit[]
+
+  @@unique([tenantId, sku], name: "uq_products_tenant_sku")
+  @@unique([tenantId, barcode], name: "uq_products_tenant_barcode")
+  @@map("products")
+  @@schema("inventario")
+}
+
+// Presentaciones adicionales de compra/venta de un producto (ej. "Caja" de
+// 6, "Fardo" de 36) — Product.unitCode sigue siendo la unidad base en la que
+// se guarda toda la existencia (ProductStock.quantity); cada ProductUnit es
+// solo una conversión + precio opcional para capturar una línea de Compra o
+// Venta en esa presentación. La conversión (cantidad × conversionToBase,
+// costo ÷ conversionToBase) vive en el frontend al agregar la línea —
+// applyMovement/PurchaseLine nunca se enteran de que existen presentaciones,
+// siempre reciben cantidad/costo ya en unitCode base.
+// Sin edición — se quita y se vuelve a agregar, mismo criterio que
+// PurchaseLine/BudgetLine.
+model ProductUnit {
+  id               String   @id @default(uuid())
+  productId        String   @map("product_id")
+  // general.catalog_items, catalog_code='product_unit' — distinto del
+  // unitCode base de este mismo producto.
+  unitCode         String   @map("unit_code") @db.VarChar(30)
+  // Cuántas unitCode BASE (Product.unitCode) trae 1 de esta presentación.
+  conversionToBase Decimal  @map("conversion_to_base") @db.Decimal(14, 3)
+  // null = esta presentación no se vende entera, solo se usa para comprar
+  // (ej. compras por fardo pero nunca vendes el fardo completo).
+  salePrice        Decimal? @map("sale_price") @db.Decimal(14, 2)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, unitCode], name: "uq_product_units_product_unit")
+  @@map("product_units")
+  @@schema("inventario")
+}
+
+// Existencia cacheada por producto+sucursal — actualizada dentro de la MISMA
+// transacción que inserta el InventoryMovement correspondiente
+// (InventoryService.applyMovement), nunca por separado.
+model ProductStock {
+  id        String   @id @default(uuid())
+  productId String   @map("product_id")
+  branchId  String   @map("branch_id")
+  quantity  Decimal  @default(0) @db.Decimal(14, 3)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id])
+  branch  Branch  @relation(fields: [branchId], references: [id])
+
+  @@unique([productId, branchId], name: "uq_product_stocks_product_branch")
+  @@map("product_stocks")
+  @@schema("inventario")
+}
+
+// Historial inmutable de por qué cambió una existencia — mismo espíritu que
+// finanzas.journal_entry_lines. 'purchase'/'sale' llegan con ComercioModule
+// más adelante; esta rebanada solo produce 'adjustment' e 'internal_use'.
+model InventoryMovement {
+  id           String   @id @default(uuid())
+  productId    String   @map("product_id")
+  branchId     String   @map("branch_id")
+  movementType String   @map("movement_type") @db.VarChar(20)
+  quantity     Decimal  @db.Decimal(14, 3)
+  unitCost     Decimal? @map("unit_cost") @db.Decimal(14, 2)
+  sourceType   String   @map("source_type") @db.VarChar(50)
+  sourceId     String?  @map("source_id")
+  notes        String?  @db.VarChar(255)
+  createdBy    String?  @map("created_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id])
+  branch  Branch  @relation(fields: [branchId], references: [id])
+
+  @@map("inventory_movements")
+  @@schema("inventario")
+}
+
+// Registro de custodia (docs/comercio-mejoras-propuestas.md §6) — deliberadamente
+// separado de Product/ProductStock: un activo no se consume ni se vende, es
+// un problema de "quién lo tiene, dónde está", no de existencia que sube y
+// baja. institutionId obligatorio (a diferencia de Product, que es
+// tenant-wide) — la custodia física siempre es de una institución concreta.
+model Asset {
+  id                String    @id @default(uuid())
+  tenantId          String    @map("tenant_id")
+  institutionId     String    @map("institution_id")
+  branchId          String?   @map("branch_id")
+  name              String    @db.VarChar(150)
+  // Texto libre, sin catálogo — "opcional" a propósito (ver documento).
+  categoryCode      String?   @map("category_code") @db.VarChar(30)
+  // 1 = ítem único con serie propia; N = lote sin seguimiento individual (50 sillas).
+  quantity          Int       @default(1)
+  serialNumber      String?   @map("serial_number") @db.VarChar(100)
+  acquisitionDate   DateTime? @map("acquisition_date") @db.Date
+  // Solo referencia — sin asiento contable ni depreciación, ver nota de sourceType.
+  acquisitionCost   Decimal?  @map("acquisition_cost") @db.Decimal(14, 2)
+  condition         String    @default("good") @db.VarChar(20) // 'good' | 'fair' | 'damaged' | 'out_of_service'
+  location          String?   @db.VarChar(150)
+  // SIEMPRE opcional — no toda institución asigna custodia individual; en una
+  // iglesia donde "todo se queda en la iglesia" lo que importa es location,
+  // no quién lo tiene. Nunca se pide al crear el activo, es una acción aparte.
+  custodianPersonId String?   @map("custodian_person_id")
+  // Enlace liviano y opcional a "de qué gasto salió" — mismo criterio
+  // sourceType/sourceId sin FK dura que JournalEntry/InventoryMovement. Lo
+  // arma el usuario desde este formulario, nunca al revés — nunca genera ni
+  // modifica un asiento contable, solo evita tener que buscar el gasto
+  // aparte. 'project_expense' | 'group_fund_expense'.
+  sourceType        String?   @map("source_type") @db.VarChar(50)
+  sourceId          String?   @map("source_id")
+  notes             String?
+  isActive          Boolean   @default(true) @map("is_active") // false = dado de baja
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  tenant          Tenant      @relation(fields: [tenantId], references: [id])
+  institution     Institution @relation(fields: [institutionId], references: [id])
+  branch          Branch?     @relation(fields: [branchId], references: [id])
+  custodianPerson Person?     @relation(fields: [custodianPersonId], references: [id])
+  movements       AssetMovement[]
+
+  @@map("assets")
+  @@schema("inventario")
+}
+
+// Historial inmutable de custodia/ubicación/condición — mismo espíritu que
+// InventoryMovement. from/toCustodianPersonId sin relación de Prisma a
+// propósito (bitácora, mismo criterio que JournalEntry.reversesEntryId) —
+// el custodio ACTUAL vive en Asset.custodianPersonId, que sí tiene relación.
+model AssetMovement {
+  id                    String   @id @default(uuid())
+  assetId               String   @map("asset_id")
+  movementType          String   @map("movement_type") @db.VarChar(20) // 'assigned'|'returned'|'relocated'|'condition_change'|'disposed'
+  fromCustodianPersonId String?  @map("from_custodian_person_id")
+  toCustodianPersonId   String?  @map("to_custodian_person_id")
+  fromLocation          String?  @map("from_location") @db.VarChar(150)
+  toLocation            String?  @map("to_location") @db.VarChar(150)
+  notes                 String?  @db.VarChar(255)
+  createdBy             String?  @map("created_by")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@map("asset_movements")
+  @@schema("inventario")
+}

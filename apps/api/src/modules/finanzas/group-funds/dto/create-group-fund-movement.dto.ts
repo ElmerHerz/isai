@@ -9,7 +9,7 @@ export class CreateGroupFundMovementDto {
   type!: 'income' | 'expense';
 
   @ApiProperty({ description: 'Cuenta de INGRESO (si type=income) o de GASTO (si type=expense)' })
-  @IsUUID()
+  @IsUUID('loose')
   accountId!: string;
 
   @ApiProperty({ example: 45.5 })
@@ -23,7 +23,7 @@ export class CreateGroupFundMovementDto {
 
   @ApiPropertyOptional({ description: 'Requerida solo si el grupo no tiene sucursal propia (branchId null)' })
   @Transform(emptyToUndefined)
-  @IsUUID() @IsOptional()
+  @IsUUID('loose') @IsOptional()
   branchId?: string;
 
   @ApiPropertyOptional()

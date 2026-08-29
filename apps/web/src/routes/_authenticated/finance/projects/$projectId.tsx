@@ -4,13 +4,16 @@ import { motion, type Variants } from 'framer-motion';
 import {
   AlertTriangle,
   ArrowLeft,
+  Ban,
   Calendar,
+  Check,
   CheckCircle2,
   CircleDollarSign,
   Clock,
   Download,
   Flag,
   Gauge,
+  Handshake,
   Landmark,
   MapPin,
   Pencil,
@@ -30,25 +33,36 @@ import {
   useProjectContributionsQuery,
   useRemoveProjectContributionMutation,
   usePostProjectContributionToLedgerMutation,
+  useProjectPledgesQuery,
+  useRemoveProjectPledgeMutation,
   useProjectExpensesQuery,
   useRemoveProjectExpenseMutation,
   usePostProjectExpenseToLedgerMutation,
+  useApproveProjectExpenseMutation,
+  useRejectProjectExpenseMutation,
+  useRegisterContributionReceiptMutation,
+  useDownloadContributionReceiptPdf,
 } from '@/modules/proyectos';
 import { ProjectFormDialog } from '@/modules/proyectos/projects/components/project-form-dialog';
 import { AddContributionDialog } from '@/modules/proyectos/projects/components/add-contribution-dialog';
+import { AddPledgeDialog } from '@/modules/proyectos/projects/components/add-pledge-dialog';
 import { AddExpenseDialog } from '@/modules/proyectos/projects/components/add-expense-dialog';
 import { useExportProjectSummary } from '@/modules/proyectos/projects/use-export-project-summary';
+import { useExportProjectSummaryPdf } from '@/modules/proyectos/projects/use-export-project-summary-pdf';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { QueryErrorState } from '@/components/ui/query-error-state';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { CollapsibleSection } from '@/components/ui/collapsible-section';
 import { PageHeader } from '@/components/layout/page-header';
 import { formatDate, daysUntilLocal } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import type { ProjectContribution, ProjectExpense } from '@isai/shared-types';
+import type { ProjectContribution, ProjectExpense, ProjectPledge } from '@isai/shared-types';
 
 export const Route = createFileRoute('/_authenticated/finance/projects/$projectId')({
   component: ProjectDetailPage,
@@ -66,6 +80,18 @@ function formatAmount(amount: string | number) {
 function contributorLabel(contribution: ProjectContribution) {
   if (contribution.person) return `${contribution.person.firstName} ${contribution.person.lastName}`;
   if (contribution.group) return `Grupo: ${contribution.group.name}`;
+  return '—';
+}
+
+const PLEDGE_FREQUENCY_LABELS: Record<ProjectPledge['frequency'], string> = {
+  once: 'Única vez',
+  monthly: 'Mensual',
+  weekly: 'Semanal',
+};
+
+function pledgeLabel(pledge: ProjectPledge) {
+  if (pledge.person) return `${pledge.person.firstName} ${pledge.person.lastName}`;
+  if (pledge.group) return `Grupo: ${pledge.group.name}`;
   return '—';
 }
 
@@ -138,6 +164,7 @@ function monthKeyToDate(monthKey: string): Date {
 
 function ProjectStatsTab({ project, contributions, expenses }: ProjectStatsTabProps) {
   const { download, isDownloading } = useExportProjectSummary(project.id, project.name);
+  const { download: downloadPdf, isDownloading: isDownloadingPdf } = useExportProjectSummaryPdf(project.id, project.name);
 
   const stats = useMemo(() => {
     if (!contributions || !expenses) return null;
@@ -258,10 +285,16 @@ function ProjectStatsTab({ project, contributions, expenses }: ProjectStatsTabPr
             <h2 className="text-sm font-semibold">Resumen estadístico</h2>
             <p className="text-xs text-muted-foreground">Aportantes, promedio, avance mensual y estado de contabilización.</p>
           </div>
-          <Button size="sm" onClick={() => void download()} disabled={isDownloading}>
-            <Download className="mr-1.5 h-4 w-4" />
-            {isDownloading ? 'Generando...' : 'Descargar Excel'}
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => void downloadPdf()} disabled={isDownloadingPdf}>
+              <Download className="mr-1.5 h-4 w-4" />
+              {isDownloadingPdf ? 'Generando...' : 'Descargar PDF'}
+            </Button>
+            <Button size="sm" onClick={() => void download()} disabled={isDownloading}>
+              <Download className="mr-1.5 h-4 w-4" />
+              {isDownloading ? 'Generando...' : 'Descargar Excel'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -651,6 +684,15 @@ function ProjectDetailPage() {
   } = useProjectContributionsQuery(projectId);
   const removeMutation = useRemoveProjectContributionMutation(projectId);
   const postMutation = usePostProjectContributionToLedgerMutation(projectId);
+  const registerReceiptMutation = useRegisterContributionReceiptMutation(projectId);
+  const { download: downloadReceiptPdf, isDownloading: isDownloadingReceipt } = useDownloadContributionReceiptPdf(projectId);
+  const {
+    data: pledges,
+    isLoading: isPledgesLoading,
+    isError: isPledgesError,
+    refetch: refetchPledges,
+  } = useProjectPledgesQuery(projectId);
+  const removePledgeMutation = useRemoveProjectPledgeMutation(projectId);
   const {
     data: expenses,
     isLoading: isExpensesLoading,
@@ -659,14 +701,20 @@ function ProjectDetailPage() {
   } = useProjectExpensesQuery(projectId);
   const removeExpenseMutation = useRemoveProjectExpenseMutation(projectId);
   const postExpenseMutation = usePostProjectExpenseToLedgerMutation(projectId);
+  const approveExpenseMutation = useApproveProjectExpenseMutation(projectId);
+  const rejectExpenseMutation = useRejectProjectExpenseMutation(projectId);
 
   const [editOpen, setEditOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [removingContribution, setRemovingContribution] = useState<ProjectContribution | null>(null);
   const [postingContribution, setPostingContribution] = useState<ProjectContribution | null>(null);
+  const [addPledgeOpen, setAddPledgeOpen] = useState(false);
+  const [removingPledge, setRemovingPledge] = useState<ProjectPledge | null>(null);
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
   const [removingExpense, setRemovingExpense] = useState<ProjectExpense | null>(null);
   const [postingExpense, setPostingExpense] = useState<ProjectExpense | null>(null);
+  const [rejectingExpense, setRejectingExpense] = useState<ProjectExpense | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   if (isError) {
     return <QueryErrorState message="No se pudo cargar el proyecto." onRetry={() => refetch()} />;
@@ -686,8 +734,11 @@ function ProjectDetailPage() {
 
   const daysTone: StatTone = daysRemaining === null ? 'violet' : daysRemaining < 0 ? 'rose' : daysRemaining <= 7 ? 'amber' : 'violet';
 
+  const totalPledged = Number(project.totalPledged);
+
   const kpis: { label: string; value: string; icon: LucideIcon; tone: StatTone }[] = [
     { label: 'Recaudado', value: formatAmount(totalContributed), icon: TrendingUp, tone: 'emerald' },
+    { label: 'Prometido', value: formatAmount(totalPledged), icon: Handshake, tone: 'violet' },
     { label: 'Gastado', value: formatAmount(totalSpent), icon: TrendingDown, tone: 'amber' },
     { label: 'Disponible', value: formatAmount(available), icon: Wallet, tone: available < 0 ? 'rose' : 'blue' },
     { label: 'Meta', value: formatAmount(goalAmount), icon: Flag, tone: 'slate' },
@@ -807,6 +858,29 @@ function ProjectDetailPage() {
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <span className="text-sm font-medium">{formatAmount(contribution.amount)}</span>
+                    {contribution.documentNumber ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => void downloadReceiptPdf(contribution.id, contribution.documentNumber!)}
+                        disabled={isDownloadingReceipt}
+                        aria-label={`Descargar comprobante ${contribution.documentNumber}`}
+                        title={`Descargar comprobante ${contribution.documentNumber}`}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => registerReceiptMutation.mutate(contribution.id)}
+                        disabled={registerReceiptMutation.isPending}
+                        aria-label="Generar comprobante"
+                        title="Generar comprobante"
+                      >
+                        <Receipt className="h-4 w-4" />
+                      </Button>
+                    )}
                     {contribution.journalEntryId ? (
                       <span
                         className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
@@ -837,6 +911,64 @@ function ProjectDetailPage() {
                         </Button>
                       </>
                     )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            </CollapsibleSection>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl">
+          <CardContent className="p-6">
+            <CollapsibleSection
+              icon={Handshake}
+              title="Compromisos"
+              defaultOpen={false}
+              action={
+                <Button variant="outline" size="sm" onClick={() => setAddPledgeOpen(true)}>
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Agregar
+                </Button>
+              }
+            >
+            {isPledgesLoading && (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                ))}
+              </div>
+            )}
+
+            {isPledgesError && (
+              <QueryErrorState message="No se pudieron cargar los compromisos." onRetry={() => refetchPledges()} />
+            )}
+
+            {!isPledgesLoading && !isPledgesError && pledges?.length === 0 && (
+              <p className="text-sm text-muted-foreground">Todavía no hay compromisos de aporte registrados.</p>
+            )}
+
+            <ul className="space-y-2">
+              {pledges?.map((pledge) => (
+                <li key={pledge.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{pledgeLabel(pledge)}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {PLEDGE_FREQUENCY_LABELS[pledge.frequency]}
+                      {pledge.expectedDate && ` · Esperado: ${formatDate(pledge.expectedDate)}`}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="text-sm font-medium">{formatAmount(pledge.amount)}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setRemovingPledge(pledge)}
+                      aria-label="Eliminar"
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </li>
               ))}
@@ -891,6 +1023,69 @@ function ProjectDetailPage() {
                         <CheckCircle2 className="h-3.5 w-3.5" />
                         Contabilizado
                       </span>
+                    ) : expense.approvalStatus === 'pending' ? (
+                      <>
+                        <span
+                          className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+                          title={
+                            expense.activeStepApprover
+                              ? `Esperando aprobación de: ${expense.activeStepApprover.firstName} ${expense.activeStepApprover.lastName}`
+                              : undefined
+                          }
+                        >
+                          <Clock className="h-3.5 w-3.5" />
+                          {expense.activeStepApprover
+                            ? `Esperando: ${expense.activeStepApprover.firstName} ${expense.activeStepApprover.lastName}`
+                            : 'Pendiente de aprobación'}
+                        </span>
+                        {expense.canCurrentUserApprove && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => approveExpenseMutation.mutate(expense.id)}
+                              aria-label="Aprobar"
+                              title="Aprobar"
+                            >
+                              <Check className="h-4 w-4 text-emerald-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setRejectingExpense(expense)}
+                              aria-label="Rechazar"
+                              title="Rechazar"
+                            >
+                              <Ban className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setRemovingExpense(expense)}
+                          aria-label="Eliminar"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    ) : expense.approvalStatus === 'rejected' ? (
+                      <>
+                        <span className="flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 dark:bg-rose-950/40 dark:text-rose-400">
+                          <Ban className="h-3.5 w-3.5" />
+                          Rechazado
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setRemovingExpense(expense)}
+                          aria-label="Eliminar"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
                     ) : (
                       <>
                         <Button
@@ -976,6 +1171,29 @@ function ProjectDetailPage() {
         }}
       />
 
+      <AddPledgeDialog
+        open={addPledgeOpen}
+        onOpenChange={setAddPledgeOpen}
+        projectId={project.id}
+        institutionId={project.institutionId}
+      />
+
+      <ConfirmDialog
+        open={!!removingPledge}
+        onOpenChange={(open) => !open && setRemovingPledge(null)}
+        title="Eliminar compromiso"
+        description={
+          removingPledge
+            ? `Esto elimina el compromiso de "${pledgeLabel(removingPledge)}" por ${formatAmount(removingPledge.amount)}. No se puede deshacer.`
+            : ''
+        }
+        isPending={removePledgeMutation.isPending}
+        onConfirm={() => {
+          if (!removingPledge) return;
+          removePledgeMutation.mutate(removingPledge.id, { onSuccess: () => setRemovingPledge(null) });
+        }}
+      />
+
       <AddExpenseDialog open={addExpenseOpen} onOpenChange={setAddExpenseOpen} projectId={project.id} />
 
       <ConfirmDialog
@@ -1011,6 +1229,70 @@ function ProjectDetailPage() {
           postExpenseMutation.mutate(postingExpense.id, { onSuccess: () => setPostingExpense(null) });
         }}
       />
+
+      <Dialog
+        open={!!rejectingExpense}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRejectingExpense(null);
+            setRejectReason('');
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rechazar gasto</DialogTitle>
+            <DialogDescription>
+              {rejectingExpense && `${expenseLabel(rejectingExpense)} por ${formatAmount(rejectingExpense.amount)} — indica el motivo.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="reject-reason">Motivo</Label>
+            <Input
+              id="reject-reason"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              maxLength={255}
+              placeholder="Ej. Falta cotización, monto no coincide..."
+              autoFocus
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setRejectingExpense(null);
+                setRejectReason('');
+              }}
+              disabled={rejectExpenseMutation.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="delete"
+              disabled={rejectExpenseMutation.isPending || !rejectReason.trim()}
+              onClick={() => {
+                if (!rejectingExpense) return;
+                rejectExpenseMutation.mutate(
+                  { expenseId: rejectingExpense.id, reason: rejectReason },
+                  {
+                    onSuccess: () => {
+                      setRejectingExpense(null);
+                      setRejectReason('');
+                    },
+                  },
+                );
+              }}
+            >
+              {rejectExpenseMutation.isPending ? 'Rechazando...' : 'Rechazar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

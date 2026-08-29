@@ -51,6 +51,10 @@ model Person {
   milestones     PersonMilestone[]
   eventPrivileges EventPrivilege[]
   projectContributions ProjectContribution[]
+  projectPledges ProjectPledge[]
+  fundCollectionDonorLines EventFundCollectionDonor[]
+  donorStatementReceipts DonorStatementReceipt[]
+  custodianOfAssets Asset[]
 
   relationshipsAsPerson  PersonRelationship[] @relation("PersonRelationshipsAsPerson")
   relationshipsAsRelated PersonRelationship[] @relation("PersonRelationshipsAsRelated")
@@ -162,6 +166,8 @@ model Group {
   branchSchedules BranchSchedule[]
   journalEntryLines JournalEntryLine[]
   projectContributions ProjectContribution[]
+  projectPledges  ProjectPledge[]
+  fundExpenses    GroupFundExpense[]
   userRoles       UserRole[]
 
   @@map("groups")
@@ -308,6 +314,10 @@ model FundType {
   // 4001). Null = todavía no configurado, el backend bloquea "Contabilizar"
   // hasta que se asigne — ver EventsService.postFundCollectionToLedger.
   incomeAccountId String?  @map("income_account_id")
+  // Permite identificar donantes por nombre en las colectas de este tipo de
+  // fondo (§8.1) — opcional a propósito, muchas iglesias registran la
+  // ofrenda deliberadamente anónima. Default false.
+  tracksDonors    Boolean  @default(false) @map("tracks_donors")
 
   tenant       Tenant                @relation(fields: [tenantId], references: [id])
   incomeAccount Account?             @relation("FundTypeIncomeAccount", fields: [incomeAccountId], references: [id])
@@ -334,8 +344,30 @@ model EventFundCollection {
   event        Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   fundType     FundType      @relation(fields: [fundTypeId], references: [id])
   journalEntry JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  donors       EventFundCollectionDonor[]
 
   @@map("event_fund_collections")
+  @@schema("membresia")
+}
+
+// Identifica a un donante puntual dentro de una colecta (§8.1) — solo
+// existe si FundType.tracksDonors es true para esa colecta. La suma de
+// estas filas para una colección NO tiene que igualar collection.amount
+// (alguien pudo dar sin identificarse); se valida en el servicio que nunca
+// la SUPERE, no es una constraint de base.
+model EventFundCollectionDonor {
+  id            String   @id @default(uuid())
+  collectionId  String   @map("collection_id")
+  personId      String   @map("person_id")
+  amount        Decimal  @db.Decimal(12, 2)
+  paymentMethod String?  @map("payment_method") @db.VarChar(20) // 'cash' | 'transfer' | 'check'
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  collection EventFundCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  person     Person              @relation(fields: [personId], references: [id])
+
+  @@map("event_fund_collection_donors")
   @@schema("membresia")
 }
 

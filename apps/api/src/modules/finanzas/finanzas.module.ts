@@ -5,6 +5,9 @@ import { JournalEntriesModule } from './journal-entries/journal-entries.module';
 import { ReportsModule } from './reports/reports.module';
 import { GroupFundsModule } from './group-funds/group-funds.module';
 import { LedgerModule } from './ledger/ledger.module';
+import { BudgetsModule } from './budgets/budgets.module';
+import { ApprovalsModule } from './approvals/approvals.module';
+import { PeriodClosingsModule } from './period-closings/period-closings.module';
 
 /**
  * FinanzasModule — Schema "finanzas" de Postgres
@@ -31,10 +34,35 @@ import { LedgerModule } from './ledger/ledger.module';
  * de acá porque Proyectos (y EventsModule en Membresía) lo consumen para
  * contabilizar sin acceso directo al schema finanzas.
  *
+ * ApprovalsModule (rutas de aprobación de gastos, ExpenseApprovalsService)
+ * también vivió en Proyectos — se movió acá para poder gobernar tanto
+ * gastos de Proyecto como de Fondo de Grupo sin que este módulo tuviera que
+ * depender de ProyectosModule (habría formado un ciclo: Proyectos ya
+ * depende de acá para LedgerModule). Se exporta con el mismo criterio.
+ *
  * Regla: Este módulo es el único que accede al schema "finanzas" de Prisma.
  */
 @Module({
-  imports: [PrismaModule, AccountsModule, JournalEntriesModule, ReportsModule, GroupFundsModule, LedgerModule],
-  exports: [AccountsModule, JournalEntriesModule, ReportsModule, GroupFundsModule, LedgerModule],
+  imports: [
+    PrismaModule,
+    AccountsModule,
+    JournalEntriesModule,
+    ReportsModule,
+    GroupFundsModule,
+    LedgerModule,
+    BudgetsModule,
+    ApprovalsModule,
+    PeriodClosingsModule,
+  ],
+  exports: [
+    AccountsModule,
+    JournalEntriesModule,
+    ReportsModule,
+    GroupFundsModule,
+    LedgerModule,
+    BudgetsModule,
+    ApprovalsModule,
+    PeriodClosingsModule,
+  ],
 })
 export class FinanzasModule {}

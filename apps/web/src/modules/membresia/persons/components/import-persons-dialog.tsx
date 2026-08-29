@@ -17,6 +17,7 @@ import {
   useConfirmPersonsImportMutation,
   downloadPersonsImportTemplate,
 } from '@/modules/membresia';
+import { useAuthStore } from '@/lib/auth-store';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/toast';
 import type { ImportPreviewRow } from '@isai/shared-types';
@@ -37,7 +38,9 @@ const STATUS_STYLES: Record<ImportPreviewRow['status'], { label: string; classNa
 };
 
 export function ImportPersonsDialog({ open, onOpenChange, institutionId }: ImportPersonsDialogProps) {
-  const { data: branches } = useBranchesQuery(institutionId);
+  const permissions = useAuthStore((state) => state.user?.permissions) ?? [];
+  const canViewBranches = permissions.includes('core.branch.view');
+  const { data: branches } = useBranchesQuery(institutionId, canViewBranches);
   const { data: personTypes } = useCatalogItemsQuery('person_type');
   const previewMutation = usePreviewPersonsImportMutation();
   const confirmMutation = useConfirmPersonsImportMutation();

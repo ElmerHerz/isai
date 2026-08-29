@@ -5,7 +5,7 @@ import { emptyToUndefined } from '../../../../common/utils/empty-to-undefined.tr
 
 export class CreateEventFundCollectionDto {
   @ApiProperty({ example: 'uuid-del-tipo-de-fondo' })
-  @IsUUID()
+  @IsUUID('loose')
   fundTypeId!: string;
 
   @ApiProperty({ example: 150.5 })

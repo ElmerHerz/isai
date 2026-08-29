@@ -18,6 +18,7 @@ import { DateInput } from '@/components/ui/date-input';
 import { useBranchesQuery } from '@/modules/general';
 import { useAccountsQuery } from '@/modules/finanzas';
 import { useCreateProjectMutation, useUpdateProjectMutation } from '@/modules/proyectos';
+import { useAuthStore } from '@/lib/auth-store';
 import { getErrorMessage } from '@/lib/toast';
 import type { Project } from '@isai/shared-types';
 
@@ -52,8 +53,13 @@ interface ProjectFormDialogProps {
 
 export function ProjectFormDialog({ open, onOpenChange, institutionId, project }: ProjectFormDialogProps) {
   const isEditing = !!project;
-  const { data: branches } = useBranchesQuery(institutionId);
-  const { data: accounts } = useAccountsQuery();
+  const currentUser = useAuthStore((state) => state.user);
+  const isSuperadmin = !!currentUser && !currentUser.tenantId;
+  const permissions = currentUser?.permissions ?? [];
+  const canViewBranches = isSuperadmin || permissions.includes('core.branch.view');
+  const canViewAccounts = isSuperadmin || permissions.includes('finance.account.view');
+  const { data: branches } = useBranchesQuery(institutionId, canViewBranches);
+  const { data: accounts } = useAccountsQuery(undefined, canViewAccounts);
   const incomeAccounts = accounts?.filter((a) => a.accountType.code === INCOME_ACCOUNT_TYPE && a.allowsTransactions) ?? [];
   const createMutation = useCreateProjectMutation();
   const updateMutation = useUpdateProjectMutation();

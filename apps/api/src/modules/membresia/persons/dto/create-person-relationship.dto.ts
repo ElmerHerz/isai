@@ -5,11 +5,11 @@ import { emptyToUndefined } from '../../../../common/utils/empty-to-undefined.tr
 
 export class CreatePersonRelationshipDto {
   @ApiProperty({ example: 'uuid-de-la-persona-relacionada' })
-  @IsUUID()
+  @IsUUID('loose')
   relatedPersonId!: string;
 
   @ApiProperty({ example: 'uuid-del-catalog-item (catalogCode=relationship_type)' })
-  @IsUUID()
+  @IsUUID('loose')
   relationshipTypeId!: string;
 
   @ApiPropertyOptional()

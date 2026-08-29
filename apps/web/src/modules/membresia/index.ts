@@ -144,3 +144,9 @@ export {
 } from './events/use-create-event-fund-collection.mutation';
 export { useRemoveEventFundCollectionMutation } from './events/use-remove-event-fund-collection.mutation';
 export { usePostFundCollectionToLedgerMutation } from './events/use-post-fund-collection-to-ledger.mutation';
+export { useFundCollectionDonorsQuery, fundCollectionDonorsKey } from './events/use-fund-collection-donors.query';
+export {
+  useAddFundCollectionDonorMutation,
+  type AddFundCollectionDonorInput,
+} from './events/use-add-fund-collection-donor.mutation';
+export { useRemoveFundCollectionDonorMutation } from './events/use-remove-fund-collection-donor.mutation';

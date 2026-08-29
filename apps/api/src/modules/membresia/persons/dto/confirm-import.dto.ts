@@ -14,16 +14,16 @@ export class ImportRowDto {
 
 export class ConfirmImportDto {
   @ApiProperty({ example: 'uuid-de-la-institución' })
-  @IsUUID()
+  @IsUUID('loose')
   institutionId!: string;
 
   @ApiPropertyOptional()
-  @IsUUID()
+  @IsUUID('loose')
   @IsOptional()
   branchId?: string;
 
   @ApiProperty({ example: 'uuid-del-catalog-item (catalogCode=person_type)' })
-  @IsUUID()
+  @IsUUID('loose')
   personTypeId!: string;
 
   // Mismo tope que la previsualización — evita lotes fuera de cualquier

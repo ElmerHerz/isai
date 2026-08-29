@@ -73,8 +73,13 @@ export function InstitutionFormDialog({
   const isEditing = !!institution;
   const { data: currentUser } = useMeQuery();
   const isSuperadmin = !isEditing && !!currentUser && !currentUser.tenantId;
+  // isSuperadmin bypasea PermissionsGuard en el backend sin importar su
+  // arreglo de permisos (que puede venir vacío) — chequeo aparte del de
+  // arriba porque acá aplica sin importar isEditing.
+  const isPlatformSuperadmin = !!currentUser && !currentUser.tenantId;
+  const canViewInstitutionTypes = isPlatformSuperadmin || !!currentUser?.permissions?.includes('core.institution.view');
 
-  const { data: types } = useInstitutionTypesQuery();
+  const { data: types } = useInstitutionTypesQuery(canViewInstitutionTypes);
   const { data: tenants } = useTenantsQuery(isSuperadmin);
   const createTenantMutation = useCreateTenantMutation();
   const createMutation = useCreateInstitutionMutation();

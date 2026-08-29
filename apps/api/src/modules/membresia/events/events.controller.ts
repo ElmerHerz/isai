@@ -8,6 +8,7 @@ import { UpdateEventDto } from './dto/update-event.dto';
 import { RecordAttendanceDto } from './dto/record-attendance.dto';
 import { CreateEventPrivilegeDto } from './dto/create-event-privilege.dto';
 import { CreateEventFundCollectionDto } from './dto/create-event-fund-collection.dto';
+import { CreateFundCollectionDonorDto } from './dto/create-fund-collection-donor.dto';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser, RequestUser } from '../../../common/decorators/current-user.decorator';
@@ -167,6 +168,45 @@ export class EventsController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.eventsService.removeFundCollection(id, collectionId, tenantId, user);
+  }
+
+  @Get(':id/fund-collections/:collectionId/donors')
+  @RequirePermission('membership.event.view')
+  @ApiOperation({ summary: 'Donantes identificados en esta colecta (solo si el tipo de fondo lo permite)' })
+  findFundCollectionDonors(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('collectionId', ParseUUIDPipe) collectionId: string,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.eventsService.findFundCollectionDonors(id, collectionId, tenantId, user);
+  }
+
+  @Post(':id/fund-collections/:collectionId/donors')
+  @RequirePermission('membership.event_fund_collection.create')
+  @ApiOperation({ summary: 'Identificar un donante en esta colecta' })
+  addFundCollectionDonor(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('collectionId', ParseUUIDPipe) collectionId: string,
+    @Body() dto: CreateFundCollectionDonorDto,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.eventsService.addFundCollectionDonor(id, collectionId, tenantId, dto, user);
+  }
+
+  @Delete(':id/fund-collections/:collectionId/donors/:donorId')
+  @RequirePermission('membership.event_fund_collection.delete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Quitar un donante identificado de esta colecta' })
+  removeFundCollectionDonor(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('collectionId', ParseUUIDPipe) collectionId: string,
+    @Param('donorId', ParseUUIDPipe) donorId: string,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.eventsService.removeFundCollectionDonor(id, collectionId, donorId, tenantId, user);
   }
 
   @Post(':id/fund-collections/:collectionId/post-to-ledger')

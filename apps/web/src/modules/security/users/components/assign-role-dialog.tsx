@@ -13,6 +13,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { useRolesQuery, useAssignRoleMutation } from '@/modules/security';
 import { useInstitutionsQuery, useBranchesQuery } from '@/modules/general';
 import { useGroupsQuery } from '@/modules/membresia';
+import { useAuthStore } from '@/lib/auth-store';
 import { getErrorMessage } from '@/lib/toast';
 import type { UserListItem } from '@isai/shared-types';
 
@@ -27,7 +28,17 @@ interface AssignRoleDialogProps {
 // paso fallaba (ver user-form-dialog.tsx), no había manera de arreglarlo
 // desde la UI.
 export function AssignRoleDialog({ open, onOpenChange, user }: AssignRoleDialogProps) {
-  const { data: roles } = useRolesQuery();
+  const currentUser = useAuthStore((state) => state.user);
+  const isSuperadmin = !!currentUser && !currentUser.tenantId;
+  // isSuperadmin bypasea PermissionsGuard en el backend sin importar su
+  // arreglo de permisos (que puede venir vacío) — mismo criterio que
+  // user-form-dialog.tsx.
+  const permissions = currentUser?.permissions ?? [];
+  const canViewRoles = isSuperadmin || permissions.includes('security.role.view');
+  const canViewBranches = isSuperadmin || permissions.includes('core.branch.view');
+  const canViewGroups = isSuperadmin || permissions.includes('membership.group.view');
+
+  const { data: roles } = useRolesQuery(undefined, canViewRoles);
   const mutation = useAssignRoleMutation();
 
   const [roleId, setRoleId] = useState('');
@@ -36,8 +47,8 @@ export function AssignRoleDialog({ open, onOpenChange, user }: AssignRoleDialogP
   const [groupId, setGroupId] = useState('');
 
   const { data: institutions } = useInstitutionsQuery();
-  const { data: branches } = useBranchesQuery(institutionId || '');
-  const { data: groups } = useGroupsQuery(institutionId || '');
+  const { data: branches } = useBranchesQuery(institutionId || '', canViewBranches);
+  const { data: groups } = useGroupsQuery(institutionId || '', canViewGroups);
 
   useEffect(() => {
     if (open) {

@@ -26,8 +26,9 @@ interface AddEventPrivilegeDialogProps {
 export function AddEventPrivilegeDialog({ open, onOpenChange, eventId, institutionId }: AddEventPrivilegeDialogProps) {
   const permissions = useAuthStore((state) => state.user?.permissions) ?? [];
   const canViewPersons = permissions.includes('membership.person.view');
+  const canViewPrivilegeTypes = permissions.includes('membership.event.view');
   const { data: persons, isLoading: isPersonsLoading } = usePersonsQuery(institutionId, canViewPersons);
-  const { data: privilegeTypes } = usePrivilegeTypesQuery();
+  const { data: privilegeTypes } = usePrivilegeTypesQuery(undefined, canViewPrivilegeTypes);
   const mutation = useCreateEventPrivilegeMutation(eventId);
 
   const [search, setSearch] = useState('');

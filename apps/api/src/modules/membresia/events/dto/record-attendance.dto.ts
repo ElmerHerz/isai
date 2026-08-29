@@ -5,11 +5,11 @@ import { emptyToUndefined } from '../../../../common/utils/empty-to-undefined.tr
 
 export class AttendanceRecordDto {
   @ApiProperty({ example: 'uuid-de-la-persona' })
-  @IsUUID()
+  @IsUUID('loose')
   personId!: string;
 
   @ApiProperty({ example: 'uuid-del-catalog-item (catalogCode=attendance_status)' })
-  @IsUUID()
+  @IsUUID('loose')
   statusId!: string;
 
   @ApiPropertyOptional()

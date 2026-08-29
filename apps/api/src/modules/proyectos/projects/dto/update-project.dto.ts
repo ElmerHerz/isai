@@ -28,7 +28,7 @@ export class UpdateProjectDto {
 
   @ApiPropertyOptional()
   @Transform(emptyToUndefined)
-  @IsUUID() @IsOptional()
+  @IsUUID('loose') @IsOptional()
   incomeAccountId?: string;
 
   @ApiPropertyOptional({ enum: PROJECT_STATUSES })

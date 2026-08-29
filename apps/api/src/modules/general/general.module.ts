@@ -10,6 +10,7 @@ import { CountriesModule } from './countries/countries.module';
 import { LanguagesModule } from './languages/languages.module';
 import { CatalogItemsModule } from './catalog-items/catalog-items.module';
 import { BranchSchedulesModule } from './branch-schedules/branch-schedules.module';
+import { DocumentSequencesModule } from './document-sequences/document-sequences.module';
 
 /**
  * GeneralModule — Schema "general" de Postgres
@@ -35,6 +36,7 @@ import { BranchSchedulesModule } from './branch-schedules/branch-schedules.modul
     LanguagesModule,
     CatalogItemsModule,
     BranchSchedulesModule,
+    DocumentSequencesModule,
   ],
   exports: [
     TenantsModule,
@@ -47,6 +49,7 @@ import { BranchSchedulesModule } from './branch-schedules/branch-schedules.modul
     LanguagesModule,
     CatalogItemsModule,
     BranchSchedulesModule,
+    DocumentSequencesModule,
   ],
 })
 export class GeneralModule {}

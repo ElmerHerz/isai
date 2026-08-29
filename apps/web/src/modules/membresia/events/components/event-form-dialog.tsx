@@ -17,6 +17,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { DateInput } from '@/components/ui/date-input';
 import { useCatalogItemsQuery, useBranchesQuery, useBranchSchedulesQuery } from '@/modules/general';
 import { useGroupsQuery, useCreateEventMutation, useUpdateEventMutation } from '@/modules/membresia';
+import { useAuthStore } from '@/lib/auth-store';
 import { toTimeInputValue } from '@/lib/format-time';
 import { getErrorMessage } from '@/lib/toast';
 import type { EventWithRelations } from '@isai/shared-types';
@@ -64,9 +65,12 @@ interface EventFormDialogProps {
 
 export function EventFormDialog({ open, onOpenChange, institutionId, event }: EventFormDialogProps) {
   const isEditing = !!event;
+  const permissions = useAuthStore((state) => state.user?.permissions) ?? [];
+  const canViewBranches = permissions.includes('core.branch.view');
+  const canViewGroups = permissions.includes('membership.group.view');
   const { data: eventTypes } = useCatalogItemsQuery(EVENT_TYPE_CATALOG_CODE);
-  const { data: branches } = useBranchesQuery(institutionId);
-  const { data: groups } = useGroupsQuery(institutionId);
+  const { data: branches } = useBranchesQuery(institutionId, canViewBranches);
+  const { data: groups } = useGroupsQuery(institutionId, canViewGroups);
   const createMutation = useCreateEventMutation();
   const updateMutation = useUpdateEventMutation();
   const mutation = isEditing ? updateMutation : createMutation;
@@ -85,7 +89,7 @@ export function EventFormDialog({ open, onOpenChange, institutionId, event }: Ev
   });
 
   const branchId = watch('branchId');
-  const { data: schedules } = useBranchSchedulesQuery(branchId || '');
+  const { data: schedules } = useBranchSchedulesQuery(branchId || '', canViewBranches);
 
   useEffect(() => {
     if (open) {

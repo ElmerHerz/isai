@@ -146,6 +146,18 @@ model Tenant {
   accounts       Account[]
   journalEntries JournalEntry[]
   projects       Project[]
+  budgets        Budget[]
+  approvalRoutes ApprovalRoute[]
+  documentSequences DocumentSequence[]
+  donorStatementReceipts DonorStatementReceipt[]
+  periodClosings PeriodClosing[]
+  products         Product[]
+  productCategories ProductCategory[]
+  assets           Asset[]
+  suppliers        Supplier[]
+  purchases        Purchase[]
+  customers        Customer[]
+  sales            Sale[]
 
   @@map("tenants")
   @@schema("general")
@@ -170,6 +182,12 @@ model Institution {
   events    Event[]
   journalEntries JournalEntry[]
   projects  Project[]
+  budgets   Budget[]
+  approvalRoutes ApprovalRoute[]
+  periodClosings PeriodClosing[]
+  assets    Asset[]
+  purchases Purchase[]
+  sales     Sale[]
 
   churchDetails      ChurchDetails?
   storeDetails       StoreDetails?
@@ -191,6 +209,22 @@ model Branch {
   // colecta de esta sucursal. Null = no configurado, el backend bloquea
   // "Contabilizar" hasta que se asigne — ver EventsService.
   defaultCashAccountId String? @map("default_cash_account_id")
+  // Mismo patrón que defaultCashAccountId — cuenta ASSET a acreditar al
+  // registrar "Uso interno" (docs/comercio-mejoras-propuestas.md §3.1). Sin
+  // UI para configurarlo todavía, igual que defaultCashAccountId.
+  defaultInventoryAccountId String? @map("default_inventory_account_id")
+  // Mismo patrón — cuenta LIABILITY a acreditar al "Contabilizar" una Compra
+  // a crédito (docs/comercio-mejoras-propuestas.md §4). Sin UI para
+  // configurarlo todavía, igual que las dos anteriores.
+  defaultPayableAccountId String? @map("default_payable_account_id")
+  // Cuenta INCOME a acreditar por el precio de venta de una Venta
+  // (docs/comercio-mejoras-propuestas.md §5). Mismo patrón, sin UI todavía.
+  defaultSalesAccountId String? @map("default_sales_account_id")
+  // Cuenta EXPENSE a debitar por el costo de lo vendido (COGS) de una Venta.
+  defaultCogsAccountId String? @map("default_cogs_account_id")
+  // Cuenta ASSET (Cuentas por Cobrar) a debitar cuando una Venta es a
+  // crédito — mismo criterio que defaultPayableAccountId para Compras.
+  defaultReceivableAccountId String? @map("default_receivable_account_id")
 
   institution Institution      @relation(fields: [institutionId], references: [id])
   addresses   Address[]
@@ -201,9 +235,68 @@ model Branch {
   events      Event[]
   journalEntries      JournalEntry[]
   defaultCashAccount  Account?         @relation("BranchDefaultCashAccount", fields: [defaultCashAccountId], references: [id])
+  defaultInventoryAccount Account?     @relation("BranchDefaultInventoryAccount", fields: [defaultInventoryAccountId], references: [id])
+  defaultPayableAccount   Account?     @relation("BranchDefaultPayableAccount", fields: [defaultPayableAccountId], references: [id])
+  defaultSalesAccount       Account?   @relation("BranchDefaultSalesAccount", fields: [defaultSalesAccountId], references: [id])
+  defaultCogsAccount        Account?   @relation("BranchDefaultCogsAccount", fields: [defaultCogsAccountId], references: [id])
+  defaultReceivableAccount  Account?   @relation("BranchDefaultReceivableAccount", fields: [defaultReceivableAccountId], references: [id])
   projects            Project[]
+  budgets             Budget[]
+  approvalRoutes      ApprovalRoute[]
+  documentSequences   DocumentSequence[]
+  periodClosings      PeriodClosing[]
+  productStocks       ProductStock[]
+  inventoryMovements  InventoryMovement[]
+  assets              Asset[]
+  purchases           Purchase[]
+  sales               Sale[]
 
   @@map("branches")
+  @@schema("general")
+}
+
+// Catálogo único de tipos de documento imprimibles/con correlativo — antes
+// cada módulo pasaba documentType+prefix como texto libre a
+// DocumentSequencesService, sin nada que garantizara que dos módulos no
+// usaran prefijos distintos para "lo mismo" por error. Global (sin
+// tenant_id), sembrado por SQL — mismo criterio que CatalogItem, sin
+// pantalla de administración todavía (ver plan de sesión).
+model DocumentType {
+  id        String   @id @default(uuid())
+  code      String   @unique @db.VarChar(50) // 'project_expense', 'group_fund_expense', 'donor_receipt'...
+  name      String   @db.VarChar(100)
+  prefix    String   @db.VarChar(10) // 'GTO', 'GFO', 'REC'...
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  sequences DocumentSequence[]
+
+  @@map("document_types")
+  @@schema("general")
+}
+
+// Contador de correlativos por (tenant, sucursal, tipo de documento, año) —
+// documentType referencia DocumentType.code (FK real desde esta sesión).
+// branchId nullable = reservado para un tipo de documento futuro sin
+// sucursal fija (hoy Gastos de Proyecto siempre resuelve una). El
+// incremento real SIEMPRE pasa por DocumentSequencesService vía $queryRaw
+// (INSERT ... ON CONFLICT ... DO UPDATE ... RETURNING, atómico) — este
+// modelo es para introspección/consistencia, no se escribe desde acá
+// directo.
+model DocumentSequence {
+  id           String @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  branchId     String? @map("branch_id")
+  documentType String @map("document_type") @db.VarChar(50)
+  year         Int    @db.SmallInt
+  lastNumber   Int    @default(0) @map("last_number")
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  branch       Branch?      @relation(fields: [branchId], references: [id])
+  documentTypeRef DocumentType @relation(fields: [documentType], references: [code])
+
+  @@unique([tenantId, branchId, documentType, year], name: "uq_document_sequences_scope")
+  @@map("document_sequences")
   @@schema("general")
 }
 

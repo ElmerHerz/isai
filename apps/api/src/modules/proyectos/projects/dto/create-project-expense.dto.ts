@@ -5,7 +5,7 @@ import { emptyToUndefined } from '../../../../common/utils/empty-to-undefined.tr
 
 export class CreateProjectExpenseDto {
   @ApiProperty({ description: 'Cuenta de GASTO contra la que se registra (ej. "5001 Compra de equipo")' })
-  @IsUUID()
+  @IsUUID('loose')
   accountId!: string;
 
   @ApiProperty({ example: 12500 })

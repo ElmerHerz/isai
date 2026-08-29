@@ -5,7 +5,11 @@
 // docs/finanzas-mejoras-propuestas.md §6: conceptualmente es un feature de
 // recaudación de iglesia, no del motor contable genérico, aunque sigue
 // consultando finanzas.accounts/journal_entries vía relaciones cruzadas y
-// contabilizando a través de LedgerService (finanzas/ledger).
+// contabilizando a través de LedgerService (finanzas/ledger). El motor de
+// aprobación de gastos (ApprovalRoute/ExpenseApprovalRequest) vive en
+// finanzas.prisma — se movió ahí para poder gobernar también gastos de
+// Fondo de Grupo, sin crear un ciclo de módulos NestJS (ver
+// finanzas/approvals/).
 // ============================================================
 
 // branchId es OBLIGATORIO a propósito (ver plan de sesión): "Contabilizar"
@@ -38,6 +42,7 @@ model Project {
   createdByUser User?                 @relation("ProjectCreatedBy", fields: [createdBy], references: [id])
   contributions ProjectContribution[]
   expenses      ProjectExpense[]
+  pledges       ProjectPledge[]
   journalEntryLines JournalEntryLine[]
 
   @@map("projects")
@@ -60,6 +65,10 @@ model ProjectContribution {
   notes          String?
   journalEntryId String?  @map("journal_entry_id")
   createdAt      DateTime @default(now()) @map("created_at")
+  // Comprobante OPCIONAL por transacción — null hasta que alguien lo pide
+  // (a diferencia de ProjectExpense.documentNumber, que siempre se asigna
+  // al crear). Mismo DocumentSequencesService, documentType distinto.
+  documentNumber String?  @unique @map("document_number") @db.VarChar(30)
 
   project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   person       Person?       @relation(fields: [personId], references: [id])
@@ -75,6 +84,11 @@ model ProjectContribution {
 // (registrar → Contabilizar). accountId es la cuenta de GASTO elegida en
 // cada registro (no fija por proyecto, a diferencia de incomeAccountId —
 // un proyecto puede tener varios rubros de gasto distintos).
+//
+// Sin relación directa a ExpenseApprovalRequest: ese modelo (en
+// finanzas.prisma) es polimórfico (sourceType='project_expense',
+// sourceId=este id), sin FK dura — mismo criterio que
+// JournalEntry.sourceType/sourceId. ProjectsService lo consulta aparte.
 model ProjectExpense {
   id             String   @id @default(uuid())
   projectId      String   @map("project_id")
@@ -85,6 +99,16 @@ model ProjectExpense {
   journalEntryId String?  @map("journal_entry_id")
   createdBy      String?  @map("created_by")
   createdAt      DateTime @default(now()) @map("created_at")
+  // Aprobación de gastos (ruta multi-paso configurable, ver
+  // finanzas.ApprovalRoute/ExpenseApprovalRequest) — approvalStatus es un
+  // RESUMEN sincronizado desde la solicitud (evita join en cada listado),
+  // el detalle real (quién decidió cada paso, cuándo, por qué) vive en
+  // ExpenseApprovalStep, no acá — no tiene sentido "el aprobador" cuando
+  // puede haber varios en cadena.
+  approvalStatus String   @default("not_required") @map("approval_status") @db.VarChar(20) // 'not_required' | 'pending' | 'approved' | 'rejected'
+  // Correlativo legible por sucursal, reinicia cada año (ej. "GTO-2026-000042")
+  // — ver DocumentSequencesService (schema general).
+  documentNumber String?  @unique @map("document_number") @db.VarChar(30)
 
   project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   account       Account       @relation("ProjectExpenseAccount", fields: [accountId], references: [id])
@@ -92,5 +116,36 @@ model ProjectExpense {
   createdByUser User?         @relation("ProjectExpenseCreatedBy", fields: [createdBy], references: [id])
 
   @@map("project_expenses")
+  @@schema("proyectos")
+}
+
+// Compromiso/promesa de aporte (§7.2) — alguien PROMETE aportar $X, distinto
+// de ProjectContribution (dinero que YA se recibió). Nunca genera asiento
+// contable — puramente informativo/de seguimiento, sin vínculo formal hacia
+// el aporte real que eventualmente la cumpla (decisión de diseño: "alcanza
+// con mostrar ambos números lado a lado", ver docs/finanzas-mejoras-propuestas.md).
+// frequency/installmentsTotal/status se capturan desde ya para un reporte
+// futuro, pero ningún endpoint de esta primera versión depende de ellos —
+// mismo criterio de futuro-proofing ya usado con ApprovalRoute/DocumentSequence.
+model ProjectPledge {
+  id                 String    @id @default(uuid())
+  projectId          String    @map("project_id")
+  personId           String?   @map("person_id")
+  groupId            String?   @map("group_id")
+  amount             Decimal   @db.Decimal(14, 2)
+  frequency          String    @default("once") @db.VarChar(20) // 'once' | 'monthly' | 'weekly'
+  installmentsTotal  Int?      @map("installments_total")
+  status             String    @default("active") @db.VarChar(20) // 'active' | 'fulfilled' | 'cancelled'
+  expectedDate       DateTime? @map("expected_date") @db.Date
+  notes              String?
+  createdBy          String?   @map("created_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  person        Person? @relation(fields: [personId], references: [id])
+  group         Group?  @relation(fields: [groupId], references: [id])
+  createdByUser User?   @relation("ProjectPledgeCreatedBy", fields: [createdBy], references: [id])
+
+  @@map("project_pledges")
   @@schema("proyectos")
 }

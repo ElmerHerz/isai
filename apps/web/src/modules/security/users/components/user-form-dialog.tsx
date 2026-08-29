@@ -53,6 +53,7 @@ export function UserFormDialog({ open, onOpenChange }: UserFormDialogProps) {
   // arreglo de permisos (que puede venir vacío) — por eso se chequea aparte,
   // no solo permissions.includes(...).
   const canViewRoles = isSuperadmin || !!currentUser?.permissions?.includes('security.role.view');
+  const canViewBranches = isSuperadmin || !!currentUser?.permissions?.includes('core.branch.view');
 
   const createUserMutation = useCreateUserMutation();
   const assignRoleMutation = useAssignRoleMutation();
@@ -93,7 +94,7 @@ export function UserFormDialog({ open, onOpenChange }: UserFormDialogProps) {
   const { data: tenants } = useTenantsQuery(isSuperadmin);
   const { data: roles } = useRolesQuery(isSuperadmin ? tenantId || undefined : undefined, canViewRoles);
   const { data: institutions } = useInstitutionsQuery(isSuperadmin ? tenantId || undefined : undefined);
-  const { data: branches } = useBranchesQuery(institutionId || '');
+  const { data: branches } = useBranchesQuery(institutionId || '', canViewBranches);
 
   useEffect(() => {
     if (open) reset();

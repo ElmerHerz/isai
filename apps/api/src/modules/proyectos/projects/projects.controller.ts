@@ -4,10 +4,14 @@ import {
 import { ApiBearerAuth, ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import type { FastifyReply } from 'fastify';
 import { ProjectsService } from './projects.service';
+import { buildContributionReceiptPdf } from './contribution-receipt-pdf';
+import { buildProjectSummaryPdf } from './project-summary-pdf';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { CreateProjectContributionDto } from './dto/create-project-contribution.dto';
 import { CreateProjectExpenseDto } from './dto/create-project-expense.dto';
+import { CreateProjectPledgeDto } from './dto/create-project-pledge.dto';
+import { RejectExpenseDto } from './dto/reject-expense.dto';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser, RequestUser } from '../../../common/decorators/current-user.decorator';
@@ -56,6 +60,24 @@ export class ProjectsController {
       .header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
       .header('Content-Disposition', `attachment; filename="proyecto-${safeName}.xlsx"`)
       .send(Buffer.from(buffer));
+  }
+
+  @Get(':id/export/pdf')
+  @RequirePermission('finance.report.export')
+  @ApiOperation({ summary: 'Descargar el resumen del proyecto en PDF (mismo detalle que el Excel, formato propio)' })
+  async exportSummaryPdf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
+    @Res() res: FastifyReply,
+  ) {
+    const data = await this.projectsService.buildSummaryPdfData(id, tenantId, user);
+    const buffer = await buildProjectSummaryPdf(data);
+    const safeName = data.project.name.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '');
+    res
+      .header('Content-Type', 'application/pdf')
+      .header('Content-Disposition', `attachment; filename="proyecto-${safeName}.pdf"`)
+      .send(buffer);
   }
 
   @Post()
@@ -127,6 +149,77 @@ export class ProjectsController {
     return this.projectsService.postContributionToLedger(id, contributionId, tenantId, user);
   }
 
+  @Post(':id/contributions/:contributionId/receipt')
+  @RequirePermission('finance.project_contribution.create')
+  @ApiOperation({ summary: 'Generar el comprobante de un aporte (asigna el folio una sola vez, reutilizable)' })
+  registerContributionReceipt(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('contributionId', ParseUUIDPipe) contributionId: string,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.projectsService.registerContributionReceipt(id, contributionId, tenantId, user);
+  }
+
+  @Get(':id/contributions/:contributionId/receipt/pdf')
+  @RequirePermission('finance.project.view')
+  @ApiOperation({ summary: 'Descargar el comprobante de un aporte en PDF (exige que ya esté generado)' })
+  async downloadContributionReceiptPdf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('contributionId', ParseUUIDPipe) contributionId: string,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
+    @Res() res: FastifyReply,
+  ) {
+    const { project, contribution, institutionName } = await this.projectsService.buildContributionReceiptData(
+      id,
+      contributionId,
+      tenantId,
+      user,
+    );
+    const buffer = await buildContributionReceiptPdf(project, contribution, institutionName);
+    res
+      .header('Content-Type', 'application/pdf')
+      .header('Content-Disposition', `attachment; filename="comprobante-${contribution.documentNumber}.pdf"`)
+      .send(buffer);
+  }
+
+  @Get(':id/pledges')
+  @RequirePermission('finance.project.view')
+  @ApiOperation({ summary: 'Compromisos/promesas de aporte registrados en este proyecto' })
+  findPledges(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.projectsService.findPledges(id, tenantId, user);
+  }
+
+  @Post(':id/pledges')
+  @RequirePermission('finance.project_pledge.create')
+  @ApiOperation({ summary: 'Registrar un compromiso de aporte de una persona o un grupo a este proyecto' })
+  createPledge(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateProjectPledgeDto,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.projectsService.createPledge(id, tenantId, dto, user);
+  }
+
+  @Delete(':id/pledges/:pledgeId')
+  @RequirePermission('finance.project_pledge.delete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Eliminar un compromiso de aporte' })
+  removePledge(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('pledgeId', ParseUUIDPipe) pledgeId: string,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.projectsService.removePledge(id, pledgeId, tenantId, user);
+  }
+
   @Get(':id/expenses')
   @RequirePermission('finance.project.view')
   @ApiOperation({ summary: 'Gastos registrados en este proyecto' })
@@ -173,5 +266,30 @@ export class ProjectsController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.projectsService.postExpenseToLedger(id, expenseId, tenantId, user);
+  }
+
+  @Post(':id/expenses/:expenseId/approve')
+  @RequirePermission('finance.expense.approve')
+  @ApiOperation({ summary: 'Aprobar un gasto pendiente de aprobación' })
+  approveExpense(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('expenseId', ParseUUIDPipe) expenseId: string,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.projectsService.approveExpense(id, expenseId, tenantId, user);
+  }
+
+  @Post(':id/expenses/:expenseId/reject')
+  @RequirePermission('finance.expense.approve')
+  @ApiOperation({ summary: 'Rechazar un gasto pendiente de aprobación' })
+  rejectExpense(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('expenseId', ParseUUIDPipe) expenseId: string,
+    @Body() dto: RejectExpenseDto,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.projectsService.rejectExpense(id, expenseId, dto.reason, tenantId, user);
   }
 }

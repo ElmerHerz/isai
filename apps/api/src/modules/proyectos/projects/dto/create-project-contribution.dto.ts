@@ -9,12 +9,12 @@ import { emptyToUndefined } from '../../../../common/utils/empty-to-undefined.tr
 export class CreateProjectContributionDto {
   @ApiPropertyOptional({ description: 'Aporte de una persona (miembro o externo) — XOR con groupId' })
   @Transform(emptyToUndefined)
-  @IsUUID() @IsOptional()
+  @IsUUID('loose') @IsOptional()
   personId?: string;
 
   @ApiPropertyOptional({ description: 'Aporte "como grupo" — XOR con personId' })
   @Transform(emptyToUndefined)
-  @IsUUID() @IsOptional()
+  @IsUUID('loose') @IsOptional()
   groupId?: string;
 
   @ApiProperty({ example: 200 })

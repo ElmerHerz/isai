@@ -277,6 +277,8 @@ export interface FundType {
   name: string;
   isActive: boolean;
   createdAt: string;
+  /** Permite identificar donantes por nombre en las colectas de este tipo (§8.1). */
+  tracksDonors: boolean;
 }
 
 /** Forma que devuelve GET /events/:id/fund-collections — `amount` viaja como string (Prisma Decimal serializado) */
@@ -289,7 +291,36 @@ export interface EventFundCollection {
   createdAt: string;
   /** null = pendiente de contabilizar. Con valor = ya tiene asiento en finanzas.journal_entries. */
   journalEntryId?: string | null;
-  fundType: { id: string; code: string; name: string };
+  fundType: { id: string; code: string; name: string; tracksDonors: boolean };
+}
+
+/** Forma que devuelve GET /events/:id/fund-collections/:collectionId/donors */
+export interface EventFundCollectionDonor {
+  id: string;
+  collectionId: string;
+  personId: string;
+  amount: string;
+  paymentMethod?: 'cash' | 'transfer' | 'check' | null;
+  notes?: string | null;
+  createdAt: string;
+  person: { id: string; firstName: string; lastName: string };
+}
+
+export interface DonorStatementLine {
+  date: string;
+  source: 'event_fund_collection' | 'project_contribution';
+  description: string;
+  amount: string;
+}
+
+/** Forma que devuelve GET /reports/donor-statement — receipt viene poblado
+ * solo si ya se "Registró" el comprobante (ver POST /reports/donor-statement/receipts). */
+export interface DonorStatement {
+  person: { id: string; firstName: string; lastName: string };
+  year: number;
+  totalDonated: string;
+  lines: DonorStatementLine[];
+  receipt?: { documentNumber: string; generatedAt: string };
 }
 
 /** Forma que devuelve GET /accounts — catálogo de cuentas del tenant, con saldo (string, Decimal serializado) */
@@ -323,6 +354,11 @@ export interface JournalEntry {
   createdBy?: string | null;
   createdAt: string;
   updatedAt: string;
+  voidedAt?: string | null;
+  voidedBy?: string | null;
+  voidReason?: string | null;
+  reversesEntryId?: string | null;
+  reversedByEntryId?: string | null;
   branch?: { id: string; name: string } | null;
   lines: JournalEntryLine[];
 }
@@ -343,9 +379,44 @@ export interface JournalEntryLine {
 export interface FundSummaryRow {
   branch: string;
   group: string;
+  project: string;
   account: string;
   totalDebit: string;
   totalCredit: string;
+}
+
+/** Nodo del árbol de cuentas con saldo — usado por income-statement y balance-sheet */
+export interface AccountBalanceNode {
+  id: string;
+  code: string;
+  name: string;
+  parentAccountId: string | null;
+  ownAmount: string;
+  total: string;
+  isComputed?: boolean;
+  children: AccountBalanceNode[];
+}
+
+/** Forma que devuelve GET /reports/income-statement */
+export interface IncomeStatement {
+  startDate: string;
+  endDate: string;
+  income: AccountBalanceNode[];
+  expense: AccountBalanceNode[];
+  totalIncome: string;
+  totalExpense: string;
+  netResult: string;
+}
+
+/** Forma que devuelve GET /reports/balance-sheet */
+export interface BalanceSheet {
+  asOfDate: string;
+  assets: AccountBalanceNode[];
+  liabilities: AccountBalanceNode[];
+  equity: AccountBalanceNode[];
+  totalAssets: string;
+  totalLiabilities: string;
+  totalEquity: string;
 }
 
 /** Forma que devuelve GET /reports/dashboard-kpis */
@@ -384,6 +455,8 @@ export interface Project {
   totalContributed: string;
   /** Suma de TODOS los gastos (contabilizados o no) — mismo criterio que totalContributed. */
   totalSpent: string;
+  /** Suma de TODOS los compromisos/promesas activos — nunca se contabilizan, ver ProjectPledge. */
+  totalPledged: string;
 }
 
 /** Forma que devuelve GET /projects/:id/contributions */
@@ -396,6 +469,26 @@ export interface ProjectContribution {
   contributedAt: string;
   notes?: string | null;
   journalEntryId?: string | null;
+  createdAt: string;
+  person?: { id: string; firstName: string; lastName: string } | null;
+  group?: { id: string; name: string } | null;
+  /** Comprobante OPCIONAL por transacción — null hasta que alguien lo genera (POST .../receipt). */
+  documentNumber?: string | null;
+}
+
+/** Forma que devuelve GET /projects/:id/pledges — promesa de aporte, nunca
+ * genera asiento contable (sin journalEntryId, a diferencia de ProjectContribution). */
+export interface ProjectPledge {
+  id: string;
+  projectId: string;
+  personId?: string | null;
+  groupId?: string | null;
+  amount: string;
+  frequency: 'once' | 'monthly' | 'weekly';
+  installmentsTotal?: number | null;
+  status: 'active' | 'fulfilled' | 'cancelled';
+  expectedDate?: string | null;
+  notes?: string | null;
   createdAt: string;
   person?: { id: string; firstName: string; lastName: string } | null;
   group?: { id: string; name: string } | null;
@@ -412,6 +505,324 @@ export interface ProjectExpense {
   journalEntryId?: string | null;
   createdAt: string;
   account: { id: string; code: string; name: string };
+  /** Correlativo legible por sucursal, reinicia cada año (ej. "GTO-2026-000042"). */
+  documentNumber?: string | null;
+  /** Resumen sincronizado desde ExpenseApprovalRequest — el detalle de cada paso vive ahí, no acá. */
+  approvalStatus: 'not_required' | 'pending' | 'approved' | 'rejected';
+  /** true si el usuario actual es la persona asignada al paso accionable ahora mismo (y no quien registró el gasto). */
+  canCurrentUserApprove?: boolean;
+  /** Persona que debe decidir el paso accionable ahora — para mostrar "Esperando aprobación de: X" en vez de un badge genérico. */
+  activeStepApprover?: { id: string; firstName: string; lastName: string } | null;
+}
+
+/** Paso de una ApprovalRoute — plantilla, se clona al crear la solicitud real de un gasto. Por persona puntual, no por rol. */
+export interface ApprovalRouteStep {
+  id: string;
+  stepOrder: number;
+  approverUserId: string;
+  approverUser: { id: string; firstName: string; lastName: string; email: string };
+}
+
+/** Ruta de aprobación de gastos (Fase 2 §7.3, multi-paso) */
+export interface ApprovalRoute {
+  id: string;
+  tenantId: string;
+  institutionId?: string | null;
+  branchId?: string | null;
+  name: string;
+  minAmount: string;
+  isActive: boolean;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  institution?: { id: string; name: string } | null;
+  branch?: { id: string; name: string } | null;
+  steps: ApprovalRouteStep[];
+  /** Cuentas a las que aplica — vacío = aplica a cualquier cuenta. */
+  accounts: { id: string; accountId: string; account: { id: string; code: string; name: string } }[];
+}
+
+/** Forma que devuelven GET /expense-approvals/mine y GET /expense-approvals
+ * — un gasto pendiente (de Proyecto o de Fondo de Grupo) ya resuelto, sin
+ * que el frontend tenga que cruzar nada. `project`/`group` son el
+ * discriminador: exactamente uno viene poblado, según sourceType. */
+export interface PendingApprovalRow {
+  requestId: string;
+  sourceType: 'project_expense' | 'group_fund_expense';
+  sourceId: string;
+  routeName: string;
+  amount: string;
+  documentNumber: string | null;
+  account: { id: string; code: string; name: string };
+  createdAt: string;
+  createdByUser: { id: string; firstName: string; lastName: string } | null;
+  /** Persona asignada al paso accionable ahora — siempre el usuario actual en "mine". */
+  activeStepApprover: { id: string; firstName: string; lastName: string } | null;
+  stepOrder: number;
+  totalSteps: number;
+  project?: { id: string; name: string };
+  group?: { id: string; name: string };
+}
+
+/** Presupuesto (Fase 2 §7.1) — branchId null = toda la institución */
+export interface Budget {
+  id: string;
+  tenantId: string;
+  institutionId: string;
+  branchId?: string | null;
+  name: string;
+  periodStart: string;
+  periodEnd: string;
+  status: 'draft' | 'active' | 'closed';
+  notes?: string | null;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  branch?: { id: string; name: string } | null;
+  lines: BudgetLine[];
+}
+
+export interface BudgetLine {
+  id: string;
+  budgetId: string;
+  accountId: string;
+  monthlyAmount: string;
+  notes?: string | null;
+  account: { id: string; code: string; name: string };
+}
+
+/** Catálogo plano de categorías de producto (docs/comercio-mejoras-propuestas.md §2). */
+export interface ProductCategory {
+  id: string;
+  tenantId: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+/** Producto del catálogo de Inventario (docs/comercio-mejoras-propuestas.md §2). */
+export interface Product {
+  id: string;
+  tenantId: string;
+  categoryId?: string | null;
+  sku?: string | null;
+  barcode?: string | null;
+  name: string;
+  description?: string | null;
+  unitCode: string;
+  /** null = este producto nunca se vende, solo uso interno. */
+  salePrice?: string | null;
+  averageCost: string;
+  tracksInventory: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  category?: { id: string; name: string } | null;
+  /** Presentaciones adicionales de compra/venta (ej. Caja, Fardo) — ver ProductUnit. */
+  units: ProductUnit[];
+}
+
+/** Presentación adicional de compra/venta de un producto (docs/comercio-mejoras-propuestas.md §2). */
+export interface ProductUnit {
+  id: string;
+  productId: string;
+  unitCode: string;
+  /** Cuántas unitCode base (Product.unitCode) trae 1 de esta presentación. */
+  conversionToBase: string;
+  /** null = esta presentación no se vende entera, solo se compra. */
+  salePrice?: string | null;
+  createdAt: string;
+}
+
+/** Existencia de un producto en una sucursal (docs/comercio-mejoras-propuestas.md §3). */
+export interface ProductStock {
+  id: string;
+  productId: string;
+  branchId: string;
+  quantity: string;
+  updatedAt: string;
+  branch: { id: string; name: string };
+}
+
+/** Movimiento de existencia (docs/comercio-mejoras-propuestas.md §3) — historial inmutable. */
+export interface InventoryMovement {
+  id: string;
+  productId: string;
+  branchId: string;
+  movementType: 'adjustment' | 'internal_use' | 'purchase' | 'sale';
+  quantity: string;
+  unitCost?: string | null;
+  sourceType: string;
+  sourceId?: string | null;
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  branch: { id: string; name: string };
+}
+
+/** Registro de custodia (docs/comercio-mejoras-propuestas.md §6). */
+export interface Asset {
+  id: string;
+  tenantId: string;
+  institutionId: string;
+  branchId?: string | null;
+  name: string;
+  categoryCode?: string | null;
+  quantity: number;
+  serialNumber?: string | null;
+  acquisitionDate?: string | null;
+  acquisitionCost?: string | null;
+  condition: 'good' | 'fair' | 'damaged' | 'out_of_service';
+  location?: string | null;
+  custodianPersonId?: string | null;
+  /** De qué gasto salió — opcional, solo referencia, nunca toca la contabilidad. */
+  sourceType?: 'project_expense' | 'group_fund_expense' | null;
+  sourceId?: string | null;
+  notes?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  branch?: { id: string; name: string } | null;
+  custodianPerson?: { id: string; firstName: string; lastName: string } | null;
+  /** Resuelto en el backend a partir de sourceType/sourceId, si están presentes. */
+  sourceSummary?: { description: string; amount: string; date: string } | null;
+}
+
+/** Historial de custodia/ubicación/condición de un Asset — bitácora inmutable. */
+export interface AssetMovement {
+  id: string;
+  assetId: string;
+  movementType: 'assigned' | 'returned' | 'relocated' | 'condition_change' | 'disposed';
+  fromCustodianPersonId?: string | null;
+  toCustodianPersonId?: string | null;
+  fromLocation?: string | null;
+  toLocation?: string | null;
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+}
+
+/** Proveedor (docs/comercio-mejoras-propuestas.md §4) — tenant-wide, sin vínculo a producto. */
+export interface Supplier {
+  id: string;
+  tenantId: string;
+  name: string;
+  taxId?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  notes?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+/** Línea de una compra — producto + cantidad + costo unitario (docs/comercio-mejoras-propuestas.md §4). */
+export interface PurchaseLine {
+  id: string;
+  purchaseId: string;
+  productId: string;
+  quantity: string;
+  unitCost: string;
+  product: { id: string; name: string; sku?: string | null };
+}
+
+/** Compra a un proveedor (docs/comercio-mejoras-propuestas.md §4) — registrar→Contabilizar en 2 pasos. */
+export interface Purchase {
+  id: string;
+  tenantId: string;
+  institutionId: string;
+  branchId: string;
+  supplierId: string;
+  purchaseDate: string;
+  supplierDocumentNumber?: string | null;
+  paymentMethod?: 'cash' | 'transfer' | 'credit' | null;
+  notes?: string | null;
+  /** null hasta "Contabilizar" — mueve existencia y genera el asiento contable. */
+  journalEntryId?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  branch: { id: string; name: string };
+  supplier: { id: string; name: string };
+  lines: PurchaseLine[];
+}
+
+/** Cliente (docs/comercio-mejoras-propuestas.md §5) — tenant-wide, sin vínculo a membresia.Person. */
+export interface Customer {
+  id: string;
+  tenantId: string;
+  name: string;
+  taxId?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  notes?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+/** Línea de una venta — producto + cantidad + precio (docs/comercio-mejoras-propuestas.md §5). */
+export interface SaleLine {
+  id: string;
+  saleId: string;
+  productId: string;
+  quantity: string;
+  unitPrice: string;
+  /** Copiado de Product.averageCost al momento de la venta. */
+  unitCost: string;
+  product: { id: string; name: string; sku?: string | null };
+}
+
+/** Venta a un cliente (docs/comercio-mejoras-propuestas.md §5) — atómica, inmutable una vez creada. */
+export interface Sale {
+  id: string;
+  tenantId: string;
+  institutionId: string;
+  branchId: string;
+  /** null = Consumidor Final. */
+  customerId?: string | null;
+  saleDate: string;
+  paymentMethod: 'cash' | 'transfer' | 'card' | 'credit';
+  documentType: 'invoice' | 'receipt';
+  documentNumber: string;
+  notes?: string | null;
+  journalEntryId?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  branch: { id: string; name: string };
+  customer?: { id: string; name: string } | null;
+  lines: SaleLine[];
+}
+
+/** Cierre de periodo formal (docs/finanzas-mejoras-propuestas.md §9.1). */
+export interface PeriodClosing {
+  id: string;
+  tenantId: string;
+  institutionId: string;
+  branchId?: string | null;
+  closedThroughDate: string;
+  closingEntryId?: string | null;
+  targetEquityAccountId: string;
+  notes?: string | null;
+  closedBy: string;
+  closedAt: string;
+  reopenedAt?: string | null;
+  reopenedBy?: string | null;
+  reopenReason?: string | null;
+  createdAt: string;
+  branch?: { id: string; name: string } | null;
+  targetEquityAccount: { id: string; code: string; name: string };
+  closedByUser: { id: string; firstName: string; lastName: string };
+  reopenedByUser?: { id: string; firstName: string; lastName: string } | null;
+}
+
+/** Fila de GET /reports/budget-vs-actual */
+export interface BudgetVsActualRow {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  budgeted: string;
+  actual: string;
 }
 
 /** Forma que devuelve GET /groups/:id/fund-balance */
@@ -425,14 +836,22 @@ export interface GroupFundSummary extends GroupListItem {
 }
 
 /** Forma que devuelve GET /groups/:id/fund-movements */
+/** Forma que devuelve GET /groups/:id/fund-movements — ingresos (siempre
+ * posted) y gastos (cualquier estado) combinados en un solo feed. */
 export interface GroupFundMovement {
   id: string;
-  journalEntryId: string;
+  journalEntryId: string | null;
   type: 'income' | 'expense';
   account: { id: string; code: string; name: string };
   amount: string;
   entryDate: string;
   notes?: string | null;
+  /** Correlativo legible (ej. "GFO-2026-000007") — null en filas de ingreso. */
+  documentNumber?: string | null;
+  /** null en filas de ingreso (nunca llevan aprobación). */
+  approvalStatus?: 'not_required' | 'pending' | 'approved' | 'rejected' | null;
+  canCurrentUserApprove?: boolean;
+  activeStepApprover?: { id: string; firstName: string; lastName: string } | null;
 }
 
 export interface Group {

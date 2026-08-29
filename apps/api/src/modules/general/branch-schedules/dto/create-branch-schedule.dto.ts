@@ -9,7 +9,7 @@ const TIME_PATTERN = /^\d{2}:\d{2}(:\d{2})?$/;
 
 export class CreateBranchScheduleDto {
   @ApiProperty({ description: 'Id del tipo de horario (catalog_items, catalogCode="schedule_type")' })
-  @IsUUID()
+  @IsUUID('loose')
   scheduleTypeId!: string;
 
   @ApiProperty({ example: 0, description: '0=domingo .. 6=sábado' })

@@ -5,11 +5,11 @@ import { emptyToUndefined } from '../../../../common/utils/empty-to-undefined.tr
 
 export class CreateEventPrivilegeDto {
   @ApiProperty({ example: 'uuid-de-la-persona' })
-  @IsUUID()
+  @IsUUID('loose')
   personId!: string;
 
   @ApiProperty({ example: 'uuid-del-tipo-de-privilegio' })
-  @IsUUID()
+  @IsUUID('loose')
   privilegeTypeId!: string;
 
   @ApiPropertyOptional()

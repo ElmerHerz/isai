@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { DateInput } from '@/components/ui/date-input';
 import { useAccountsQuery, useCreateGroupFundMovementMutation } from '@/modules/finanzas';
+import { useAuthStore } from '@/lib/auth-store';
 import { getErrorMessage } from '@/lib/toast';
 import { todayLocalDateInput } from '@/lib/format-date';
 
@@ -32,7 +33,9 @@ const ACCOUNT_TYPE_BY_MOVEMENT: Record<'income' | 'expense', string> = {
 // caja propia del grupo, Group.cashAccountId) — por eso este diálogo ya no
 // pide sucursal, a diferencia de una versión anterior de esta pantalla.
 export function AddGroupFundMovementDialog({ open, onOpenChange, groupId, type }: AddGroupFundMovementDialogProps) {
-  const { data: accounts } = useAccountsQuery();
+  const permissions = useAuthStore((state) => state.user?.permissions) ?? [];
+  const canViewAccounts = permissions.includes('finance.account.view');
+  const { data: accounts } = useAccountsQuery(undefined, canViewAccounts);
   const accountTypeCode = ACCOUNT_TYPE_BY_MOVEMENT[type];
   const eligibleAccounts = accounts?.filter((a) => a.accountType.code === accountTypeCode && a.allowsTransactions) ?? [];
   const mutation = useCreateGroupFundMovementMutation(groupId);

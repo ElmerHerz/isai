@@ -5,15 +5,15 @@ import { emptyToUndefined } from '../../../../common/utils/empty-to-undefined.tr
 
 export class CreateGroupPositionDto {
   @ApiProperty({ example: 'uuid-del-grupo' })
-  @IsUUID()
+  @IsUUID('loose')
   groupId!: string;
 
   @ApiProperty({ example: 'uuid-de-la-persona' })
-  @IsUUID()
+  @IsUUID('loose')
   personId!: string;
 
   @ApiProperty({ example: 'uuid-del-catalog-item (catalogCode=board_position)' })
-  @IsUUID()
+  @IsUUID('loose')
   positionId!: string;
 
   @ApiPropertyOptional({ example: '2026-01-15', description: 'Vacío = hoy' })

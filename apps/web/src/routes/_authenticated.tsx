@@ -35,10 +35,15 @@ function AuthenticatedLayout() {
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
 
   return (
-    // h-screen + overflow-hidden (no min-h-screen): el layout queda fijo al
-    // alto de la pantalla, así el <aside> nunca se desplaza — el único que
-    // hace scroll es <main>, más abajo.
-    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-background">
+    // h-dvh (no h-screen/100vh): en Safari/iOS, 100vh se calcula con la
+    // barra de herramientas del navegador OCULTA (el tamaño máximo posible),
+    // no con el viewport realmente visible — deja el layout más alto de lo
+    // visible en pantalla y, en una pestaña corta, se ve como espacio en
+    // blanco debajo del contenido hasta el siguiente scroll. 100dvh sí sigue
+    // el viewport visible en tiempo real. overflow-hidden (no min-h-*): el
+    // layout queda fijo al alto de la pantalla, así el <aside> nunca se
+    // desplaza — el único que hace scroll es <main>, más abajo.
+    <div className="flex h-dvh overflow-hidden bg-slate-50 dark:bg-background">
       <Sidebar mobileOpen={mobileNavOpen} onMobileOpenChange={setMobileNavOpen} />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">

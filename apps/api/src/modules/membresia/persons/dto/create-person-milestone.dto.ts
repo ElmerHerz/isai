@@ -5,7 +5,7 @@ import { emptyToUndefined } from '../../../../common/utils/empty-to-undefined.tr
 
 export class CreatePersonMilestoneDto {
   @ApiProperty({ example: 'uuid-del-tipo-de-hito' })
-  @IsUUID()
+  @IsUUID('loose')
   milestoneTypeId!: string;
 
   @ApiProperty({ example: '2020-03-12' })

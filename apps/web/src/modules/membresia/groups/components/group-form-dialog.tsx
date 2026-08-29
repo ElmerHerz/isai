@@ -55,10 +55,12 @@ export function GroupFormDialog({ open, onOpenChange, institutionId, group }: Gr
   const isEditing = !!group;
   const permissions = useAuthStore((state) => state.user?.permissions) ?? [];
   const canViewPersons = permissions.includes('membership.person.view');
+  const canViewBranches = permissions.includes('core.branch.view');
+  const canViewAccounts = permissions.includes('finance.account.view');
   const { data: groupTypes } = useCatalogItemsQuery('group_type');
-  const { data: branches } = useBranchesQuery(institutionId);
+  const { data: branches } = useBranchesQuery(institutionId, canViewBranches);
   const { data: persons } = usePersonsQuery(institutionId, canViewPersons);
-  const { data: accounts } = useAccountsQuery();
+  const { data: accounts } = useAccountsQuery(undefined, canViewAccounts);
   const cashAccounts = accounts?.filter((a) => a.accountType.code === ASSET_ACCOUNT_TYPE && a.allowsTransactions) ?? [];
   const createMutation = useCreateGroupMutation();
   const updateMutation = useUpdateGroupMutation();

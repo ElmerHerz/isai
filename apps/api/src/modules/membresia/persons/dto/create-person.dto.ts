@@ -7,16 +7,16 @@ import { emptyToUndefined } from '../../../../common/utils/empty-to-undefined.tr
 
 export class CreatePersonDto {
   @ApiProperty({ example: 'uuid-de-la-institución' })
-  @IsUUID()
+  @IsUUID('loose')
   institutionId!: string;
 
   @ApiPropertyOptional({ description: 'Vacío = persona de toda la institución, no de una sucursal en particular' })
-  @IsUUID()
+  @IsUUID('loose')
   @IsOptional()
   branchId?: string;
 
   @ApiProperty({ example: 'uuid-del-catalog-item (catalogCode=person_type)' })
-  @IsUUID()
+  @IsUUID('loose')
   personTypeId!: string;
 
   @ApiProperty({ example: 'María' })

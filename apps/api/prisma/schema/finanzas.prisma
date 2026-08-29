@@ -37,9 +37,18 @@ model Account {
   journalLines     JournalEntryLine[]
   fundTypesIncome  FundType[]            @relation("FundTypeIncomeAccount")
   branchesDefaultCash Branch[]           @relation("BranchDefaultCashAccount")
+  branchesDefaultInventory Branch[]      @relation("BranchDefaultInventoryAccount")
+  branchesDefaultPayable Branch[]        @relation("BranchDefaultPayableAccount")
+  branchesDefaultSales Branch[]          @relation("BranchDefaultSalesAccount")
+  branchesDefaultCogs Branch[]           @relation("BranchDefaultCogsAccount")
+  branchesDefaultReceivable Branch[]     @relation("BranchDefaultReceivableAccount")
   projectsIncome   Project[]             @relation("ProjectIncomeAccount")
   projectExpenses  ProjectExpense[]      @relation("ProjectExpenseAccount")
   groupsCash       Group[]               @relation("GroupCashAccount")
+  budgetLines      BudgetLine[]
+  approvalRouteScopes ApprovalRouteAccount[] @relation("ApprovalRouteAccountScope")
+  groupFundExpenses GroupFundExpense[]   @relation("GroupFundExpenseAccount")
+  periodClosingsAsTarget PeriodClosing[] @relation("PeriodClosingTargetEquityAccount")
 
   @@unique([tenantId, code], name: "uq_accounts_tenant_code")
   @@map("accounts")
@@ -59,15 +68,30 @@ model JournalEntry {
   createdBy     String?   @map("created_by")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
+  // Anular/reversar (docs/finanzas-mejoras-propuestas.md §1) — voidedAt/By/Reason
+  // van en el asiento original al anularlo; reversesEntryId/reversedByEntryId
+  // enlazan original↔reversa en ambas direcciones (mismo espíritu que
+  // RefreshToken.replacedBy). Sin @relation acá a propósito — evita 2
+  // self-relations con arreglos inversos sin uso real; el FK real vive en
+  // Postgres igual (ver ALTER TABLE de sesión).
+  voidedAt          DateTime? @map("voided_at")
+  voidedBy          String?   @map("voided_by")
+  voidReason        String?   @map("void_reason") @db.VarChar(255)
+  reversesEntryId   String?   @map("reverses_entry_id")
+  reversedByEntryId String?   @map("reversed_by_entry_id")
 
   tenant      Tenant                @relation(fields: [tenantId], references: [id])
   institution Institution           @relation(fields: [institutionId], references: [id])
   branch      Branch?               @relation(fields: [branchId], references: [id])
   createdByUser User?               @relation("JournalEntryCreatedBy", fields: [createdBy], references: [id])
+  voidedByUser  User?               @relation("JournalEntryVoidedBy", fields: [voidedBy], references: [id])
   lines       JournalEntryLine[]
   fundCollections EventFundCollection[]
   projectContributions ProjectContribution[]
   projectExpenses ProjectExpense[]
+  groupFundExpenses GroupFundExpense[]
+  purchases Purchase[]
+  sales     Sale[]
 
   @@map("journal_entries")
   @@schema("finanzas")
@@ -99,5 +123,266 @@ model JournalEntryLine {
   project      Project?     @relation(fields: [projectId], references: [id])
 
   @@map("journal_entry_lines")
+  @@schema("finanzas")
+}
+
+// Fase 2 (docs/finanzas-mejoras-propuestas.md §7.1) — Budget vs. Actual.
+// institutionId obligatorio + branchId opcional (null = toda la
+// institución) espejo exacto de Project — mismo criterio de alcance
+// (resolveBranchScope) para que nazca ya scopeado por sucursal, no como
+// hallazgo tardío (ver ALTER de alcance en Cuentas/Asientos/Reportes).
+model Budget {
+  id            String    @id @default(uuid())
+  tenantId      String    @map("tenant_id")
+  institutionId String    @map("institution_id")
+  branchId      String?   @map("branch_id")
+  name          String    @db.VarChar(150)
+  periodStart   DateTime  @map("period_start") @db.Date
+  periodEnd     DateTime  @map("period_end") @db.Date
+  status        String    @default("active") @db.VarChar(20) // 'draft' | 'active' | 'closed'
+  notes         String?
+  approvedBy    String?   @map("approved_by")
+  approvedAt    DateTime? @map("approved_at")
+  createdBy     String?   @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  tenant         Tenant      @relation(fields: [tenantId], references: [id])
+  institution    Institution @relation(fields: [institutionId], references: [id])
+  branch         Branch?     @relation(fields: [branchId], references: [id])
+  approvedByUser User?       @relation("BudgetApprovedBy", fields: [approvedBy], references: [id])
+  createdByUser  User?       @relation("BudgetCreatedBy", fields: [createdBy], references: [id])
+  lines          BudgetLine[]
+
+  @@map("budgets")
+  @@schema("finanzas")
+}
+
+// Presupuesto simple v1: un monto mensual fijo por cuenta (no variable mes a
+// mes) — a propósito, ver documento. Sin PATCH de línea individual: se borra
+// y se vuelve a crear si cambia el monto, evita un DTO extra para algo que
+// no lo amerita todavía.
+model BudgetLine {
+  id            String  @id @default(uuid())
+  budgetId      String  @map("budget_id")
+  accountId     String  @map("account_id")
+  monthlyAmount Decimal @map("monthly_amount") @db.Decimal(14, 2)
+  notes         String? @db.VarChar(255)
+
+  budget  Budget  @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@map("budget_lines")
+  @@schema("finanzas")
+}
+
+// Cierre de periodo formal (docs/finanzas-mejoras-propuestas.md §9.1) — el
+// asiento de cierre real vive en closingEntryId (JournalEntry con
+// sourceType='period_closing'); null si el periodo no tuvo actividad que
+// cerrar. institutionId es obligatorio (a diferencia del boceto del
+// documento, que lo tenía nullable "para todo el tenant"): JournalEntry
+// exige institutionId, así que un cierre siempre pertenece a una
+// institución concreta — cerrar varias instituciones de un mismo tenant es
+// una acción de cierre por institución. branchId null = toda la
+// institución, mismo criterio que Budget.
+model PeriodClosing {
+  id                    String    @id @default(uuid())
+  tenantId              String    @map("tenant_id")
+  institutionId         String    @map("institution_id")
+  branchId              String?   @map("branch_id")
+  closedThroughDate     DateTime  @map("closed_through_date") @db.Date
+  closingEntryId        String?   @map("closing_entry_id")
+  targetEquityAccountId String    @map("target_equity_account_id")
+  notes                 String?
+  closedBy              String    @map("closed_by")
+  closedAt              DateTime  @default(now()) @map("closed_at")
+  // Reabrir (solo superadmin) nunca borra la fila — deja el rastro visible,
+  // mismo criterio que JournalEntry.voidReason en vez de borrar asientos.
+  reopenedAt   DateTime? @map("reopened_at")
+  reopenedBy   String?   @map("reopened_by")
+  reopenReason String?   @map("reopen_reason") @db.VarChar(255)
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  tenant              Tenant      @relation(fields: [tenantId], references: [id])
+  institution         Institution @relation(fields: [institutionId], references: [id])
+  branch              Branch?     @relation(fields: [branchId], references: [id])
+  targetEquityAccount Account     @relation("PeriodClosingTargetEquityAccount", fields: [targetEquityAccountId], references: [id])
+  closedByUser        User        @relation("PeriodClosingClosedBy", fields: [closedBy], references: [id])
+  reopenedByUser      User?       @relation("PeriodClosingReopenedBy", fields: [reopenedBy], references: [id])
+
+  @@map("period_closings")
+  @@schema("finanzas")
+}
+
+// ── Motor de aprobación de gastos ──────────────────────────────────────────
+// Vivía en proyectos.prisma (nació ahí, Fase 2 §7.3) — se movió acá para
+// poder gobernar también gastos de Fondo de Grupo (GroupFundExpense, abajo)
+// sin que FinanzasModule dependa de ProyectosModule (habría formado un
+// ciclo, ver finanzas/approvals/). ProjectsService lo sigue consumiendo
+// "hacia abajo", igual que ya hace con LedgerService.
+
+// Config: "a partir de $X para esta institución/sucursal, esta secuencia de
+// PERSONAS debe aprobar" — más específico gana (cuenta > sucursal >
+// institución > tenant), y entre rutas que igual aplican, la de min_amount
+// más alto que siga siendo <= el monto del gasto (la más exigente todavía
+// vigente). Sin ruta aplicable = no requiere aprobación, ver
+// ExpenseApprovalsService.resolveRoute. Toda ruta debe declarar al menos
+// una cuenta en accounts — sin catch-all "cualquier cuenta" a propósito
+// (ej. "cuenta de Músicos" vs "Talentos Jóvenes" vs "Ofrendas" necesitan
+// aprobadores distintos — hallazgo de sesión).
+model ApprovalRoute {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  institutionId String?  @map("institution_id")
+  branchId      String?  @map("branch_id")
+  name          String   @db.VarChar(150)
+  minAmount     Decimal  @map("min_amount") @db.Decimal(14, 2)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdBy     String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  tenant        Tenant       @relation(fields: [tenantId], references: [id])
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  branch        Branch?      @relation(fields: [branchId], references: [id])
+  createdByUser User?        @relation("ApprovalRouteCreatedBy", fields: [createdBy], references: [id])
+  steps         ApprovalRouteStep[]
+  accounts      ApprovalRouteAccount[]
+  requests      ExpenseApprovalRequest[]
+
+  @@map("approval_routes")
+  @@schema("finanzas")
+}
+
+// Cuentas a las que aplica una ruta (varias por ruta) — sin filas = aplica
+// a cualquier cuenta.
+model ApprovalRouteAccount {
+  id        String @id @default(uuid())
+  routeId   String @map("route_id")
+  accountId String @map("account_id")
+
+  route   ApprovalRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  account Account       @relation("ApprovalRouteAccountScope", fields: [accountId], references: [id])
+
+  @@unique([routeId, accountId], name: "uq_approval_route_account")
+  @@map("approval_route_accounts")
+  @@schema("finanzas")
+}
+
+// Plantilla ordenada de pasos de una ruta — se clona a ExpenseApprovalStep
+// cuando un gasto real cae en esta ruta, así que editar la ruta después no
+// altera solicitudes ya creadas. Por PERSONA puntual, no por rol — con
+// varios Tesoreros en una sucursal, "cualquiera con el rol" no bastaba
+// (hallazgo de sesión, decisión explícita del usuario).
+model ApprovalRouteStep {
+  id             String @id @default(uuid())
+  routeId        String @map("route_id")
+  stepOrder      Int    @map("step_order") @db.SmallInt
+  approverUserId String @map("approver_user_id")
+
+  route        ApprovalRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  approverUser User          @relation("ApprovalRouteStepApprover", fields: [approverUserId], references: [id])
+
+  @@unique([routeId, stepOrder], name: "uq_route_step_order")
+  @@map("approval_route_steps")
+  @@schema("finanzas")
+}
+
+// La "solicitud" real — una por gasto (de Proyecto o de Fondo de Grupo) que
+// cayó en una ruta. Polimórfica a propósito (sourceType/sourceId, sin FK
+// dura — mismo patrón que JournalEntry.sourceType/sourceId): puede apuntar
+// a proyectos.project_expenses o a finanzas.group_fund_expenses, dos
+// schemas distintos, un FK real no podría cubrir ambos. status es el
+// resumen (mismos valores que ProjectExpense.approvalStatus salvo
+// 'not_required', que acá no aplica: si existe una solicitud es porque SÍ
+// se necesitó aprobación).
+model ExpenseApprovalRequest {
+  id         String    @id @default(uuid())
+  sourceType String    @map("source_type") @db.VarChar(30) // 'project_expense' | 'group_fund_expense'
+  sourceId   String    @map("source_id")
+  routeId    String    @map("route_id")
+  status     String    @default("pending") @db.VarChar(20) // 'pending' | 'approved' | 'rejected'
+  createdAt  DateTime  @default(now()) @map("created_at")
+  resolvedAt DateTime? @map("resolved_at")
+
+  route ApprovalRoute         @relation(fields: [routeId], references: [id])
+  steps ExpenseApprovalStep[]
+
+  @@unique([sourceType, sourceId], name: "uq_expense_approval_source")
+  @@map("expense_approval_requests")
+  @@schema("finanzas")
+}
+
+// Instancia ejecutable de un paso — el "accionable ahora" es siempre el de
+// menor stepOrder con status='pending' dentro de su solicitud (sin campo
+// "paso activo" aparte, se deriva). Sin decidedBy: con approverUserId
+// puntual, quien decide ES ese usuario por construcción — decidedAt basta
+// para saber cuándo.
+model ExpenseApprovalStep {
+  id             String    @id @default(uuid())
+  requestId      String    @map("request_id")
+  stepOrder      Int       @map("step_order") @db.SmallInt
+  approverUserId String    @map("approver_user_id")
+  status         String    @default("pending") @db.VarChar(20) // 'pending' | 'approved' | 'rejected' | 'skipped'
+  decidedAt      DateTime? @map("decided_at")
+  rejectedReason String?   @map("rejected_reason") @db.VarChar(255)
+
+  request      ExpenseApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverUser User                   @relation("ExpenseApprovalStepApprover", fields: [approverUserId], references: [id])
+
+  @@unique([requestId, stepOrder], name: "uq_request_step_order")
+  @@map("expense_approval_steps")
+  @@schema("finanzas")
+}
+
+// Gasto del fondo propio de un grupo (ej. "mantenimiento de equipo de la
+// Directiva de Músicos") — espejo estructural de ProjectExpense, mismo
+// patrón de dos pasos (registrar → Contabilizar), necesario para que la
+// aprobación por cuenta pueda pausarlo antes de tocar Caja. Antes de esto,
+// GroupFundsService.createFundMovement contabilizaba de inmediato sin
+// ningún concepto de "pendiente" — ver GroupFundsService.
+model GroupFundExpense {
+  id             String   @id @default(uuid())
+  groupId        String   @map("group_id")
+  accountId      String   @map("account_id")
+  amount         Decimal  @db.Decimal(14, 2)
+  movementDate   DateTime @map("movement_date") @db.Date
+  notes          String?
+  journalEntryId String?  @map("journal_entry_id")
+  createdBy      String?  @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  approvalStatus String   @default("not_required") @map("approval_status") @db.VarChar(20) // 'not_required' | 'pending' | 'approved' | 'rejected'
+  // Correlativo legible por sucursal, reinicia cada año (ej. "GFO-2026-000007")
+  // — mismo DocumentSequencesService que usa ProjectExpense, documentType distinto.
+  documentNumber String?  @unique @map("document_number") @db.VarChar(30)
+
+  group         Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  account       Account       @relation("GroupFundExpenseAccount", fields: [accountId], references: [id])
+  journalEntry  JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  createdByUser User?         @relation("GroupFundExpenseCreatedBy", fields: [createdBy], references: [id])
+
+  @@map("group_fund_expenses")
+  @@schema("finanzas")
+}
+
+// Control de folio del comprobante anual de donante (§8.1) — el comprobante
+// es un RESUMEN por persona+año (puede reimprimirse), no una transacción
+// única, así que el folio se asigna una sola vez ("Registrar", acción
+// explícita) y se reutiliza en cada descarga posterior — nunca se regenera.
+model DonorStatementReceipt {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  personId       String   @map("person_id")
+  year           Int      @db.SmallInt
+  documentNumber String   @unique @map("document_number") @db.VarChar(30)
+  generatedBy    String?  @map("generated_by")
+  generatedAt    DateTime @default(now()) @map("generated_at")
+
+  tenant         Tenant  @relation(fields: [tenantId], references: [id])
+  person         Person  @relation(fields: [personId], references: [id])
+  generatedByUser User?  @relation("DonorStatementReceiptGeneratedBy", fields: [generatedBy], references: [id])
+
+  @@unique([tenantId, personId, year], name: "uq_donor_statement_receipts_scope")
+  @@map("donor_statement_receipts")
   @@schema("finanzas")
 }

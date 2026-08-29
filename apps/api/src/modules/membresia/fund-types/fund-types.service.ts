@@ -38,7 +38,9 @@ export class FundTypesService {
       throw new ConflictException(`Ya existe un tipo de fondo con código "${dto.code}" en este tenant.`);
     }
 
-    return this.prisma.fundType.create({ data: { tenantId, code: dto.code, name: dto.name } });
+    return this.prisma.fundType.create({
+      data: { tenantId, code: dto.code, name: dto.name, tracksDonors: dto.tracksDonors ?? false },
+    });
   }
 
   async update(id: string, tenantId: string | null, dto: UpdateFundTypeDto) {

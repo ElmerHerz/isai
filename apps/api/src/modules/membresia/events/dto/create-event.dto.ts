@@ -10,16 +10,16 @@ const TIME_PATTERN = /^\d{2}:\d{2}(:\d{2})?$/;
 
 export class CreateEventDto {
   @ApiProperty({ example: 'uuid-de-la-institución' })
-  @IsUUID()
+  @IsUUID('loose')
   institutionId!: string;
 
   @ApiPropertyOptional({ description: 'Vacío + groupId vacío = aplica a toda la institución' })
-  @IsUUID()
+  @IsUUID('loose')
   @IsOptional()
   branchId?: string;
 
   @ApiPropertyOptional({ description: 'Con valor = aplica solo a los miembros actuales de ese grupo (ignora branchId)' })
-  @IsUUID()
+  @IsUUID('loose')
   @IsOptional()
   groupId?: string;
 
@@ -29,12 +29,12 @@ export class CreateEventDto {
   ungroupedOnly?: boolean;
 
   @ApiPropertyOptional({ description: 'Horario recurrente del que "nació" este evento, opcional' })
-  @IsUUID()
+  @IsUUID('loose')
   @IsOptional()
   scheduleId?: string;
 
   @ApiProperty({ example: 'uuid-del-catalog-item (catalogCode=schedule_type)' })
-  @IsUUID()
+  @IsUUID('loose')
   eventTypeId!: string;
 
   @ApiProperty({ example: 'Culto Dominical' })

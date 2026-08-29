@@ -38,8 +38,9 @@ export function AddContributionDialog({ open, onOpenChange, projectId, instituti
   const [contributorType, setContributorType] = useState<'person' | 'group'>('person');
   const permissions = useAuthStore((state) => state.user?.permissions) ?? [];
   const canViewPersons = permissions.includes('membership.person.view');
+  const canViewGroups = permissions.includes('membership.group.view');
   const { data: persons, isLoading: isPersonsLoading } = usePersonsQuery(institutionId, canViewPersons);
-  const { data: groups } = useGroupsQuery(institutionId);
+  const { data: groups } = useGroupsQuery(institutionId, canViewGroups);
   const mutation = useCreateProjectContributionMutation(projectId);
 
   const [search, setSearch] = useState('');

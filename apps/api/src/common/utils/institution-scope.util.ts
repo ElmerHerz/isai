@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -180,4 +181,28 @@ export async function resolveAllBranchesScope(
   ];
 
   return { unrestricted: false, wholeInstitutionIds, branchIds };
+}
+
+/**
+ * Fragmento SQL reusable para filtrar por alcance dentro de queries
+ * $queryRaw — institutionCol/branchCol son expresiones de columna YA
+ * calificadas (ej. "e.institution_id"), nunca input de usuario (se
+ * inyectan vía Prisma.raw, sin escapar). Usado por AccountsService/
+ * ReportsService, que no pasan por el query builder de Prisma.
+ */
+export function branchScopeSql(scope: AllBranchesScope, institutionCol: string, branchCol: string): Prisma.Sql {
+  if (scope.unrestricted) return Prisma.sql`TRUE`;
+  const conditions: Prisma.Sql[] = [];
+  // Prisma.join(array) liga cada elemento como parámetro SIN tipo — contra
+  // una columna uuid, Postgres no encuentra el operador "uuid = text" (a
+  // diferencia de un cast inline sobre un solo valor, ej. ${x}::uuid, que sí
+  // funciona en todo el resto del código). Castear la COLUMNA a ::text
+  // evita el problema sin tener que castear cada parámetro del IN.
+  if (scope.wholeInstitutionIds.length > 0) {
+    conditions.push(Prisma.sql`${Prisma.raw(institutionCol)}::text IN (${Prisma.join(scope.wholeInstitutionIds)})`);
+  }
+  if (scope.branchIds.length > 0) {
+    conditions.push(Prisma.sql`${Prisma.raw(branchCol)}::text IN (${Prisma.join(scope.branchIds)})`);
+  }
+  return conditions.length > 0 ? Prisma.sql`(${Prisma.join(conditions, ' OR ')})` : Prisma.sql`FALSE`;
 }

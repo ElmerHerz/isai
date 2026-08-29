@@ -8,6 +8,8 @@ export interface CreateAccountInput {
   name: string;
   accountTypeId: string;
   parentAccountId?: string;
+  /** false = cuenta de agrupación (encabezado, sin movimientos propios). Default: true */
+  allowsTransactions?: boolean;
   /** Solo para superadmin — a qué tenant pertenece la cuenta nueva. */
   tenantId?: string;
 }

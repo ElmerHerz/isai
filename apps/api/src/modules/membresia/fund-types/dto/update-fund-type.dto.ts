@@ -12,4 +12,9 @@ export class UpdateFundTypeDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ description: 'Permite identificar donantes por nombre en las colectas de este tipo de fondo' })
+  @IsBoolean()
+  @IsOptional()
+  tracksDonors?: boolean;
 }

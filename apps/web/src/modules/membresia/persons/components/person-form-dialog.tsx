@@ -17,6 +17,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { DateInput } from '@/components/ui/date-input';
 import { useCatalogItemsQuery, useBranchesQuery } from '@/modules/general';
 import { useCreatePersonMutation, useUpdatePersonMutation } from '@/modules/membresia';
+import { useAuthStore } from '@/lib/auth-store';
 import { getErrorMessage } from '@/lib/toast';
 import type { PersonWithRelations } from '@isai/shared-types';
 
@@ -67,8 +68,10 @@ interface PersonFormDialogProps {
 
 export function PersonFormDialog({ open, onOpenChange, institutionId, person, onCreated }: PersonFormDialogProps) {
   const isEditing = !!person;
+  const permissions = useAuthStore((state) => state.user?.permissions) ?? [];
+  const canViewBranches = permissions.includes('core.branch.view');
   const { data: personTypes } = useCatalogItemsQuery('person_type');
-  const { data: branches } = useBranchesQuery(institutionId);
+  const { data: branches } = useBranchesQuery(institutionId, canViewBranches);
   const createMutation = useCreatePersonMutation();
   const updateMutation = useUpdatePersonMutation();
   const mutation = isEditing ? updateMutation : createMutation;

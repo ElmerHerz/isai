@@ -24,20 +24,37 @@ import { Route as AuthenticatedMembershipReportsRouteImport } from './routes/_au
 import { Route as AuthenticatedSecurityAuditRouteImport } from './routes/_authenticated/security/audit'
 import { Route as AuthenticatedSecurityRolesRouteImport } from './routes/_authenticated/security/roles'
 import { Route as AuthenticatedSecurityUsersRouteImport } from './routes/_authenticated/security/users'
+import { Route as AuthenticatedFinanceApprovalRoutesIndexRouteImport } from './routes/_authenticated/finance/approval-routes/index'
+import { Route as AuthenticatedFinanceApprovalsIndexRouteImport } from './routes/_authenticated/finance/approvals/index'
+import { Route as AuthenticatedFinanceBudgetsIndexRouteImport } from './routes/_authenticated/finance/budgets/index'
+import { Route as AuthenticatedFinanceBudgetsBudgetIdRouteImport } from './routes/_authenticated/finance/budgets/$budgetId'
 import { Route as AuthenticatedFinanceGroupFundsIndexRouteImport } from './routes/_authenticated/finance/group-funds/index'
 import { Route as AuthenticatedFinanceGroupFundsGroupIdRouteImport } from './routes/_authenticated/finance/group-funds/$groupId'
+import { Route as AuthenticatedFinancePeriodClosingsIndexRouteImport } from './routes/_authenticated/finance/period-closings/index'
 import { Route as AuthenticatedFinanceProjectsIndexRouteImport } from './routes/_authenticated/finance/projects/index'
 import { Route as AuthenticatedFinanceProjectsProjectIdRouteImport } from './routes/_authenticated/finance/projects/$projectId'
 import { Route as AuthenticatedGeneralBranchesIndexRouteImport } from './routes/_authenticated/general/branches/index'
 import { Route as AuthenticatedGeneralBranchesBranchIdRouteImport } from './routes/_authenticated/general/branches/$branchId'
 import { Route as AuthenticatedGeneralInstitutionsIndexRouteImport } from './routes/_authenticated/general/institutions/index'
 import { Route as AuthenticatedGeneralInstitutionsInstitutionIdRouteImport } from './routes/_authenticated/general/institutions/$institutionId'
+import { Route as AuthenticatedInventoryAssetsIndexRouteImport } from './routes/_authenticated/inventory/assets/index'
+import { Route as AuthenticatedInventoryAssetsAssetIdRouteImport } from './routes/_authenticated/inventory/assets/$assetId'
+import { Route as AuthenticatedInventoryProductsIndexRouteImport } from './routes/_authenticated/inventory/products/index'
+import { Route as AuthenticatedInventoryProductsProductIdRouteImport } from './routes/_authenticated/inventory/products/$productId'
 import { Route as AuthenticatedMembershipEventsIndexRouteImport } from './routes/_authenticated/membership/events/index'
 import { Route as AuthenticatedMembershipEventsEventIdRouteImport } from './routes/_authenticated/membership/events/$eventId'
 import { Route as AuthenticatedMembershipGroupsIndexRouteImport } from './routes/_authenticated/membership/groups/index'
 import { Route as AuthenticatedMembershipGroupsGroupIdRouteImport } from './routes/_authenticated/membership/groups/$groupId'
 import { Route as AuthenticatedMembershipPersonsIndexRouteImport } from './routes/_authenticated/membership/persons/index'
 import { Route as AuthenticatedMembershipPersonsPersonIdRouteImport } from './routes/_authenticated/membership/persons/$personId'
+import { Route as AuthenticatedStoreCustomersIndexRouteImport } from './routes/_authenticated/store/customers/index'
+import { Route as AuthenticatedStorePurchasesIndexRouteImport } from './routes/_authenticated/store/purchases/index'
+import { Route as AuthenticatedStorePurchasesPurchaseIdRouteImport } from './routes/_authenticated/store/purchases/$purchaseId'
+import { Route as AuthenticatedStorePurchasesNewRouteImport } from './routes/_authenticated/store/purchases/new'
+import { Route as AuthenticatedStoreSalesIndexRouteImport } from './routes/_authenticated/store/sales/index'
+import { Route as AuthenticatedStoreSalesSaleIdRouteImport } from './routes/_authenticated/store/sales/$saleId'
+import { Route as AuthenticatedStoreSalesNewRouteImport } from './routes/_authenticated/store/sales/new'
+import { Route as AuthenticatedStoreSuppliersIndexRouteImport } from './routes/_authenticated/store/suppliers/index'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
@@ -125,6 +142,30 @@ const AuthenticatedSecurityUsersRoute =
     path: '/security/users',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedFinanceApprovalRoutesIndexRoute =
+  AuthenticatedFinanceApprovalRoutesIndexRouteImport.update({
+    id: '/finance/approval-routes/',
+    path: '/finance/approval-routes/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedFinanceApprovalsIndexRoute =
+  AuthenticatedFinanceApprovalsIndexRouteImport.update({
+    id: '/finance/approvals/',
+    path: '/finance/approvals/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedFinanceBudgetsIndexRoute =
+  AuthenticatedFinanceBudgetsIndexRouteImport.update({
+    id: '/finance/budgets/',
+    path: '/finance/budgets/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedFinanceBudgetsBudgetIdRoute =
+  AuthenticatedFinanceBudgetsBudgetIdRouteImport.update({
+    id: '/finance/budgets/$budgetId',
+    path: '/finance/budgets/$budgetId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedFinanceGroupFundsIndexRoute =
   AuthenticatedFinanceGroupFundsIndexRouteImport.update({
     id: '/finance/group-funds/',
@@ -135,6 +176,12 @@ const AuthenticatedFinanceGroupFundsGroupIdRoute =
   AuthenticatedFinanceGroupFundsGroupIdRouteImport.update({
     id: '/finance/group-funds/$groupId',
     path: '/finance/group-funds/$groupId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedFinancePeriodClosingsIndexRoute =
+  AuthenticatedFinancePeriodClosingsIndexRouteImport.update({
+    id: '/finance/period-closings/',
+    path: '/finance/period-closings/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedFinanceProjectsIndexRoute =
@@ -173,6 +220,30 @@ const AuthenticatedGeneralInstitutionsInstitutionIdRoute =
     path: '/general/institutions/$institutionId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedInventoryAssetsIndexRoute =
+  AuthenticatedInventoryAssetsIndexRouteImport.update({
+    id: '/inventory/assets/',
+    path: '/inventory/assets/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedInventoryAssetsAssetIdRoute =
+  AuthenticatedInventoryAssetsAssetIdRouteImport.update({
+    id: '/inventory/assets/$assetId',
+    path: '/inventory/assets/$assetId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedInventoryProductsIndexRoute =
+  AuthenticatedInventoryProductsIndexRouteImport.update({
+    id: '/inventory/products/',
+    path: '/inventory/products/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedInventoryProductsProductIdRoute =
+  AuthenticatedInventoryProductsProductIdRouteImport.update({
+    id: '/inventory/products/$productId',
+    path: '/inventory/products/$productId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedMembershipEventsIndexRoute =
   AuthenticatedMembershipEventsIndexRouteImport.update({
     id: '/membership/events/',
@@ -209,6 +280,54 @@ const AuthenticatedMembershipPersonsPersonIdRoute =
     path: '/membership/persons/$personId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedStoreCustomersIndexRoute =
+  AuthenticatedStoreCustomersIndexRouteImport.update({
+    id: '/store/customers/',
+    path: '/store/customers/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedStorePurchasesIndexRoute =
+  AuthenticatedStorePurchasesIndexRouteImport.update({
+    id: '/store/purchases/',
+    path: '/store/purchases/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedStorePurchasesPurchaseIdRoute =
+  AuthenticatedStorePurchasesPurchaseIdRouteImport.update({
+    id: '/store/purchases/$purchaseId',
+    path: '/store/purchases/$purchaseId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedStorePurchasesNewRoute =
+  AuthenticatedStorePurchasesNewRouteImport.update({
+    id: '/store/purchases/new',
+    path: '/store/purchases/new',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedStoreSalesIndexRoute =
+  AuthenticatedStoreSalesIndexRouteImport.update({
+    id: '/store/sales/',
+    path: '/store/sales/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedStoreSalesSaleIdRoute =
+  AuthenticatedStoreSalesSaleIdRouteImport.update({
+    id: '/store/sales/$saleId',
+    path: '/store/sales/$saleId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedStoreSalesNewRoute =
+  AuthenticatedStoreSalesNewRouteImport.update({
+    id: '/store/sales/new',
+    path: '/store/sales/new',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedStoreSuppliersIndexRoute =
+  AuthenticatedStoreSuppliersIndexRouteImport.update({
+    id: '/store/suppliers/',
+    path: '/store/suppliers/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -225,20 +344,37 @@ export interface FileRoutesByFullPath {
   '/security/audit': typeof AuthenticatedSecurityAuditRoute
   '/security/roles': typeof AuthenticatedSecurityRolesRoute
   '/security/users': typeof AuthenticatedSecurityUsersRoute
+  '/finance/budgets/$budgetId': typeof AuthenticatedFinanceBudgetsBudgetIdRoute
   '/finance/group-funds/$groupId': typeof AuthenticatedFinanceGroupFundsGroupIdRoute
   '/finance/projects/$projectId': typeof AuthenticatedFinanceProjectsProjectIdRoute
   '/general/branches/$branchId': typeof AuthenticatedGeneralBranchesBranchIdRoute
   '/general/institutions/$institutionId': typeof AuthenticatedGeneralInstitutionsInstitutionIdRoute
+  '/inventory/assets/$assetId': typeof AuthenticatedInventoryAssetsAssetIdRoute
+  '/inventory/products/$productId': typeof AuthenticatedInventoryProductsProductIdRoute
   '/membership/events/$eventId': typeof AuthenticatedMembershipEventsEventIdRoute
   '/membership/groups/$groupId': typeof AuthenticatedMembershipGroupsGroupIdRoute
   '/membership/persons/$personId': typeof AuthenticatedMembershipPersonsPersonIdRoute
+  '/store/purchases/$purchaseId': typeof AuthenticatedStorePurchasesPurchaseIdRoute
+  '/store/purchases/new': typeof AuthenticatedStorePurchasesNewRoute
+  '/store/sales/$saleId': typeof AuthenticatedStoreSalesSaleIdRoute
+  '/store/sales/new': typeof AuthenticatedStoreSalesNewRoute
+  '/finance/approval-routes/': typeof AuthenticatedFinanceApprovalRoutesIndexRoute
+  '/finance/approvals/': typeof AuthenticatedFinanceApprovalsIndexRoute
+  '/finance/budgets/': typeof AuthenticatedFinanceBudgetsIndexRoute
   '/finance/group-funds/': typeof AuthenticatedFinanceGroupFundsIndexRoute
+  '/finance/period-closings/': typeof AuthenticatedFinancePeriodClosingsIndexRoute
   '/finance/projects/': typeof AuthenticatedFinanceProjectsIndexRoute
   '/general/branches/': typeof AuthenticatedGeneralBranchesIndexRoute
   '/general/institutions/': typeof AuthenticatedGeneralInstitutionsIndexRoute
+  '/inventory/assets/': typeof AuthenticatedInventoryAssetsIndexRoute
+  '/inventory/products/': typeof AuthenticatedInventoryProductsIndexRoute
   '/membership/events/': typeof AuthenticatedMembershipEventsIndexRoute
   '/membership/groups/': typeof AuthenticatedMembershipGroupsIndexRoute
   '/membership/persons/': typeof AuthenticatedMembershipPersonsIndexRoute
+  '/store/customers/': typeof AuthenticatedStoreCustomersIndexRoute
+  '/store/purchases/': typeof AuthenticatedStorePurchasesIndexRoute
+  '/store/sales/': typeof AuthenticatedStoreSalesIndexRoute
+  '/store/suppliers/': typeof AuthenticatedStoreSuppliersIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -255,20 +391,37 @@ export interface FileRoutesByTo {
   '/security/audit': typeof AuthenticatedSecurityAuditRoute
   '/security/roles': typeof AuthenticatedSecurityRolesRoute
   '/security/users': typeof AuthenticatedSecurityUsersRoute
+  '/finance/budgets/$budgetId': typeof AuthenticatedFinanceBudgetsBudgetIdRoute
   '/finance/group-funds/$groupId': typeof AuthenticatedFinanceGroupFundsGroupIdRoute
   '/finance/projects/$projectId': typeof AuthenticatedFinanceProjectsProjectIdRoute
   '/general/branches/$branchId': typeof AuthenticatedGeneralBranchesBranchIdRoute
   '/general/institutions/$institutionId': typeof AuthenticatedGeneralInstitutionsInstitutionIdRoute
+  '/inventory/assets/$assetId': typeof AuthenticatedInventoryAssetsAssetIdRoute
+  '/inventory/products/$productId': typeof AuthenticatedInventoryProductsProductIdRoute
   '/membership/events/$eventId': typeof AuthenticatedMembershipEventsEventIdRoute
   '/membership/groups/$groupId': typeof AuthenticatedMembershipGroupsGroupIdRoute
   '/membership/persons/$personId': typeof AuthenticatedMembershipPersonsPersonIdRoute
+  '/store/purchases/$purchaseId': typeof AuthenticatedStorePurchasesPurchaseIdRoute
+  '/store/purchases/new': typeof AuthenticatedStorePurchasesNewRoute
+  '/store/sales/$saleId': typeof AuthenticatedStoreSalesSaleIdRoute
+  '/store/sales/new': typeof AuthenticatedStoreSalesNewRoute
+  '/finance/approval-routes': typeof AuthenticatedFinanceApprovalRoutesIndexRoute
+  '/finance/approvals': typeof AuthenticatedFinanceApprovalsIndexRoute
+  '/finance/budgets': typeof AuthenticatedFinanceBudgetsIndexRoute
   '/finance/group-funds': typeof AuthenticatedFinanceGroupFundsIndexRoute
+  '/finance/period-closings': typeof AuthenticatedFinancePeriodClosingsIndexRoute
   '/finance/projects': typeof AuthenticatedFinanceProjectsIndexRoute
   '/general/branches': typeof AuthenticatedGeneralBranchesIndexRoute
   '/general/institutions': typeof AuthenticatedGeneralInstitutionsIndexRoute
+  '/inventory/assets': typeof AuthenticatedInventoryAssetsIndexRoute
+  '/inventory/products': typeof AuthenticatedInventoryProductsIndexRoute
   '/membership/events': typeof AuthenticatedMembershipEventsIndexRoute
   '/membership/groups': typeof AuthenticatedMembershipGroupsIndexRoute
   '/membership/persons': typeof AuthenticatedMembershipPersonsIndexRoute
+  '/store/customers': typeof AuthenticatedStoreCustomersIndexRoute
+  '/store/purchases': typeof AuthenticatedStorePurchasesIndexRoute
+  '/store/sales': typeof AuthenticatedStoreSalesIndexRoute
+  '/store/suppliers': typeof AuthenticatedStoreSuppliersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -287,20 +440,37 @@ export interface FileRoutesById {
   '/_authenticated/security/audit': typeof AuthenticatedSecurityAuditRoute
   '/_authenticated/security/roles': typeof AuthenticatedSecurityRolesRoute
   '/_authenticated/security/users': typeof AuthenticatedSecurityUsersRoute
+  '/_authenticated/finance/budgets/$budgetId': typeof AuthenticatedFinanceBudgetsBudgetIdRoute
   '/_authenticated/finance/group-funds/$groupId': typeof AuthenticatedFinanceGroupFundsGroupIdRoute
   '/_authenticated/finance/projects/$projectId': typeof AuthenticatedFinanceProjectsProjectIdRoute
   '/_authenticated/general/branches/$branchId': typeof AuthenticatedGeneralBranchesBranchIdRoute
   '/_authenticated/general/institutions/$institutionId': typeof AuthenticatedGeneralInstitutionsInstitutionIdRoute
+  '/_authenticated/inventory/assets/$assetId': typeof AuthenticatedInventoryAssetsAssetIdRoute
+  '/_authenticated/inventory/products/$productId': typeof AuthenticatedInventoryProductsProductIdRoute
   '/_authenticated/membership/events/$eventId': typeof AuthenticatedMembershipEventsEventIdRoute
   '/_authenticated/membership/groups/$groupId': typeof AuthenticatedMembershipGroupsGroupIdRoute
   '/_authenticated/membership/persons/$personId': typeof AuthenticatedMembershipPersonsPersonIdRoute
+  '/_authenticated/store/purchases/$purchaseId': typeof AuthenticatedStorePurchasesPurchaseIdRoute
+  '/_authenticated/store/purchases/new': typeof AuthenticatedStorePurchasesNewRoute
+  '/_authenticated/store/sales/$saleId': typeof AuthenticatedStoreSalesSaleIdRoute
+  '/_authenticated/store/sales/new': typeof AuthenticatedStoreSalesNewRoute
+  '/_authenticated/finance/approval-routes/': typeof AuthenticatedFinanceApprovalRoutesIndexRoute
+  '/_authenticated/finance/approvals/': typeof AuthenticatedFinanceApprovalsIndexRoute
+  '/_authenticated/finance/budgets/': typeof AuthenticatedFinanceBudgetsIndexRoute
   '/_authenticated/finance/group-funds/': typeof AuthenticatedFinanceGroupFundsIndexRoute
+  '/_authenticated/finance/period-closings/': typeof AuthenticatedFinancePeriodClosingsIndexRoute
   '/_authenticated/finance/projects/': typeof AuthenticatedFinanceProjectsIndexRoute
   '/_authenticated/general/branches/': typeof AuthenticatedGeneralBranchesIndexRoute
   '/_authenticated/general/institutions/': typeof AuthenticatedGeneralInstitutionsIndexRoute
+  '/_authenticated/inventory/assets/': typeof AuthenticatedInventoryAssetsIndexRoute
+  '/_authenticated/inventory/products/': typeof AuthenticatedInventoryProductsIndexRoute
   '/_authenticated/membership/events/': typeof AuthenticatedMembershipEventsIndexRoute
   '/_authenticated/membership/groups/': typeof AuthenticatedMembershipGroupsIndexRoute
   '/_authenticated/membership/persons/': typeof AuthenticatedMembershipPersonsIndexRoute
+  '/_authenticated/store/customers/': typeof AuthenticatedStoreCustomersIndexRoute
+  '/_authenticated/store/purchases/': typeof AuthenticatedStorePurchasesIndexRoute
+  '/_authenticated/store/sales/': typeof AuthenticatedStoreSalesIndexRoute
+  '/_authenticated/store/suppliers/': typeof AuthenticatedStoreSuppliersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -319,20 +489,37 @@ export interface FileRouteTypes {
     | '/security/audit'
     | '/security/roles'
     | '/security/users'
+    | '/finance/budgets/$budgetId'
     | '/finance/group-funds/$groupId'
     | '/finance/projects/$projectId'
     | '/general/branches/$branchId'
     | '/general/institutions/$institutionId'
+    | '/inventory/assets/$assetId'
+    | '/inventory/products/$productId'
     | '/membership/events/$eventId'
     | '/membership/groups/$groupId'
     | '/membership/persons/$personId'
+    | '/store/purchases/$purchaseId'
+    | '/store/purchases/new'
+    | '/store/sales/$saleId'
+    | '/store/sales/new'
+    | '/finance/approval-routes/'
+    | '/finance/approvals/'
+    | '/finance/budgets/'
     | '/finance/group-funds/'
+    | '/finance/period-closings/'
     | '/finance/projects/'
     | '/general/branches/'
     | '/general/institutions/'
+    | '/inventory/assets/'
+    | '/inventory/products/'
     | '/membership/events/'
     | '/membership/groups/'
     | '/membership/persons/'
+    | '/store/customers/'
+    | '/store/purchases/'
+    | '/store/sales/'
+    | '/store/suppliers/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -349,20 +536,37 @@ export interface FileRouteTypes {
     | '/security/audit'
     | '/security/roles'
     | '/security/users'
+    | '/finance/budgets/$budgetId'
     | '/finance/group-funds/$groupId'
     | '/finance/projects/$projectId'
     | '/general/branches/$branchId'
     | '/general/institutions/$institutionId'
+    | '/inventory/assets/$assetId'
+    | '/inventory/products/$productId'
     | '/membership/events/$eventId'
     | '/membership/groups/$groupId'
     | '/membership/persons/$personId'
+    | '/store/purchases/$purchaseId'
+    | '/store/purchases/new'
+    | '/store/sales/$saleId'
+    | '/store/sales/new'
+    | '/finance/approval-routes'
+    | '/finance/approvals'
+    | '/finance/budgets'
     | '/finance/group-funds'
+    | '/finance/period-closings'
     | '/finance/projects'
     | '/general/branches'
     | '/general/institutions'
+    | '/inventory/assets'
+    | '/inventory/products'
     | '/membership/events'
     | '/membership/groups'
     | '/membership/persons'
+    | '/store/customers'
+    | '/store/purchases'
+    | '/store/sales'
+    | '/store/suppliers'
   id:
     | '__root__'
     | '/_authenticated'
@@ -380,20 +584,37 @@ export interface FileRouteTypes {
     | '/_authenticated/security/audit'
     | '/_authenticated/security/roles'
     | '/_authenticated/security/users'
+    | '/_authenticated/finance/budgets/$budgetId'
     | '/_authenticated/finance/group-funds/$groupId'
     | '/_authenticated/finance/projects/$projectId'
     | '/_authenticated/general/branches/$branchId'
     | '/_authenticated/general/institutions/$institutionId'
+    | '/_authenticated/inventory/assets/$assetId'
+    | '/_authenticated/inventory/products/$productId'
     | '/_authenticated/membership/events/$eventId'
     | '/_authenticated/membership/groups/$groupId'
     | '/_authenticated/membership/persons/$personId'
+    | '/_authenticated/store/purchases/$purchaseId'
+    | '/_authenticated/store/purchases/new'
+    | '/_authenticated/store/sales/$saleId'
+    | '/_authenticated/store/sales/new'
+    | '/_authenticated/finance/approval-routes/'
+    | '/_authenticated/finance/approvals/'
+    | '/_authenticated/finance/budgets/'
     | '/_authenticated/finance/group-funds/'
+    | '/_authenticated/finance/period-closings/'
     | '/_authenticated/finance/projects/'
     | '/_authenticated/general/branches/'
     | '/_authenticated/general/institutions/'
+    | '/_authenticated/inventory/assets/'
+    | '/_authenticated/inventory/products/'
     | '/_authenticated/membership/events/'
     | '/_authenticated/membership/groups/'
     | '/_authenticated/membership/persons/'
+    | '/_authenticated/store/customers/'
+    | '/_authenticated/store/purchases/'
+    | '/_authenticated/store/sales/'
+    | '/_authenticated/store/suppliers/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -508,6 +729,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSecurityUsersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/finance/approval-routes/': {
+      id: '/_authenticated/finance/approval-routes/'
+      path: '/finance/approval-routes'
+      fullPath: '/finance/approval-routes/'
+      preLoaderRoute: typeof AuthenticatedFinanceApprovalRoutesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/finance/approvals/': {
+      id: '/_authenticated/finance/approvals/'
+      path: '/finance/approvals'
+      fullPath: '/finance/approvals/'
+      preLoaderRoute: typeof AuthenticatedFinanceApprovalsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/finance/budgets/': {
+      id: '/_authenticated/finance/budgets/'
+      path: '/finance/budgets'
+      fullPath: '/finance/budgets/'
+      preLoaderRoute: typeof AuthenticatedFinanceBudgetsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/finance/budgets/$budgetId': {
+      id: '/_authenticated/finance/budgets/$budgetId'
+      path: '/finance/budgets/$budgetId'
+      fullPath: '/finance/budgets/$budgetId'
+      preLoaderRoute: typeof AuthenticatedFinanceBudgetsBudgetIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/finance/group-funds/': {
       id: '/_authenticated/finance/group-funds/'
       path: '/finance/group-funds'
@@ -520,6 +769,13 @@ declare module '@tanstack/react-router' {
       path: '/finance/group-funds/$groupId'
       fullPath: '/finance/group-funds/$groupId'
       preLoaderRoute: typeof AuthenticatedFinanceGroupFundsGroupIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/finance/period-closings/': {
+      id: '/_authenticated/finance/period-closings/'
+      path: '/finance/period-closings'
+      fullPath: '/finance/period-closings/'
+      preLoaderRoute: typeof AuthenticatedFinancePeriodClosingsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/finance/projects/': {
@@ -564,6 +820,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGeneralInstitutionsInstitutionIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/inventory/assets/': {
+      id: '/_authenticated/inventory/assets/'
+      path: '/inventory/assets'
+      fullPath: '/inventory/assets/'
+      preLoaderRoute: typeof AuthenticatedInventoryAssetsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/inventory/assets/$assetId': {
+      id: '/_authenticated/inventory/assets/$assetId'
+      path: '/inventory/assets/$assetId'
+      fullPath: '/inventory/assets/$assetId'
+      preLoaderRoute: typeof AuthenticatedInventoryAssetsAssetIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/inventory/products/': {
+      id: '/_authenticated/inventory/products/'
+      path: '/inventory/products'
+      fullPath: '/inventory/products/'
+      preLoaderRoute: typeof AuthenticatedInventoryProductsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/inventory/products/$productId': {
+      id: '/_authenticated/inventory/products/$productId'
+      path: '/inventory/products/$productId'
+      fullPath: '/inventory/products/$productId'
+      preLoaderRoute: typeof AuthenticatedInventoryProductsProductIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/membership/events/': {
       id: '/_authenticated/membership/events/'
       path: '/membership/events'
@@ -606,6 +890,62 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMembershipPersonsPersonIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/store/customers/': {
+      id: '/_authenticated/store/customers/'
+      path: '/store/customers'
+      fullPath: '/store/customers/'
+      preLoaderRoute: typeof AuthenticatedStoreCustomersIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/store/purchases/': {
+      id: '/_authenticated/store/purchases/'
+      path: '/store/purchases'
+      fullPath: '/store/purchases/'
+      preLoaderRoute: typeof AuthenticatedStorePurchasesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/store/purchases/$purchaseId': {
+      id: '/_authenticated/store/purchases/$purchaseId'
+      path: '/store/purchases/$purchaseId'
+      fullPath: '/store/purchases/$purchaseId'
+      preLoaderRoute: typeof AuthenticatedStorePurchasesPurchaseIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/store/purchases/new': {
+      id: '/_authenticated/store/purchases/new'
+      path: '/store/purchases/new'
+      fullPath: '/store/purchases/new'
+      preLoaderRoute: typeof AuthenticatedStorePurchasesNewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/store/sales/': {
+      id: '/_authenticated/store/sales/'
+      path: '/store/sales'
+      fullPath: '/store/sales/'
+      preLoaderRoute: typeof AuthenticatedStoreSalesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/store/sales/$saleId': {
+      id: '/_authenticated/store/sales/$saleId'
+      path: '/store/sales/$saleId'
+      fullPath: '/store/sales/$saleId'
+      preLoaderRoute: typeof AuthenticatedStoreSalesSaleIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/store/sales/new': {
+      id: '/_authenticated/store/sales/new'
+      path: '/store/sales/new'
+      fullPath: '/store/sales/new'
+      preLoaderRoute: typeof AuthenticatedStoreSalesNewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/store/suppliers/': {
+      id: '/_authenticated/store/suppliers/'
+      path: '/store/suppliers'
+      fullPath: '/store/suppliers/'
+      preLoaderRoute: typeof AuthenticatedStoreSuppliersIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -623,20 +963,37 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSecurityAuditRoute: typeof AuthenticatedSecurityAuditRoute
   AuthenticatedSecurityRolesRoute: typeof AuthenticatedSecurityRolesRoute
   AuthenticatedSecurityUsersRoute: typeof AuthenticatedSecurityUsersRoute
+  AuthenticatedFinanceBudgetsBudgetIdRoute: typeof AuthenticatedFinanceBudgetsBudgetIdRoute
   AuthenticatedFinanceGroupFundsGroupIdRoute: typeof AuthenticatedFinanceGroupFundsGroupIdRoute
   AuthenticatedFinanceProjectsProjectIdRoute: typeof AuthenticatedFinanceProjectsProjectIdRoute
   AuthenticatedGeneralBranchesBranchIdRoute: typeof AuthenticatedGeneralBranchesBranchIdRoute
   AuthenticatedGeneralInstitutionsInstitutionIdRoute: typeof AuthenticatedGeneralInstitutionsInstitutionIdRoute
+  AuthenticatedInventoryAssetsAssetIdRoute: typeof AuthenticatedInventoryAssetsAssetIdRoute
+  AuthenticatedInventoryProductsProductIdRoute: typeof AuthenticatedInventoryProductsProductIdRoute
   AuthenticatedMembershipEventsEventIdRoute: typeof AuthenticatedMembershipEventsEventIdRoute
   AuthenticatedMembershipGroupsGroupIdRoute: typeof AuthenticatedMembershipGroupsGroupIdRoute
   AuthenticatedMembershipPersonsPersonIdRoute: typeof AuthenticatedMembershipPersonsPersonIdRoute
+  AuthenticatedStorePurchasesPurchaseIdRoute: typeof AuthenticatedStorePurchasesPurchaseIdRoute
+  AuthenticatedStorePurchasesNewRoute: typeof AuthenticatedStorePurchasesNewRoute
+  AuthenticatedStoreSalesSaleIdRoute: typeof AuthenticatedStoreSalesSaleIdRoute
+  AuthenticatedStoreSalesNewRoute: typeof AuthenticatedStoreSalesNewRoute
+  AuthenticatedFinanceApprovalRoutesIndexRoute: typeof AuthenticatedFinanceApprovalRoutesIndexRoute
+  AuthenticatedFinanceApprovalsIndexRoute: typeof AuthenticatedFinanceApprovalsIndexRoute
+  AuthenticatedFinanceBudgetsIndexRoute: typeof AuthenticatedFinanceBudgetsIndexRoute
   AuthenticatedFinanceGroupFundsIndexRoute: typeof AuthenticatedFinanceGroupFundsIndexRoute
+  AuthenticatedFinancePeriodClosingsIndexRoute: typeof AuthenticatedFinancePeriodClosingsIndexRoute
   AuthenticatedFinanceProjectsIndexRoute: typeof AuthenticatedFinanceProjectsIndexRoute
   AuthenticatedGeneralBranchesIndexRoute: typeof AuthenticatedGeneralBranchesIndexRoute
   AuthenticatedGeneralInstitutionsIndexRoute: typeof AuthenticatedGeneralInstitutionsIndexRoute
+  AuthenticatedInventoryAssetsIndexRoute: typeof AuthenticatedInventoryAssetsIndexRoute
+  AuthenticatedInventoryProductsIndexRoute: typeof AuthenticatedInventoryProductsIndexRoute
   AuthenticatedMembershipEventsIndexRoute: typeof AuthenticatedMembershipEventsIndexRoute
   AuthenticatedMembershipGroupsIndexRoute: typeof AuthenticatedMembershipGroupsIndexRoute
   AuthenticatedMembershipPersonsIndexRoute: typeof AuthenticatedMembershipPersonsIndexRoute
+  AuthenticatedStoreCustomersIndexRoute: typeof AuthenticatedStoreCustomersIndexRoute
+  AuthenticatedStorePurchasesIndexRoute: typeof AuthenticatedStorePurchasesIndexRoute
+  AuthenticatedStoreSalesIndexRoute: typeof AuthenticatedStoreSalesIndexRoute
+  AuthenticatedStoreSuppliersIndexRoute: typeof AuthenticatedStoreSuppliersIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -655,6 +1012,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSecurityAuditRoute: AuthenticatedSecurityAuditRoute,
   AuthenticatedSecurityRolesRoute: AuthenticatedSecurityRolesRoute,
   AuthenticatedSecurityUsersRoute: AuthenticatedSecurityUsersRoute,
+  AuthenticatedFinanceBudgetsBudgetIdRoute:
+    AuthenticatedFinanceBudgetsBudgetIdRoute,
   AuthenticatedFinanceGroupFundsGroupIdRoute:
     AuthenticatedFinanceGroupFundsGroupIdRoute,
   AuthenticatedFinanceProjectsProjectIdRoute:
@@ -663,26 +1022,50 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedGeneralBranchesBranchIdRoute,
   AuthenticatedGeneralInstitutionsInstitutionIdRoute:
     AuthenticatedGeneralInstitutionsInstitutionIdRoute,
+  AuthenticatedInventoryAssetsAssetIdRoute:
+    AuthenticatedInventoryAssetsAssetIdRoute,
+  AuthenticatedInventoryProductsProductIdRoute:
+    AuthenticatedInventoryProductsProductIdRoute,
   AuthenticatedMembershipEventsEventIdRoute:
     AuthenticatedMembershipEventsEventIdRoute,
   AuthenticatedMembershipGroupsGroupIdRoute:
     AuthenticatedMembershipGroupsGroupIdRoute,
   AuthenticatedMembershipPersonsPersonIdRoute:
     AuthenticatedMembershipPersonsPersonIdRoute,
+  AuthenticatedStorePurchasesPurchaseIdRoute:
+    AuthenticatedStorePurchasesPurchaseIdRoute,
+  AuthenticatedStorePurchasesNewRoute: AuthenticatedStorePurchasesNewRoute,
+  AuthenticatedStoreSalesSaleIdRoute: AuthenticatedStoreSalesSaleIdRoute,
+  AuthenticatedStoreSalesNewRoute: AuthenticatedStoreSalesNewRoute,
+  AuthenticatedFinanceApprovalRoutesIndexRoute:
+    AuthenticatedFinanceApprovalRoutesIndexRoute,
+  AuthenticatedFinanceApprovalsIndexRoute:
+    AuthenticatedFinanceApprovalsIndexRoute,
+  AuthenticatedFinanceBudgetsIndexRoute: AuthenticatedFinanceBudgetsIndexRoute,
   AuthenticatedFinanceGroupFundsIndexRoute:
     AuthenticatedFinanceGroupFundsIndexRoute,
+  AuthenticatedFinancePeriodClosingsIndexRoute:
+    AuthenticatedFinancePeriodClosingsIndexRoute,
   AuthenticatedFinanceProjectsIndexRoute:
     AuthenticatedFinanceProjectsIndexRoute,
   AuthenticatedGeneralBranchesIndexRoute:
     AuthenticatedGeneralBranchesIndexRoute,
   AuthenticatedGeneralInstitutionsIndexRoute:
     AuthenticatedGeneralInstitutionsIndexRoute,
+  AuthenticatedInventoryAssetsIndexRoute:
+    AuthenticatedInventoryAssetsIndexRoute,
+  AuthenticatedInventoryProductsIndexRoute:
+    AuthenticatedInventoryProductsIndexRoute,
   AuthenticatedMembershipEventsIndexRoute:
     AuthenticatedMembershipEventsIndexRoute,
   AuthenticatedMembershipGroupsIndexRoute:
     AuthenticatedMembershipGroupsIndexRoute,
   AuthenticatedMembershipPersonsIndexRoute:
     AuthenticatedMembershipPersonsIndexRoute,
+  AuthenticatedStoreCustomersIndexRoute: AuthenticatedStoreCustomersIndexRoute,
+  AuthenticatedStorePurchasesIndexRoute: AuthenticatedStorePurchasesIndexRoute,
+  AuthenticatedStoreSalesIndexRoute: AuthenticatedStoreSalesIndexRoute,
+  AuthenticatedStoreSuppliersIndexRoute: AuthenticatedStoreSuppliersIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

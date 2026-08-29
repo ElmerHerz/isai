@@ -58,7 +58,8 @@ export function PositionFormDialog({
   const isEditing = !!position;
   const permissions = useAuthStore((state) => state.user?.permissions) ?? [];
   const canViewPersons = permissions.includes('membership.person.view');
-  const { data: groups } = useGroupsQuery(institutionId);
+  const canViewGroups = permissions.includes('membership.group.view');
+  const { data: groups } = useGroupsQuery(institutionId, canViewGroups);
   const { data: persons } = usePersonsQuery(institutionId, canViewPersons);
   const { data: boardPositions } = useCatalogItemsQuery('board_position');
   const createMutation = useCreatePositionMutation();

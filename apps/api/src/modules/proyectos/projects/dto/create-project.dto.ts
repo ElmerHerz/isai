@@ -5,11 +5,11 @@ import { emptyToUndefined } from '../../../../common/utils/empty-to-undefined.tr
 
 export class CreateProjectDto {
   @ApiProperty({ example: 'uuid-de-la-institución' })
-  @IsUUID()
+  @IsUUID('loose')
   institutionId!: string;
 
   @ApiProperty({ description: 'Sucursal cuya Caja recibe los aportes — obligatoria aunque el proyecto sea para toda la institución' })
-  @IsUUID()
+  @IsUUID('loose')
   branchId!: string;
 
   @ApiProperty({ example: 'Equipo de sonido' })
@@ -33,6 +33,6 @@ export class CreateProjectDto {
 
   @ApiPropertyOptional({ description: 'Cuenta de ingreso a la que se contabilizan sus aportes — se puede configurar después' })
   @Transform(emptyToUndefined)
-  @IsUUID() @IsOptional()
+  @IsUUID('loose') @IsOptional()
   incomeAccountId?: string;
 }

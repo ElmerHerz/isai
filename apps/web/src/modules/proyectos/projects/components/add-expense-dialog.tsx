@@ -14,6 +14,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { DateInput } from '@/components/ui/date-input';
 import { useAccountsQuery } from '@/modules/finanzas';
 import { useCreateProjectExpenseMutation } from '@/modules/proyectos';
+import { useAuthStore } from '@/lib/auth-store';
 import { getErrorMessage } from '@/lib/toast';
 import { todayLocalDateInput } from '@/lib/format-date';
 
@@ -26,7 +27,9 @@ interface AddExpenseDialogProps {
 }
 
 export function AddExpenseDialog({ open, onOpenChange, projectId }: AddExpenseDialogProps) {
-  const { data: accounts } = useAccountsQuery();
+  const permissions = useAuthStore((state) => state.user?.permissions) ?? [];
+  const canViewAccounts = permissions.includes('finance.account.view');
+  const { data: accounts } = useAccountsQuery(undefined, canViewAccounts);
   const expenseAccounts = accounts?.filter((a) => a.accountType.code === EXPENSE_ACCOUNT_TYPE && a.allowsTransactions) ?? [];
   const mutation = useCreateProjectExpenseMutation(projectId);
 

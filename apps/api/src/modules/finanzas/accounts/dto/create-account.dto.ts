@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsUUID, Matches, MaxLength } from 'class-validator';
+import { IsBoolean, IsString, IsNotEmpty, IsOptional, IsUUID, Matches, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { emptyToUndefined } from '../../../../common/utils/empty-to-undefined.transform';
@@ -14,11 +14,15 @@ export class CreateAccountDto {
   name!: string;
 
   @ApiProperty({ example: 'uuid-del-catalog-item (catalogCode=account_type)' })
-  @IsUUID()
+  @IsUUID('loose')
   accountTypeId!: string;
 
   @ApiPropertyOptional({ description: 'Cuenta padre (agrupación) — vacío = cuenta de primer nivel' })
   @Transform(emptyToUndefined)
-  @IsUUID() @IsOptional()
+  @IsUUID('loose') @IsOptional()
   parentAccountId?: string;
+
+  @ApiPropertyOptional({ description: 'false = cuenta de agrupación (encabezado, sin movimientos propios). Default: true' })
+  @IsBoolean() @IsOptional()
+  allowsTransactions?: boolean;
 }

@@ -6,8 +6,12 @@ export const accountsQueryKey = (tenantId?: string) => ['accounts', tenantId ?? 
 
 // tenantId es solo para superadmin (selector propio, mismo patrón que el
 // resto de catálogos por tenant) — un usuario normal ya tiene su tenant
-// fijo en el JWT.
-export function useAccountsQuery(tenantId?: string) {
+// fijo en el JWT. enabled adicional (default true) — quien llama debe
+// apagarlo si sabe que el usuario actual no tiene finance.account.view (ej.
+// un diálogo que se monta siempre, aunque cerrado, en una página que
+// también visitan roles angostos), para no dispararle un 403 solo por
+// abrir la página.
+export function useAccountsQuery(tenantId?: string, enabled: boolean = true) {
   return useQuery({
     queryKey: accountsQueryKey(tenantId),
     queryFn: async () => {
@@ -16,5 +20,6 @@ export function useAccountsQuery(tenantId?: string) {
       });
       return data;
     },
+    enabled,
   });
 }

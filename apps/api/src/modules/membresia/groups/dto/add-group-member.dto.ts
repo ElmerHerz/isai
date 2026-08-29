@@ -5,7 +5,7 @@ import { emptyToUndefined } from '../../../../common/utils/empty-to-undefined.tr
 
 export class AddGroupMemberDto {
   @ApiProperty({ example: 'uuid-de-la-persona' })
-  @IsUUID()
+  @IsUUID('loose')
   personId!: string;
 
   @ApiPropertyOptional({ example: 'leader', description: 'Texto libre — no hay catálogo todavía' })

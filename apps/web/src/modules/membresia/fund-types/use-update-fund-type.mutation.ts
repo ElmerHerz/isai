@@ -6,6 +6,7 @@ import type { FundType } from '@isai/shared-types';
 export interface UpdateFundTypeInput {
   name?: string;
   isActive?: boolean;
+  tracksDonors?: boolean;
 }
 
 export function useUpdateFundTypeMutation() {

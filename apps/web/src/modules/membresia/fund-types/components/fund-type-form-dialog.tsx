@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { useCreateFundTypeMutation, useUpdateFundTypeMutation } from '@/modules/membresia';
 import { getErrorMessage } from '@/lib/toast';
 import type { FundType } from '@isai/shared-types';
@@ -36,6 +37,7 @@ const fundTypeSchema = z.object({
     .regex(/^[A-Za-z0-9_]+$/, 'Solo letras, números y guion bajo')
     .transform((v) => v.toUpperCase()),
   name: z.string().min(1, 'El nombre es requerido').max(100),
+  tracksDonors: z.boolean(),
 });
 
 type FundTypeFormValues = z.infer<typeof fundTypeSchema>;
@@ -59,18 +61,19 @@ export function FundTypeFormDialog({ open, onOpenChange, type, tenantId }: FundT
     handleSubmit,
     watch,
     setValue,
+    control,
     reset,
     formState: { errors, dirtyFields },
   } = useForm<FundTypeFormValues>({
     resolver: zodResolver(fundTypeSchema),
-    defaultValues: { code: '', name: '' },
+    defaultValues: { code: '', name: '', tracksDonors: false },
   });
 
   const name = watch('name');
 
   useEffect(() => {
     if (open) {
-      reset({ code: type?.code ?? '', name: type?.name ?? '' });
+      reset({ code: type?.code ?? '', name: type?.name ?? '', tracksDonors: type?.tracksDonors ?? false });
     }
   }, [open, type, reset]);
 
@@ -85,9 +88,9 @@ export function FundTypeFormDialog({ open, onOpenChange, type, tenantId }: FundT
     const onSuccess = () => onOpenChange(false);
 
     if (isEditing) {
-      updateMutation.mutate({ id: type.id, dto: { name: values.name } }, { onSuccess });
+      updateMutation.mutate({ id: type.id, dto: { name: values.name, tracksDonors: values.tracksDonors } }, { onSuccess });
     } else {
-      createMutation.mutate({ code: values.code, name: values.name, tenantId }, { onSuccess });
+      createMutation.mutate({ code: values.code, name: values.name, tracksDonors: values.tracksDonors, tenantId }, { onSuccess });
     }
   };
 
@@ -119,6 +122,23 @@ export function FundTypeFormDialog({ open, onOpenChange, type, tenantId }: FundT
             <Label htmlFor="name">Nombre</Label>
             <Input id="name" placeholder="Ofrenda" {...register('name')} />
             {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+            <div>
+              <Label htmlFor="tracksDonors">Registra donantes por nombre</Label>
+              <p className="text-xs text-muted-foreground">
+                Permite identificar quién dio cuánto en las colectas de este tipo de fondo (para comprobantes de
+                donación). Déjalo apagado si la ofrenda se registra anónima.
+              </p>
+            </div>
+            <Controller
+              name="tracksDonors"
+              control={control}
+              render={({ field }) => (
+                <Switch id="tracksDonors" checked={field.value} onCheckedChange={field.onChange} />
+              )}
+            />
           </div>
 
           {mutation.isError && (

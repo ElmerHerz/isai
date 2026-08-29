@@ -5,16 +5,16 @@ import { emptyToUndefined } from '../../../../common/utils/empty-to-undefined.tr
 
 export class CreateGroupDto {
   @ApiProperty({ example: 'uuid-de-la-institución' })
-  @IsUUID()
+  @IsUUID('loose')
   institutionId!: string;
 
   @ApiPropertyOptional({ description: 'Vacío = grupo de toda la institución, no de una sucursal en particular' })
-  @IsUUID()
+  @IsUUID('loose')
   @IsOptional()
   branchId?: string;
 
   @ApiProperty({ example: 'uuid-del-catalog-item (catalogCode=group_type)' })
-  @IsUUID()
+  @IsUUID('loose')
   groupTypeId!: string;
 
   @ApiProperty({ example: 'Célula Los Olivos' })
@@ -27,12 +27,12 @@ export class CreateGroupDto {
   description?: string;
 
   @ApiPropertyOptional({ description: 'Persona líder del grupo, opcional' })
-  @IsUUID()
+  @IsUUID('loose')
   @IsOptional()
   leaderPersonId?: string;
 
   @ApiPropertyOptional({ description: 'Cuenta de Activo donde vive el fondo propio del grupo (ej. "Caja: Fondo Músicos"). Requerida antes de poder registrar movimientos del fondo.' })
-  @IsUUID()
+  @IsUUID('loose')
   @IsOptional()
   cashAccountId?: string;
 

@@ -1,5 +1,5 @@
-import { IsString, Matches, MaxLength } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsBoolean, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateFundTypeDto {
   @ApiProperty({ example: 'OFRENDA' })
@@ -12,4 +12,9 @@ export class CreateFundTypeDto {
   @IsString()
   @MaxLength(100)
   name!: string;
+
+  @ApiPropertyOptional({ description: 'Permite identificar donantes por nombre en las colectas de este tipo de fondo' })
+  @IsBoolean()
+  @IsOptional()
+  tracksDonors?: boolean;
 }

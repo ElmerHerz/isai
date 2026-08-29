@@ -5,6 +5,7 @@ import {
   Building2,
   Calendar,
   ClipboardCheck,
+  CreditCard,
   FileCheck,
   FileText,
   HeartHandshake,
@@ -13,12 +14,19 @@ import {
   LayoutGrid,
   List,
   ListTree,
+  Lock,
   MapPin,
+  Package,
+  PiggyBank,
+  Receipt,
   Settings,
   Shield,
+  ShoppingCart,
   Target,
+  Truck,
   Users,
   Wallet,
+  Warehouse,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -47,6 +55,14 @@ const ICON_MAP: Record<string, LucideIcon> = {
   'bar-chart': BarChart3,
   target: Target,
   landmark: Landmark,
+  'piggy-bank': PiggyBank,
+  lock: Lock,
+  package: Package,
+  warehouse: Warehouse,
+  'shopping-cart': ShoppingCart,
+  truck: Truck,
+  receipt: Receipt,
+  'credit-card': CreditCard,
 };
 
 const FALLBACK_ICON: LucideIcon = LayoutGrid;

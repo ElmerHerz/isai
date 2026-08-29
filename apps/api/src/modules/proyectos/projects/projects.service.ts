@@ -2,10 +2,13 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException,
 import ExcelJS from 'exceljs';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { LedgerService } from '../../finanzas/ledger/ledger.service';
+import { ExpenseApprovalsService } from '../../finanzas/approvals/expense-approvals.service';
+import { DocumentSequencesService } from '../../general/document-sequences/document-sequences.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { CreateProjectContributionDto } from './dto/create-project-contribution.dto';
 import { CreateProjectExpenseDto } from './dto/create-project-expense.dto';
+import { CreateProjectPledgeDto } from './dto/create-project-pledge.dto';
 import { resolveInstitutionScope, resolveBranchScope } from '../../../common/utils/institution-scope.util';
 import type { RequestUser } from '../../../common/decorators/current-user.decorator';
 
@@ -15,6 +18,11 @@ const include = {
 };
 
 const contributionsInclude = {
+  person: { select: { id: true, firstName: true, lastName: true } },
+  group: { select: { id: true, name: true } },
+};
+
+const pledgesInclude = {
   person: { select: { id: true, firstName: true, lastName: true } },
   group: { select: { id: true, name: true } },
 };
@@ -31,6 +39,8 @@ export class ProjectsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledger: LedgerService,
+    private readonly expenseApprovals: ExpenseApprovalsService,
+    private readonly documentSequences: DocumentSequencesService,
   ) {}
 
   private async assertInstitutionAccessible(institutionId: string, tenantId: string | null, user: RequestUser) {
@@ -105,10 +115,10 @@ export class ProjectsService {
   // sesión) para cada proyecto, en dos groupBy en vez de N queries.
   private async withTotals<T extends { id: string }>(projects: T[]) {
     if (projects.length === 0) {
-      return [] as (T & { totalContributed: string; totalSpent: string })[];
+      return [] as (T & { totalContributed: string; totalSpent: string; totalPledged: string })[];
     }
 
-    const [contributionTotals, expenseTotals] = await Promise.all([
+    const [contributionTotals, expenseTotals, pledgeTotals] = await Promise.all([
       this.prisma.projectContribution.groupBy({
         by: ['projectId'],
         where: { projectId: { in: projects.map((p) => p.id) } },
@@ -119,14 +129,21 @@ export class ProjectsService {
         where: { projectId: { in: projects.map((p) => p.id) } },
         _sum: { amount: true },
       }),
+      this.prisma.projectPledge.groupBy({
+        by: ['projectId'],
+        where: { projectId: { in: projects.map((p) => p.id) } },
+        _sum: { amount: true },
+      }),
     ]);
     const contributedByProject = new Map(contributionTotals.map((t) => [t.projectId, t._sum.amount]));
     const spentByProject = new Map(expenseTotals.map((t) => [t.projectId, t._sum.amount]));
+    const pledgedByProject = new Map(pledgeTotals.map((t) => [t.projectId, t._sum.amount]));
 
     return projects.map((p) => ({
       ...p,
       totalContributed: (contributedByProject.get(p.id) ?? 0).toString(),
       totalSpent: (spentByProject.get(p.id) ?? 0).toString(),
+      totalPledged: (pledgedByProject.get(p.id) ?? 0).toString(),
     }));
   }
 
@@ -270,6 +287,69 @@ export class ProjectsService {
     await this.prisma.projectContribution.delete({ where: { id: contributionId } });
   }
 
+  // --- Compromisos / promesas de aporte (§7.2) ----------------------------
+  // Espejo de Aportes pero SIN paso de "Contabilizar" — una promesa nunca
+  // genera asiento contable, es puramente informativa hasta que se
+  // convierte en un ProjectContribution real (sin vínculo formal entre
+  // ambos, ver docs/finanzas-mejoras-propuestas.md §7.2).
+
+  async findPledges(projectId: string, tenantId: string | null, user: RequestUser) {
+    await this.getAccessibleProject(projectId, tenantId, user);
+
+    return this.prisma.projectPledge.findMany({
+      where: { projectId },
+      include: pledgesInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createPledge(projectId: string, tenantId: string | null, dto: CreateProjectPledgeDto, user: RequestUser) {
+    const project = await this.getAccessibleProject(projectId, tenantId, user);
+
+    if (!dto.personId && !dto.groupId) {
+      throw new BadRequestException('Indica quién promete: una persona o un grupo.');
+    }
+    if (dto.personId && dto.groupId) {
+      throw new BadRequestException('El compromiso es de una persona o de un grupo, no de ambos.');
+    }
+
+    if (dto.personId) {
+      const person = await this.prisma.person.findFirst({
+        where: { id: dto.personId, institutionId: project.institutionId, deletedAt: null },
+      });
+      if (!person) throw new BadRequestException('La persona no pertenece a la institución de este proyecto.');
+    }
+    if (dto.groupId) {
+      const group = await this.prisma.group.findFirst({
+        where: { id: dto.groupId, institutionId: project.institutionId },
+      });
+      if (!group) throw new BadRequestException('El grupo no pertenece a la institución de este proyecto.');
+    }
+
+    return this.prisma.projectPledge.create({
+      data: {
+        projectId,
+        personId: dto.personId,
+        groupId: dto.groupId,
+        amount: dto.amount,
+        frequency: dto.frequency ?? 'once',
+        expectedDate: dto.expectedDate ? new Date(dto.expectedDate) : undefined,
+        notes: dto.notes,
+        createdBy: user.userId,
+      },
+      include: pledgesInclude,
+    });
+  }
+
+  async removePledge(projectId: string, pledgeId: string, tenantId: string | null, user: RequestUser) {
+    await this.getAccessibleProject(projectId, tenantId, user);
+
+    const row = await this.prisma.projectPledge.findFirst({ where: { id: pledgeId, projectId } });
+    if (!row) throw new NotFoundException(`Compromiso "${pledgeId}" no encontrado`);
+
+    await this.prisma.projectPledge.delete({ where: { id: pledgeId } });
+  }
+
   // --- Contabilizar (finanzas) -------------------------------------------
   // El asiento de 2 líneas se arma vía LedgerService.postEntry (Fase 1 de
   // Finanzas, ver docs/finanzas-mejoras-propuestas.md §3) — antes había un
@@ -354,6 +434,53 @@ export class ProjectsService {
     });
   }
 
+  // --- Comprobante de aporte (opcional, por transacción) -------------------
+  // A diferencia del comprobante de donante (§8.1, resumen ANUAL reimprimible
+  // con su propia tabla de control), un aporte ya es una fila única — el
+  // folio vive como columna directa acá mismo, nace null, se asigna solo si
+  // alguien lo pide (nunca automático al registrar el aporte).
+
+  async registerContributionReceipt(
+    projectId: string,
+    contributionId: string,
+    tenantId: string | null,
+    user: RequestUser,
+  ) {
+    const project = await this.getAccessibleProject(projectId, tenantId, user);
+
+    const contribution = await this.prisma.projectContribution.findFirst({ where: { id: contributionId, projectId } });
+    if (!contribution) throw new NotFoundException(`Aporte "${contributionId}" no encontrado`);
+    if (contribution.documentNumber) return { documentNumber: contribution.documentNumber };
+
+    const documentNumber = await this.prisma.$transaction((tx) =>
+      this.documentSequences.getNextDocumentNumber(tx, {
+        tenantId: project.tenantId,
+        branchId: project.branchId,
+        documentTypeCode: 'project_contribution_receipt',
+      }),
+    );
+
+    await this.prisma.projectContribution.update({ where: { id: contributionId }, data: { documentNumber } });
+    return { documentNumber };
+  }
+
+  async buildContributionReceiptData(projectId: string, contributionId: string, tenantId: string | null, user: RequestUser) {
+    const project = await this.getAccessibleProject(projectId, tenantId, user);
+
+    const contribution = await this.prisma.projectContribution.findFirst({
+      where: { id: contributionId, projectId },
+      include: contributionsInclude,
+    });
+    if (!contribution) throw new NotFoundException(`Aporte "${contributionId}" no encontrado`);
+    if (!contribution.documentNumber) {
+      throw new BadRequestException('Este comprobante todavía no se ha generado — genéralo antes de descargarlo.');
+    }
+
+    const institution = await this.prisma.institution.findUniqueOrThrow({ where: { id: project.institutionId } });
+
+    return { project, contribution, institutionName: institution.name };
+  }
+
   // --- Gastos ------------------------------------------------------------
   // Espejo estructural de Aportes — mismo patrón de dos pasos (registrar →
   // Contabilizar), ver plan de sesión.
@@ -361,11 +488,12 @@ export class ProjectsService {
   async findExpenses(projectId: string, tenantId: string | null, user: RequestUser) {
     await this.getAccessibleProject(projectId, tenantId, user);
 
-    return this.prisma.projectExpense.findMany({
+    const expenses = await this.prisma.projectExpense.findMany({
       where: { projectId },
       include: expensesInclude,
       orderBy: { incurredAt: 'desc' },
     });
+    return this.expenseApprovals.attachApprovalInfo('project_expense', expenses, user);
   }
 
   async createExpense(
@@ -390,17 +518,84 @@ export class ProjectsService {
       throw new BadRequestException('Esa cuenta es de agrupación — elige una cuenta que admita movimientos.');
     }
 
-    return this.prisma.projectExpense.create({
-      data: {
-        projectId,
-        accountId: dto.accountId,
-        amount: dto.amount,
-        incurredAt: new Date(dto.incurredAt),
-        notes: dto.notes,
-        createdBy: user.userId,
-      },
-      include: expensesInclude,
+    const route = await this.expenseApprovals.resolveRoute(
+      project.tenantId,
+      project.institutionId,
+      project.branchId,
+      dto.accountId,
+      dto.amount,
+    );
+
+    const expense = await this.prisma.$transaction(async (tx) => {
+      const documentNumber = await this.documentSequences.getNextDocumentNumber(tx, {
+        tenantId: project.tenantId,
+        branchId: project.branchId,
+        documentTypeCode: 'project_expense',
+      });
+
+      const created = await tx.projectExpense.create({
+        data: {
+          projectId,
+          accountId: dto.accountId,
+          amount: dto.amount,
+          incurredAt: new Date(dto.incurredAt),
+          notes: dto.notes,
+          createdBy: user.userId,
+          approvalStatus: route ? 'pending' : 'not_required',
+          documentNumber,
+        },
+      });
+
+      if (route) {
+        await this.expenseApprovals.createRequest(tx, { sourceType: 'project_expense', sourceId: created.id, route });
+      }
+
+      return created;
     });
+
+    const full = await this.prisma.projectExpense.findUniqueOrThrow({ where: { id: expense.id }, include: expensesInclude });
+    const [withApproval] = await this.expenseApprovals.attachApprovalInfo('project_expense', [full], user);
+    return withApproval;
+  }
+
+  async approveExpense(projectId: string, expenseId: string, tenantId: string | null, user: RequestUser) {
+    await this.getAccessibleProject(projectId, tenantId, user);
+
+    const expense = await this.prisma.projectExpense.findFirst({ where: { id: expenseId, projectId } });
+    if (!expense) throw new NotFoundException(`Gasto "${expenseId}" no encontrado`);
+
+    const active = await this.expenseApprovals.assertCanDecide('project_expense', expenseId, expense.createdBy, user);
+
+    await this.prisma.$transaction(async (tx) => {
+      const result = await this.expenseApprovals.applyApproval(tx, active);
+      if (result === 'approved') {
+        await tx.projectExpense.update({ where: { id: expenseId }, data: { approvalStatus: 'approved' } });
+      }
+    });
+
+    return this.prisma.projectExpense.findUniqueOrThrow({ where: { id: expenseId }, include: expensesInclude });
+  }
+
+  async rejectExpense(
+    projectId: string,
+    expenseId: string,
+    reason: string,
+    tenantId: string | null,
+    user: RequestUser,
+  ) {
+    await this.getAccessibleProject(projectId, tenantId, user);
+
+    const expense = await this.prisma.projectExpense.findFirst({ where: { id: expenseId, projectId } });
+    if (!expense) throw new NotFoundException(`Gasto "${expenseId}" no encontrado`);
+
+    const active = await this.expenseApprovals.assertCanDecide('project_expense', expenseId, expense.createdBy, user);
+
+    await this.prisma.$transaction(async (tx) => {
+      await this.expenseApprovals.applyRejection(tx, active, reason);
+      await tx.projectExpense.update({ where: { id: expenseId }, data: { approvalStatus: 'rejected' } });
+    });
+
+    return this.prisma.projectExpense.findUniqueOrThrow({ where: { id: expenseId }, include: expensesInclude });
   }
 
   async removeExpense(projectId: string, expenseId: string, tenantId: string | null, user: RequestUser) {
@@ -424,6 +619,12 @@ export class ProjectsService {
     if (!expense) throw new NotFoundException(`Gasto "${expenseId}" no encontrado`);
     if (expense.journalEntryId) {
       throw new BadRequestException('Este gasto ya fue contabilizado.');
+    }
+    if (expense.approvalStatus === 'pending') {
+      throw new BadRequestException('Este gasto está pendiente de aprobación — no se puede contabilizar todavía.');
+    }
+    if (expense.approvalStatus === 'rejected') {
+      throw new BadRequestException('Este gasto fue rechazado — elimínalo y registra uno corregido.');
     }
 
     const branch = await this.prisma.branch.findUnique({ where: { id: project.branchId } });
@@ -486,49 +687,15 @@ export class ProjectsService {
   // Detalle de aportes, Gastos por cuenta y Detalle de gastos. Formato
   // real (encabezados con relleno, moneda, porcentaje, panel congelado,
   // autofiltro) para que se pueda abrir y usar directo, no solo ver.
-  async buildSummaryWorkbook(
-    id: string,
-    tenantId: string | null,
-    user: RequestUser,
-  ): Promise<{ workbook: ExcelJS.Workbook; projectName: string }> {
-    const [project, contributions, expenses] = await Promise.all([
-      this.findOne(id, tenantId, user),
-      this.findContributions(id, tenantId, user),
-      this.findExpenses(id, tenantId, user),
-    ]);
-    // findOne ya lanza NotFoundException si no existe/no es accesible —
-    // este guard es solo para que TS estreche el tipo (withTotals lo tipa
-    // como posible undefined por destructuring de arreglo bajo
-    // noUncheckedIndexedAccess, aunque en la práctica siempre viene lleno).
-    if (!project) throw new NotFoundException(`Proyecto "${id}" no encontrado`);
-
-    const CURRENCY_FMT = '"$"#,##0.00';
-    const PERCENT_FMT = '0.0%';
-    const HEADER_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
-    const HEADER_FONT: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' } };
-    const SECTION_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EEF5' } };
-    const THIN_BORDER: Partial<ExcelJS.Borders> = {
-      top: { style: 'thin', color: { argb: 'FFD9D9D9' } },
-      bottom: { style: 'thin', color: { argb: 'FFD9D9D9' } },
-    };
-
-    function styleHeaderRow(row: ExcelJS.Row) {
-      row.eachCell((cell) => {
-        cell.fill = HEADER_FILL;
-        cell.font = HEADER_FONT;
-        cell.alignment = { vertical: 'middle' };
-      });
-      row.height = 20;
-    }
-
-    function styleDataRows(sheet: ExcelJS.Worksheet, firstDataRow: number) {
-      for (let r = firstDataRow; r <= sheet.rowCount; r++) {
-        sheet.getRow(r).eachCell((cell) => {
-          cell.border = THIN_BORDER;
-        });
-      }
-    }
-
+  // Calcula todo lo que necesitan tanto el Excel (buildSummaryWorkbook) como
+  // el PDF (buildSummaryPdf) del resumen de un proyecto — un solo lugar para
+  // los totales/rankings/series, sin duplicar la lógica entre los dos
+  // formatos de exportación.
+  private gatherSummaryData(
+    project: NonNullable<Awaited<ReturnType<ProjectsService['findOne']>>>,
+    contributions: Awaited<ReturnType<ProjectsService['findContributions']>>,
+    expenses: Awaited<ReturnType<ProjectsService['findExpenses']>>,
+  ) {
     const totalContributed = Number(project.totalContributed);
     const totalSpent = Number(project.totalSpent);
     const goalAmount = Number(project.goalAmount);
@@ -543,9 +710,9 @@ export class ProjectsService {
       c.person ? `${c.person.firstName} ${c.person.lastName}` : c.group ? `Grupo: ${c.group.name}` : 'Anónimo';
     const contributorType = (c: Contribution) => (c.person ? 'Persona' : c.group ? 'Grupo' : '—');
 
-    const sortedContributions = [...contributions].sort(
-      (a, b) => new Date(a.contributedAt).getTime() - new Date(b.contributedAt).getTime(),
-    );
+    const sortedContributions = [...contributions]
+      .sort((a, b) => new Date(a.contributedAt).getTime() - new Date(b.contributedAt).getTime())
+      .map((c) => ({ ...c, contributorName: contributorName(c), contributorType: contributorType(c) }));
     const sortedExpenses = [...expenses].sort(
       (a, b) => new Date(a.incurredAt).getTime() - new Date(b.incurredAt).getTime(),
     );
@@ -595,6 +762,84 @@ export class ProjectsService {
       byMonth.set(month, entry);
     }
     const monthlyRows = [...byMonth.entries()].sort(([a], [b]) => a.localeCompare(b));
+
+    return {
+      totalContributed,
+      totalSpent,
+      goalAmount,
+      percent,
+      daysRemaining,
+      sortedContributions,
+      sortedExpenses,
+      contributedPosted,
+      expensesPosted,
+      contributedPostedAmount,
+      expensesPostedAmount,
+      contributorRanking,
+      accountRanking,
+      monthlyRows,
+    };
+  }
+
+  async buildSummaryWorkbook(
+    id: string,
+    tenantId: string | null,
+    user: RequestUser,
+  ): Promise<{ workbook: ExcelJS.Workbook; projectName: string }> {
+    const [project, contributions, expenses] = await Promise.all([
+      this.findOne(id, tenantId, user),
+      this.findContributions(id, tenantId, user),
+      this.findExpenses(id, tenantId, user),
+    ]);
+    // findOne ya lanza NotFoundException si no existe/no es accesible —
+    // este guard es solo para que TS estreche el tipo (withTotals lo tipa
+    // como posible undefined por destructuring de arreglo bajo
+    // noUncheckedIndexedAccess, aunque en la práctica siempre viene lleno).
+    if (!project) throw new NotFoundException(`Proyecto "${id}" no encontrado`);
+
+    const {
+      totalContributed,
+      totalSpent,
+      goalAmount,
+      percent,
+      daysRemaining,
+      sortedContributions,
+      sortedExpenses,
+      contributedPosted,
+      expensesPosted,
+      contributedPostedAmount,
+      expensesPostedAmount,
+      contributorRanking,
+      accountRanking,
+      monthlyRows,
+    } = this.gatherSummaryData(project, contributions, expenses);
+
+    const CURRENCY_FMT = '"$"#,##0.00';
+    const PERCENT_FMT = '0.0%';
+    const HEADER_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+    const HEADER_FONT: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' } };
+    const SECTION_FILL: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EEF5' } };
+    const THIN_BORDER: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+      bottom: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+    };
+
+    function styleHeaderRow(row: ExcelJS.Row) {
+      row.eachCell((cell) => {
+        cell.fill = HEADER_FILL;
+        cell.font = HEADER_FONT;
+        cell.alignment = { vertical: 'middle' };
+      });
+      row.height = 20;
+    }
+
+    function styleDataRows(sheet: ExcelJS.Worksheet, firstDataRow: number) {
+      for (let r = firstDataRow; r <= sheet.rowCount; r++) {
+        sheet.getRow(r).eachCell((cell) => {
+          cell.border = THIN_BORDER;
+        });
+      }
+    }
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'ISAI';
@@ -648,7 +893,7 @@ export class ProjectsService {
     summary.addRow([]);
 
     addSectionTitle('Aportes');
-    addKv('Aportantes distintos', byContributor.size);
+    addKv('Aportantes distintos', contributorRanking.length);
     addKv('Aportes registrados', contributions.length);
     addKv('Aporte promedio', contributions.length > 0 ? totalContributed / contributions.length : 0, CURRENCY_FMT);
     addKv('Aporte más alto', contributions.length > 0 ? Math.max(...contributions.map((c) => Number(c.amount))) : 0, CURRENCY_FMT);
@@ -740,8 +985,8 @@ export class ProjectsService {
       runningTotal += Number(c.amount);
       contribSheet.addRow({
         date: new Date(c.contributedAt),
-        who: contributorName(c),
-        type: contributorType(c),
+        who: c.contributorName,
+        type: c.contributorType,
         amount: Number(c.amount),
         cumulative: runningTotal,
         posted: c.journalEntryId ? 'Sí' : 'No',
@@ -801,5 +1046,22 @@ export class ProjectsService {
     styleDataRows(expenseSheet, 2);
 
     return { workbook, projectName: project.name };
+  }
+
+  // Mismos datos que buildSummaryWorkbook (vía gatherSummaryData) — el PDF
+  // (project-summary-pdf.ts) arma su propio layout con common/pdf/pdf-builder.ts,
+  // formato propio, no una conversión de las hojas de Excel.
+  async buildSummaryPdfData(id: string, tenantId: string | null, user: RequestUser) {
+    const [project, contributions, expenses] = await Promise.all([
+      this.findOne(id, tenantId, user),
+      this.findContributions(id, tenantId, user),
+      this.findExpenses(id, tenantId, user),
+    ]);
+    if (!project) throw new NotFoundException(`Proyecto "${id}" no encontrado`);
+
+    const institution = await this.prisma.institution.findUniqueOrThrow({ where: { id: project.institutionId } });
+    const data = this.gatherSummaryData(project, contributions, expenses);
+
+    return { project, institutionName: institution.name, ...data };
   }
 }

@@ -1,9 +1,29 @@
 import { useState } from 'react';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
-import { ArrowLeft, Landmark, Plus, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import {
+  ArrowLeft,
+  Ban,
+  Check,
+  CheckCircle2,
+  Clock,
+  Landmark,
+  Plus,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react';
 import { useGroupQuery } from '@/modules/membresia';
-import { useGroupFundBalanceQuery, useGroupFundMovementsQuery, useGroupFundsSummaryQuery } from '@/modules/finanzas';
+import {
+  useGroupFundBalanceQuery,
+  useGroupFundMovementsQuery,
+  useGroupFundsSummaryQuery,
+  useApproveGroupFundExpenseMutation,
+  useRejectGroupFundExpenseMutation,
+  usePostGroupFundExpenseToLedgerMutation,
+  useRemoveGroupFundExpenseMutation,
+} from '@/modules/finanzas';
 import { AddGroupFundMovementDialog } from '@/modules/finanzas/group-funds/components/add-group-fund-movement-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,8 +31,20 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { QueryErrorState } from '@/components/ui/query-error-state';
 import { PageHeader } from '@/components/layout/page-header';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { formatDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+import type { GroupFundMovement } from '@isai/shared-types';
 
 export const Route = createFileRoute('/_authenticated/finance/group-funds/$groupId')({
   component: GroupFundDetailPage,
@@ -43,6 +75,15 @@ function GroupFundDetailPage() {
     refetch: refetchFundMovements,
   } = useGroupFundMovementsQuery(groupId);
   const [fundMovementType, setFundMovementType] = useState<'income' | 'expense' | null>(null);
+
+  const approveExpenseMutation = useApproveGroupFundExpenseMutation(groupId);
+  const rejectExpenseMutation = useRejectGroupFundExpenseMutation(groupId);
+  const postExpenseMutation = usePostGroupFundExpenseToLedgerMutation(groupId);
+  const removeExpenseMutation = useRemoveGroupFundExpenseMutation(groupId);
+  const [rejectingExpense, setRejectingExpense] = useState<GroupFundMovement | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [removingExpense, setRemovingExpense] = useState<GroupFundMovement | null>(null);
+  const [postingExpense, setPostingExpense] = useState<GroupFundMovement | null>(null);
 
   if (isGroupError) {
     return <QueryErrorState message="No se pudo cargar el grupo." onRetry={() => refetchGroup()} />;
@@ -167,7 +208,7 @@ function GroupFundDetailPage() {
 
             <ul className="space-y-2">
               {fundMovements?.map((movement) => (
-                <li key={movement.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
+                <li key={movement.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2">
                   <div className="flex min-w-0 items-center gap-2">
                     {movement.type === 'income' ? (
                       <TrendingUp className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
@@ -176,17 +217,117 @@ function GroupFundDetailPage() {
                     )}
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{movement.account.code} · {movement.account.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">{formatDate(movement.entryDate)}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {formatDate(movement.entryDate)}
+                        {movement.documentNumber && ` · ${movement.documentNumber}`}
+                      </p>
                     </div>
                   </div>
-                  <span
-                    className={cn(
-                      'shrink-0 text-sm font-medium',
-                      movement.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400',
-                    )}
-                  >
-                    {movement.type === 'income' ? '+' : '-'}{formatAmount(movement.amount)}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span
+                      className={cn(
+                        'text-sm font-medium',
+                        movement.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400',
+                      )}
+                    >
+                      {movement.type === 'income' ? '+' : '-'}{formatAmount(movement.amount)}
+                    </span>
+
+                    {movement.type === 'expense' &&
+                      (movement.journalEntryId ? (
+                        <span
+                          className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                          title="Ya tiene asiento contable"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Contabilizado
+                        </span>
+                      ) : movement.approvalStatus === 'pending' ? (
+                        <>
+                          <span
+                            className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+                            title={
+                              movement.activeStepApprover
+                                ? `Esperando aprobación de: ${movement.activeStepApprover.firstName} ${movement.activeStepApprover.lastName}`
+                                : undefined
+                            }
+                          >
+                            <Clock className="h-3.5 w-3.5" />
+                            {movement.activeStepApprover
+                              ? `Esperando: ${movement.activeStepApprover.firstName} ${movement.activeStepApprover.lastName}`
+                              : 'Pendiente de aprobación'}
+                          </span>
+                          {movement.canCurrentUserApprove && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => approveExpenseMutation.mutate(movement.id)}
+                                aria-label="Aprobar"
+                                title="Aprobar"
+                              >
+                                <Check className="h-4 w-4 text-emerald-600" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setRejectingExpense(movement)}
+                                aria-label="Rechazar"
+                                title="Rechazar"
+                              >
+                                <Ban className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setRemovingExpense(movement)}
+                            aria-label="Eliminar"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : movement.approvalStatus === 'rejected' ? (
+                        <>
+                          <span className="flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 dark:bg-rose-950/40 dark:text-rose-400">
+                            <Ban className="h-3.5 w-3.5" />
+                            Rechazado
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setRemovingExpense(movement)}
+                            aria-label="Eliminar"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setPostingExpense(movement)}
+                            aria-label="Contabilizar"
+                            title="Contabilizar"
+                          >
+                            <Landmark className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setRemovingExpense(movement)}
+                            aria-label="Eliminar"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ))}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -202,6 +343,105 @@ function GroupFundDetailPage() {
           type={fundMovementType}
         />
       )}
+
+      <ConfirmDialog
+        open={!!removingExpense}
+        onOpenChange={(open) => !open && setRemovingExpense(null)}
+        title="Eliminar gasto"
+        description={
+          removingExpense
+            ? `Esto elimina el gasto de "${removingExpense.account.code} · ${removingExpense.account.name}" por ${formatAmount(removingExpense.amount)}. No se puede deshacer.`
+            : ''
+        }
+        isPending={removeExpenseMutation.isPending}
+        onConfirm={() => {
+          if (!removingExpense) return;
+          removeExpenseMutation.mutate(removingExpense.id, { onSuccess: () => setRemovingExpense(null) });
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!postingExpense}
+        onOpenChange={(open) => !open && setPostingExpense(null)}
+        title="Contabilizar gasto"
+        confirmLabel="Contabilizar"
+        pendingLabel="Contabilizando..."
+        description={
+          postingExpense
+            ? `Esto genera el asiento contable del gasto de "${postingExpense.account.code} · ${postingExpense.account.name}" por ${formatAmount(postingExpense.amount)} (debe la cuenta de gasto, haber Caja). No se puede deshacer ni volver a contabilizar el mismo gasto.`
+            : ''
+        }
+        isPending={postExpenseMutation.isPending}
+        onConfirm={() => {
+          if (!postingExpense) return;
+          postExpenseMutation.mutate(postingExpense.id, { onSuccess: () => setPostingExpense(null) });
+        }}
+      />
+
+      <Dialog
+        open={!!rejectingExpense}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRejectingExpense(null);
+            setRejectReason('');
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rechazar gasto</DialogTitle>
+            <DialogDescription>
+              {rejectingExpense &&
+                `${rejectingExpense.account.code} · ${rejectingExpense.account.name} por ${formatAmount(rejectingExpense.amount)} — indica el motivo.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="reject-fund-expense-reason">Motivo</Label>
+            <Input
+              id="reject-fund-expense-reason"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              maxLength={255}
+              placeholder="Ej. Falta cotización, monto no coincide..."
+              autoFocus
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setRejectingExpense(null);
+                setRejectReason('');
+              }}
+              disabled={rejectExpenseMutation.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="delete"
+              disabled={rejectExpenseMutation.isPending || !rejectReason.trim()}
+              onClick={() => {
+                if (!rejectingExpense) return;
+                rejectExpenseMutation.mutate(
+                  { expenseId: rejectingExpense.id, reason: rejectReason.trim() },
+                  {
+                    onSuccess: () => {
+                      setRejectingExpense(null);
+                      setRejectReason('');
+                    },
+                  },
+                );
+              }}
+            >
+              {rejectExpenseMutation.isPending ? 'Rechazando...' : 'Rechazar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

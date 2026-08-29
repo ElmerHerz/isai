@@ -16,6 +16,7 @@ import {
   Star,
   Tag,
   Trash2,
+  Users,
 } from 'lucide-react';
 import {
   useEventQuery,
@@ -31,6 +32,7 @@ import { EventFormDialog } from '@/modules/membresia/events/components/event-for
 import { AttendanceEditor } from '@/modules/membresia/events/components/attendance-editor';
 import { AddEventPrivilegeDialog } from '@/modules/membresia/events/components/add-event-privilege-dialog';
 import { AddFundCollectionDialog } from '@/modules/membresia/events/components/add-fund-collection-dialog';
+import { IdentifyDonorsDialog } from '@/modules/membresia/events/components/identify-donors-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { CollapsibleSection } from '@/components/ui/collapsible-section';
 import { Button } from '@/components/ui/button';
@@ -89,6 +91,7 @@ function EventDetailPage() {
   } = useEventFundCollectionsQuery(eventId);
   const removeFundCollectionMutation = useRemoveEventFundCollectionMutation(eventId);
   const [postingFund, setPostingFund] = useState<EventFundCollection | null>(null);
+  const [identifyingDonorsFor, setIdentifyingDonorsFor] = useState<EventFundCollection | null>(null);
   const postFundCollectionMutation = usePostFundCollectionToLedgerMutation(eventId);
 
   if (isError) {
@@ -274,6 +277,17 @@ function EventDetailPage() {
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <span className="text-sm font-medium">${Number(fc.amount).toFixed(2)}</span>
+                          {fc.fundType.tracksDonors && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setIdentifyingDonorsFor(fc)}
+                              aria-label="Identificar donantes"
+                              title="Identificar donantes"
+                            >
+                              <Users className="h-4 w-4" />
+                            </Button>
+                          )}
                           {fc.journalEntryId ? (
                             <span
                               className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
@@ -371,6 +385,16 @@ function EventDetailPage() {
           />
 
           <AddFundCollectionDialog open={addFundOpen} onOpenChange={setAddFundOpen} eventId={event.id} />
+
+          {identifyingDonorsFor && (
+            <IdentifyDonorsDialog
+              open={!!identifyingDonorsFor}
+              onOpenChange={(open) => !open && setIdentifyingDonorsFor(null)}
+              eventId={event.id}
+              institutionId={event.institutionId}
+              collection={identifyingDonorsFor}
+            />
+          )}
           <ConfirmDialog
             open={!!removingFund}
             onOpenChange={(open) => !open && setRemovingFund(null)}
