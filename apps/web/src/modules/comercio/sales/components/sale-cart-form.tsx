@@ -169,10 +169,11 @@ export function SaleCartForm({ institutionId }: SaleCartFormProps) {
 
   return (
     <div className="space-y-4">
-      <Card className="mt-6 rounded-2xl">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
+      <Card className="rounded-2xl">
         <CardContent className="space-y-4 p-4">
           <h2 className="text-sm font-semibold">Encabezado</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="branchId">Sucursal</Label>
               <Select value={branchId} onValueChange={setBranchId}>
@@ -250,8 +251,8 @@ export function SaleCartForm({ institutionId }: SaleCartFormProps) {
       <Card className="rounded-2xl">
         <CardContent className="space-y-4 p-4">
           <h2 className="text-sm font-semibold">Agregar producto</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-2 lg:col-span-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="cart-product">Producto</Label>
               <Select value={productId} onValueChange={onSelectProduct}>
                 <SelectTrigger id="cart-product">
@@ -321,6 +322,7 @@ export function SaleCartForm({ institutionId }: SaleCartFormProps) {
           )}
         </CardContent>
       </Card>
+      </div>
 
       <Card className="rounded-2xl">
         <CardContent className="p-4">

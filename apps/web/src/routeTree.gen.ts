@@ -53,7 +53,6 @@ import { Route as AuthenticatedStorePurchasesPurchaseIdRouteImport } from './rou
 import { Route as AuthenticatedStorePurchasesNewRouteImport } from './routes/_authenticated/store/purchases/new'
 import { Route as AuthenticatedStoreSalesIndexRouteImport } from './routes/_authenticated/store/sales/index'
 import { Route as AuthenticatedStoreSalesSaleIdRouteImport } from './routes/_authenticated/store/sales/$saleId'
-import { Route as AuthenticatedStoreSalesNewRouteImport } from './routes/_authenticated/store/sales/new'
 import { Route as AuthenticatedStoreSuppliersIndexRouteImport } from './routes/_authenticated/store/suppliers/index'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
@@ -316,12 +315,6 @@ const AuthenticatedStoreSalesSaleIdRoute =
     path: '/store/sales/$saleId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedStoreSalesNewRoute =
-  AuthenticatedStoreSalesNewRouteImport.update({
-    id: '/store/sales/new',
-    path: '/store/sales/new',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedStoreSuppliersIndexRoute =
   AuthenticatedStoreSuppliersIndexRouteImport.update({
     id: '/store/suppliers/',
@@ -357,7 +350,6 @@ export interface FileRoutesByFullPath {
   '/store/purchases/$purchaseId': typeof AuthenticatedStorePurchasesPurchaseIdRoute
   '/store/purchases/new': typeof AuthenticatedStorePurchasesNewRoute
   '/store/sales/$saleId': typeof AuthenticatedStoreSalesSaleIdRoute
-  '/store/sales/new': typeof AuthenticatedStoreSalesNewRoute
   '/finance/approval-routes/': typeof AuthenticatedFinanceApprovalRoutesIndexRoute
   '/finance/approvals/': typeof AuthenticatedFinanceApprovalsIndexRoute
   '/finance/budgets/': typeof AuthenticatedFinanceBudgetsIndexRoute
@@ -404,7 +396,6 @@ export interface FileRoutesByTo {
   '/store/purchases/$purchaseId': typeof AuthenticatedStorePurchasesPurchaseIdRoute
   '/store/purchases/new': typeof AuthenticatedStorePurchasesNewRoute
   '/store/sales/$saleId': typeof AuthenticatedStoreSalesSaleIdRoute
-  '/store/sales/new': typeof AuthenticatedStoreSalesNewRoute
   '/finance/approval-routes': typeof AuthenticatedFinanceApprovalRoutesIndexRoute
   '/finance/approvals': typeof AuthenticatedFinanceApprovalsIndexRoute
   '/finance/budgets': typeof AuthenticatedFinanceBudgetsIndexRoute
@@ -453,7 +444,6 @@ export interface FileRoutesById {
   '/_authenticated/store/purchases/$purchaseId': typeof AuthenticatedStorePurchasesPurchaseIdRoute
   '/_authenticated/store/purchases/new': typeof AuthenticatedStorePurchasesNewRoute
   '/_authenticated/store/sales/$saleId': typeof AuthenticatedStoreSalesSaleIdRoute
-  '/_authenticated/store/sales/new': typeof AuthenticatedStoreSalesNewRoute
   '/_authenticated/finance/approval-routes/': typeof AuthenticatedFinanceApprovalRoutesIndexRoute
   '/_authenticated/finance/approvals/': typeof AuthenticatedFinanceApprovalsIndexRoute
   '/_authenticated/finance/budgets/': typeof AuthenticatedFinanceBudgetsIndexRoute
@@ -502,7 +492,6 @@ export interface FileRouteTypes {
     | '/store/purchases/$purchaseId'
     | '/store/purchases/new'
     | '/store/sales/$saleId'
-    | '/store/sales/new'
     | '/finance/approval-routes/'
     | '/finance/approvals/'
     | '/finance/budgets/'
@@ -549,7 +538,6 @@ export interface FileRouteTypes {
     | '/store/purchases/$purchaseId'
     | '/store/purchases/new'
     | '/store/sales/$saleId'
-    | '/store/sales/new'
     | '/finance/approval-routes'
     | '/finance/approvals'
     | '/finance/budgets'
@@ -597,7 +585,6 @@ export interface FileRouteTypes {
     | '/_authenticated/store/purchases/$purchaseId'
     | '/_authenticated/store/purchases/new'
     | '/_authenticated/store/sales/$saleId'
-    | '/_authenticated/store/sales/new'
     | '/_authenticated/finance/approval-routes/'
     | '/_authenticated/finance/approvals/'
     | '/_authenticated/finance/budgets/'
@@ -932,13 +919,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStoreSalesSaleIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/store/sales/new': {
-      id: '/_authenticated/store/sales/new'
-      path: '/store/sales/new'
-      fullPath: '/store/sales/new'
-      preLoaderRoute: typeof AuthenticatedStoreSalesNewRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/store/suppliers/': {
       id: '/_authenticated/store/suppliers/'
       path: '/store/suppliers'
@@ -976,7 +956,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedStorePurchasesPurchaseIdRoute: typeof AuthenticatedStorePurchasesPurchaseIdRoute
   AuthenticatedStorePurchasesNewRoute: typeof AuthenticatedStorePurchasesNewRoute
   AuthenticatedStoreSalesSaleIdRoute: typeof AuthenticatedStoreSalesSaleIdRoute
-  AuthenticatedStoreSalesNewRoute: typeof AuthenticatedStoreSalesNewRoute
   AuthenticatedFinanceApprovalRoutesIndexRoute: typeof AuthenticatedFinanceApprovalRoutesIndexRoute
   AuthenticatedFinanceApprovalsIndexRoute: typeof AuthenticatedFinanceApprovalsIndexRoute
   AuthenticatedFinanceBudgetsIndexRoute: typeof AuthenticatedFinanceBudgetsIndexRoute
@@ -1036,7 +1015,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedStorePurchasesPurchaseIdRoute,
   AuthenticatedStorePurchasesNewRoute: AuthenticatedStorePurchasesNewRoute,
   AuthenticatedStoreSalesSaleIdRoute: AuthenticatedStoreSalesSaleIdRoute,
-  AuthenticatedStoreSalesNewRoute: AuthenticatedStoreSalesNewRoute,
   AuthenticatedFinanceApprovalRoutesIndexRoute:
     AuthenticatedFinanceApprovalRoutesIndexRoute,
   AuthenticatedFinanceApprovalsIndexRoute:

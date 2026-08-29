@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
-import { ShoppingCart, Plus } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 import { useInstitutionsQuery } from '@/modules/general';
 import { useSalesQuery } from '@/modules/comercio';
-import { Button } from '@/components/ui/button';
+import { SaleCartForm } from '@/modules/comercio/sales/components/sale-cart-form';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { TableSkeletonRows } from '@/components/ui/table-skeleton';
 import { Skeleton } from '@/components/ui/skeleton';
 import { QueryErrorState } from '@/components/ui/query-error-state';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/layout/page-header';
 import { useCurrentModuleColor } from '@/components/layout/use-current-module-color';
 import { tintBackground, tintForeground } from '@/lib/color';
@@ -34,6 +35,10 @@ function formatAmount(amount: number) {
   return `$${amount.toFixed(2)}`;
 }
 
+// Un solo pantalla con dos pestañas — "Nueva venta" (carrito) y "Registro de
+// ventas" (lista) — en vez de una página aparte para crear (mismo criterio
+// de Compras, pero acá no hace falta navegar: la venta nace atómica en un
+// solo submit, no necesita su propia URL de "workspace" como sí Purchases).
 function SalesPage() {
   const { data: institutions } = useInstitutionsQuery();
   const [institutionId, setInstitutionId] = useState('');
@@ -56,12 +61,6 @@ function SalesPage() {
         icon={ShoppingCart}
         title="Ventas"
         description="Ventas a clientes — se registran completas y se contabilizan de inmediato."
-        action={
-          <Button variant="translucent" onClick={() => navigate({ to: '/store/sales/new' })} disabled={!institutionId}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva venta
-          </Button>
-        }
       />
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -81,97 +80,110 @@ function SalesPage() {
         )}
       </div>
 
-      <motion.div initial="hidden" animate="show" variants={fadeUp} className="mt-6">
-        <div className="overflow-hidden rounded-2xl border shadow-sm">
-          {/* Móvil: tarjetas apiladas. */}
-          <div className="divide-y sm:hidden">
-            {isLoading && (
-              <div className="space-y-3 p-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
-                ))}
-              </div>
-            )}
+      <Tabs defaultValue="new" className="mt-6">
+        <TabsList>
+          <TabsTrigger value="new">Nueva venta</TabsTrigger>
+          <TabsTrigger value="list">Registro de ventas</TabsTrigger>
+        </TabsList>
 
-            {isError && (
-              <div className="p-4">
-                <QueryErrorState message="No se pudieron cargar las ventas." onRetry={() => refetch()} />
-              </div>
-            )}
+        <TabsContent value="new" className="mt-4">
+          {institutionId && <SaleCartForm institutionId={institutionId} />}
+        </TabsContent>
 
-            {!isLoading && !isError && sales?.length === 0 && (
-              <p className="p-4 text-center text-sm text-muted-foreground">Todavía no hay ventas.</p>
-            )}
-
-            {!isLoading &&
-              !isError &&
-              sales?.map((sale) => (
-                <button
-                  key={sale.id}
-                  type="button"
-                  className="w-full p-4 text-left"
-                  onClick={() => navigate({ to: '/store/sales/$saleId', params: { saleId: sale.id } })}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="truncate text-sm font-medium">{sale.customer?.name ?? 'Consumidor Final'}</p>
-                    <span className="shrink-0 text-sm font-semibold">{formatAmount(saleTotal(sale))}</span>
+        <TabsContent value="list" className="mt-4">
+          <motion.div initial="hidden" animate="show" variants={fadeUp}>
+            <div className="overflow-hidden rounded-2xl border shadow-sm">
+              {/* Móvil: tarjetas apiladas. */}
+              <div className="divide-y sm:hidden">
+                {isLoading && (
+                  <div className="space-y-3 p-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                    ))}
                   </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {sale.documentNumber} · {sale.branch.name} · {formatDate(sale.saleDate)}
-                  </p>
-                </button>
-              ))}
-          </div>
-
-          {/* Escritorio: tabla. */}
-          <div className="hidden max-h-[70vh] overflow-y-auto sm:block">
-            <Table>
-              <TableHeader className="sticky top-0 z-[1]">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead style={headStyle}>Folio</TableHead>
-                  <TableHead style={headStyle}>Cliente</TableHead>
-                  <TableHead style={headStyle}>Sucursal</TableHead>
-                  <TableHead style={headStyle}>Fecha</TableHead>
-                  <TableHead style={headStyle} className="text-right">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading && <TableSkeletonRows columns={5} />}
+                )}
 
                 {isError && (
-                  <TableRow>
-                    <TableCell colSpan={5}>
-                      <QueryErrorState message="No se pudieron cargar las ventas." onRetry={() => refetch()} />
-                    </TableCell>
-                  </TableRow>
+                  <div className="p-4">
+                    <QueryErrorState message="No se pudieron cargar las ventas." onRetry={() => refetch()} />
+                  </div>
                 )}
 
                 {!isLoading && !isError && sales?.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      Todavía no hay ventas.
-                    </TableCell>
-                  </TableRow>
+                  <p className="p-4 text-center text-sm text-muted-foreground">Todavía no hay ventas.</p>
                 )}
 
-                {sales?.map((sale) => (
-                  <TableRow
-                    key={sale.id}
-                    className="cursor-pointer"
-                    onClick={() => navigate({ to: '/store/sales/$saleId', params: { saleId: sale.id } })}
-                  >
-                    <TableCell className="font-mono text-xs">{sale.documentNumber}</TableCell>
-                    <TableCell className="font-medium">{sale.customer?.name ?? 'Consumidor Final'}</TableCell>
-                    <TableCell>{sale.branch.name}</TableCell>
-                    <TableCell>{formatDate(sale.saleDate)}</TableCell>
-                    <TableCell className="text-right font-medium">{formatAmount(saleTotal(sale))}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      </motion.div>
+                {!isLoading &&
+                  !isError &&
+                  sales?.map((sale) => (
+                    <button
+                      key={sale.id}
+                      type="button"
+                      className="w-full p-4 text-left"
+                      onClick={() => navigate({ to: '/store/sales/$saleId', params: { saleId: sale.id } })}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="truncate text-sm font-medium">{sale.customer?.name ?? 'Consumidor Final'}</p>
+                        <span className="shrink-0 text-sm font-semibold">{formatAmount(saleTotal(sale))}</span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {sale.documentNumber} · {sale.branch.name} · {formatDate(sale.saleDate)}
+                      </p>
+                    </button>
+                  ))}
+              </div>
+
+              {/* Escritorio: tabla. */}
+              <div className="hidden max-h-[70vh] overflow-y-auto sm:block">
+                <Table>
+                  <TableHeader className="sticky top-0 z-[1]">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead style={headStyle}>Folio</TableHead>
+                      <TableHead style={headStyle}>Cliente</TableHead>
+                      <TableHead style={headStyle}>Sucursal</TableHead>
+                      <TableHead style={headStyle}>Fecha</TableHead>
+                      <TableHead style={headStyle} className="text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading && <TableSkeletonRows columns={5} />}
+
+                    {isError && (
+                      <TableRow>
+                        <TableCell colSpan={5}>
+                          <QueryErrorState message="No se pudieron cargar las ventas." onRetry={() => refetch()} />
+                        </TableCell>
+                      </TableRow>
+                    )}
+
+                    {!isLoading && !isError && sales?.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                          Todavía no hay ventas.
+                        </TableCell>
+                      </TableRow>
+                    )}
+
+                    {sales?.map((sale) => (
+                      <TableRow
+                        key={sale.id}
+                        className="cursor-pointer"
+                        onClick={() => navigate({ to: '/store/sales/$saleId', params: { saleId: sale.id } })}
+                      >
+                        <TableCell className="font-mono text-xs">{sale.documentNumber}</TableCell>
+                        <TableCell className="font-medium">{sale.customer?.name ?? 'Consumidor Final'}</TableCell>
+                        <TableCell>{sale.branch.name}</TableCell>
+                        <TableCell>{formatDate(sale.saleDate)}</TableCell>
+                        <TableCell className="text-right font-medium">{formatAmount(saleTotal(sale))}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </motion.div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
