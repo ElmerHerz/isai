@@ -794,6 +794,29 @@ export interface Sale {
   lines: SaleLine[];
 }
 
+/** Margen por producto en un rango de fechas (docs/comercio-mejoras-propuestas.md §Fase 2). */
+export interface ProductMarginRow {
+  productId: string;
+  sku?: string | null;
+  name: string;
+  quantitySold: string;
+  revenue: string;
+  cost: string;
+  margin: string;
+  marginPercent: string;
+}
+
+/** Valorización de inventario actual — cantidad × costo promedio, por producto. */
+export interface InventoryValuationRow {
+  productId: string;
+  sku?: string | null;
+  name: string;
+  unitCode: string;
+  quantity: string;
+  averageCost: string;
+  value: string;
+}
+
 /** Cierre de periodo formal (docs/finanzas-mejoras-propuestas.md §9.1). */
 export interface PeriodClosing {
   id: string;

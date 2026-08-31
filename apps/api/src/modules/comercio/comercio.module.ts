@@ -11,6 +11,8 @@ import { CustomersController } from './customers/customers.controller';
 import { CustomersService } from './customers/customers.service';
 import { SalesController } from './sales/sales.controller';
 import { SalesService } from './sales/sales.service';
+import { ComercioReportsController } from './reports/reports.controller';
+import { ComercioReportsService } from './reports/reports.service';
 
 /**
  * ComercioModule — Schema "comercio" de Postgres
@@ -26,8 +28,8 @@ import { SalesService } from './sales/sales.service';
  */
 @Module({
   imports: [PrismaModule, LedgerModule, InventarioModule, DocumentSequencesModule],
-  controllers: [SuppliersController, PurchasesController, CustomersController, SalesController],
-  providers: [SuppliersService, PurchasesService, CustomersService, SalesService],
+  controllers: [SuppliersController, PurchasesController, CustomersController, SalesController, ComercioReportsController],
+  providers: [SuppliersService, PurchasesService, CustomersService, SalesService, ComercioReportsService],
   exports: [SuppliersService, PurchasesService, CustomersService, SalesService],
 })
 export class ComercioModule {}

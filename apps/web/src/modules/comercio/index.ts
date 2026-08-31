@@ -22,3 +22,6 @@ export { useSalesQuery, salesQueryKey } from './sales/use-sales.query';
 export { useSaleQuery, saleDetailKey } from './sales/use-sale.query';
 export { useCreateSaleMutation, type CreateSaleInput, type CreateSaleLineInput } from './sales/use-create-sale.mutation';
 export { useDownloadSaleInvoicePdf } from './sales/use-download-sale-invoice-pdf';
+
+export { useProductMarginQuery, productMarginQueryKey } from './reports/use-product-margin.query';
+export { useInventoryValuationQuery, inventoryValuationQueryKey } from './reports/use-inventory-valuation.query';

@@ -24,6 +24,7 @@ import { Route as AuthenticatedMembershipReportsRouteImport } from './routes/_au
 import { Route as AuthenticatedSecurityAuditRouteImport } from './routes/_authenticated/security/audit'
 import { Route as AuthenticatedSecurityRolesRouteImport } from './routes/_authenticated/security/roles'
 import { Route as AuthenticatedSecurityUsersRouteImport } from './routes/_authenticated/security/users'
+import { Route as AuthenticatedStoreReportsRouteImport } from './routes/_authenticated/store/reports'
 import { Route as AuthenticatedFinanceApprovalRoutesIndexRouteImport } from './routes/_authenticated/finance/approval-routes/index'
 import { Route as AuthenticatedFinanceApprovalsIndexRouteImport } from './routes/_authenticated/finance/approvals/index'
 import { Route as AuthenticatedFinanceBudgetsIndexRouteImport } from './routes/_authenticated/finance/budgets/index'
@@ -139,6 +140,12 @@ const AuthenticatedSecurityUsersRoute =
   AuthenticatedSecurityUsersRouteImport.update({
     id: '/security/users',
     path: '/security/users',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedStoreReportsRoute =
+  AuthenticatedStoreReportsRouteImport.update({
+    id: '/store/reports',
+    path: '/store/reports',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedFinanceApprovalRoutesIndexRoute =
@@ -337,6 +344,7 @@ export interface FileRoutesByFullPath {
   '/security/audit': typeof AuthenticatedSecurityAuditRoute
   '/security/roles': typeof AuthenticatedSecurityRolesRoute
   '/security/users': typeof AuthenticatedSecurityUsersRoute
+  '/store/reports': typeof AuthenticatedStoreReportsRoute
   '/finance/budgets/$budgetId': typeof AuthenticatedFinanceBudgetsBudgetIdRoute
   '/finance/group-funds/$groupId': typeof AuthenticatedFinanceGroupFundsGroupIdRoute
   '/finance/projects/$projectId': typeof AuthenticatedFinanceProjectsProjectIdRoute
@@ -383,6 +391,7 @@ export interface FileRoutesByTo {
   '/security/audit': typeof AuthenticatedSecurityAuditRoute
   '/security/roles': typeof AuthenticatedSecurityRolesRoute
   '/security/users': typeof AuthenticatedSecurityUsersRoute
+  '/store/reports': typeof AuthenticatedStoreReportsRoute
   '/finance/budgets/$budgetId': typeof AuthenticatedFinanceBudgetsBudgetIdRoute
   '/finance/group-funds/$groupId': typeof AuthenticatedFinanceGroupFundsGroupIdRoute
   '/finance/projects/$projectId': typeof AuthenticatedFinanceProjectsProjectIdRoute
@@ -431,6 +440,7 @@ export interface FileRoutesById {
   '/_authenticated/security/audit': typeof AuthenticatedSecurityAuditRoute
   '/_authenticated/security/roles': typeof AuthenticatedSecurityRolesRoute
   '/_authenticated/security/users': typeof AuthenticatedSecurityUsersRoute
+  '/_authenticated/store/reports': typeof AuthenticatedStoreReportsRoute
   '/_authenticated/finance/budgets/$budgetId': typeof AuthenticatedFinanceBudgetsBudgetIdRoute
   '/_authenticated/finance/group-funds/$groupId': typeof AuthenticatedFinanceGroupFundsGroupIdRoute
   '/_authenticated/finance/projects/$projectId': typeof AuthenticatedFinanceProjectsProjectIdRoute
@@ -479,6 +489,7 @@ export interface FileRouteTypes {
     | '/security/audit'
     | '/security/roles'
     | '/security/users'
+    | '/store/reports'
     | '/finance/budgets/$budgetId'
     | '/finance/group-funds/$groupId'
     | '/finance/projects/$projectId'
@@ -525,6 +536,7 @@ export interface FileRouteTypes {
     | '/security/audit'
     | '/security/roles'
     | '/security/users'
+    | '/store/reports'
     | '/finance/budgets/$budgetId'
     | '/finance/group-funds/$groupId'
     | '/finance/projects/$projectId'
@@ -572,6 +584,7 @@ export interface FileRouteTypes {
     | '/_authenticated/security/audit'
     | '/_authenticated/security/roles'
     | '/_authenticated/security/users'
+    | '/_authenticated/store/reports'
     | '/_authenticated/finance/budgets/$budgetId'
     | '/_authenticated/finance/group-funds/$groupId'
     | '/_authenticated/finance/projects/$projectId'
@@ -714,6 +727,13 @@ declare module '@tanstack/react-router' {
       path: '/security/users'
       fullPath: '/security/users'
       preLoaderRoute: typeof AuthenticatedSecurityUsersRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/store/reports': {
+      id: '/_authenticated/store/reports'
+      path: '/store/reports'
+      fullPath: '/store/reports'
+      preLoaderRoute: typeof AuthenticatedStoreReportsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/finance/approval-routes/': {
@@ -943,6 +963,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSecurityAuditRoute: typeof AuthenticatedSecurityAuditRoute
   AuthenticatedSecurityRolesRoute: typeof AuthenticatedSecurityRolesRoute
   AuthenticatedSecurityUsersRoute: typeof AuthenticatedSecurityUsersRoute
+  AuthenticatedStoreReportsRoute: typeof AuthenticatedStoreReportsRoute
   AuthenticatedFinanceBudgetsBudgetIdRoute: typeof AuthenticatedFinanceBudgetsBudgetIdRoute
   AuthenticatedFinanceGroupFundsGroupIdRoute: typeof AuthenticatedFinanceGroupFundsGroupIdRoute
   AuthenticatedFinanceProjectsProjectIdRoute: typeof AuthenticatedFinanceProjectsProjectIdRoute
@@ -991,6 +1012,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSecurityAuditRoute: AuthenticatedSecurityAuditRoute,
   AuthenticatedSecurityRolesRoute: AuthenticatedSecurityRolesRoute,
   AuthenticatedSecurityUsersRoute: AuthenticatedSecurityUsersRoute,
+  AuthenticatedStoreReportsRoute: AuthenticatedStoreReportsRoute,
   AuthenticatedFinanceBudgetsBudgetIdRoute:
     AuthenticatedFinanceBudgetsBudgetIdRoute,
   AuthenticatedFinanceGroupFundsGroupIdRoute:
