@@ -16,6 +16,7 @@ import {
 } from '@/modules/membresia';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/toast';
+import { normalizeText } from '@/lib/normalize-text';
 import type { EventWithRelations } from '@isai/shared-types';
 
 const ATTENDANCE_STATUS_CATALOG_CODE = 'attendance_status';
@@ -91,10 +92,10 @@ export function AttendanceEditor({ event }: AttendanceEditorProps) {
   );
 
   const filteredRoster = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = normalizeText(search.trim());
     if (!term) return roster ?? [];
     return (roster ?? []).filter((entry) =>
-      `${entry.person.firstName} ${entry.person.lastName}`.toLowerCase().includes(term),
+      normalizeText(`${entry.person.firstName} ${entry.person.lastName}`).includes(term),
     );
   }, [roster, search]);
 

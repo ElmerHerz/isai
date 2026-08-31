@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
-import { Target, Plus } from 'lucide-react';
+import { Target, Plus, PiggyBank, TrendingUp, Flag, AlertTriangle } from 'lucide-react';
 import { useInstitutionsQuery } from '@/modules/general';
 import { useProjectsQuery } from '@/modules/proyectos';
-import { ProjectFormDialog } from '@/modules/proyectos/projects/components/project-form-dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { TableSkeletonRows } from '@/components/ui/table-skeleton';
@@ -12,10 +11,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { QueryErrorState } from '@/components/ui/query-error-state';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { PageHeader } from '@/components/layout/page-header';
+import { StatChip } from '@/components/layout/stat-chip';
 import { useCurrentModuleColor } from '@/components/layout/use-current-module-color';
 import { tintBackground, tintForeground } from '@/lib/color';
 import { useIsDarkMode } from '@/lib/theme-store';
-import { formatDate } from '@/lib/format-date';
+import { formatDate, todayLocalDateInput } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { Project } from '@isai/shared-types';
 
@@ -71,7 +71,34 @@ function ProjectsPage() {
   }, [institutions, institutionId]);
 
   const { data: projects, isLoading, isError, refetch } = useProjectsQuery(institutionId);
-  const [createOpen, setCreateOpen] = useState(false);
+
+  // KPIs agregados entre los proyectos ACTIVOS de la institución elegida —
+  // "recaudado"/"meta"/"avance" excluyen completados/cancelados a propósito
+  // (ya cumplieron o ya no aplican, sumarlos distorsiona el % de avance
+  // hacia lo que falta recaudar ahora mismo). "Vencidos" usa solo la fecha
+  // objetivo + si ya se alcanzó la meta — no el ritmo mensual real (eso
+  // requeriría traer el historial de aportes de cada proyecto, que esta
+  // lista no trae), así que es una señal más simple ("ya se pasó la fecha
+  // y no se llegó") que la proyección completa de ProjectStatsTab.
+  const kpis = useMemo(() => {
+    const list = projects ?? [];
+    const activeProjects = list.filter((p) => p.status === 'active');
+    const totalContributed = activeProjects.reduce((sum, p) => sum + Number(p.totalContributed), 0);
+    const totalGoal = activeProjects.reduce((sum, p) => sum + Number(p.goalAmount), 0);
+    const today = todayLocalDateInput();
+    const overdue = activeProjects.filter(
+      (p) => p.targetDate && p.targetDate.slice(0, 10) < today && Number(p.totalContributed) < Number(p.goalAmount),
+    ).length;
+
+    return {
+      total: list.length,
+      active: activeProjects.length,
+      totalContributed,
+      totalGoal,
+      avgProgress: totalGoal > 0 ? (totalContributed / totalGoal) * 100 : 0,
+      overdue,
+    };
+  }, [projects]);
 
   return (
     <div>
@@ -80,7 +107,7 @@ function ProjectsPage() {
         title="Proyectos"
         description="Campañas de recaudación con meta y fecha."
         action={
-          <Button variant="translucent" onClick={() => setCreateOpen(true)} disabled={!institutionId}>
+          <Button variant="translucent" onClick={() => navigate({ to: '/finance/projects/new' })} disabled={!institutionId}>
             <Plus className="mr-2 h-4 w-4" />
             Nuevo proyecto
           </Button>
@@ -103,6 +130,18 @@ function ProjectsPage() {
           </Select>
         )}
       </div>
+
+      {!isLoading && !isError && (projects?.length ?? 0) > 0 && (
+        <div className="mt-4 flex flex-wrap gap-3">
+          <StatChip icon={Target} label="Activos" value={`${kpis.active} / ${kpis.total}`} tone="accent" />
+          <StatChip icon={PiggyBank} label="Recaudado (activos)" value={formatAmount(String(kpis.totalContributed))} tone="success" />
+          <StatChip icon={Flag} label="Meta (activos)" value={formatAmount(String(kpis.totalGoal))} tone="neutral" />
+          <StatChip icon={TrendingUp} label="Avance promedio" value={`${kpis.avgProgress.toFixed(0)}%`} tone="neutral" />
+          {kpis.overdue > 0 && (
+            <StatChip icon={AlertTriangle} label="Vencidos sin completar" value={kpis.overdue} tone="warning" />
+          )}
+        </div>
+      )}
 
       <motion.div initial="hidden" animate="show" variants={fadeUp} className="mt-6">
         <div className="overflow-hidden rounded-2xl border shadow-sm">
@@ -201,10 +240,6 @@ function ProjectsPage() {
           </div>
         </div>
       </motion.div>
-
-      {institutionId && (
-        <ProjectFormDialog open={createOpen} onOpenChange={setCreateOpen} institutionId={institutionId} />
-      )}
     </div>
   );
 }

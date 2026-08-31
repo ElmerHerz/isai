@@ -4,7 +4,6 @@ import { motion, type Variants } from 'framer-motion';
 import { Calendar, ClipboardCheck, Eye, Plus } from 'lucide-react';
 import { useInstitutionsQuery } from '@/modules/general';
 import { useEventsQuery } from '@/modules/membresia';
-import { EventFormDialog } from '@/modules/membresia/events/components/event-form-dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { TableSkeletonRows } from '@/components/ui/table-skeleton';
@@ -53,8 +52,6 @@ function EventsPage() {
   }, [institutions, institutionId]);
 
   const { data: events, isLoading, isError, refetch } = useEventsQuery(institutionId);
-
-  const [createOpen, setCreateOpen] = useState(false);
 
   const stats = useMemo(() => {
     const list = events ?? [];
@@ -105,7 +102,7 @@ function EventsPage() {
         title="Eventos"
         description="Cultos, capacitaciones y demás eventos de la institución."
         action={
-          <Button variant="translucent" onClick={() => setCreateOpen(true)} disabled={!institutionId}>
+          <Button variant="translucent" onClick={() => navigate({ to: '/membership/events/new' })} disabled={!institutionId}>
             <Plus className="mr-2 h-4 w-4" />
             Nuevo evento
           </Button>
@@ -265,10 +262,6 @@ function EventsPage() {
           />
         </div>
       </motion.div>
-
-      {institutionId && (
-        <EventFormDialog open={createOpen} onOpenChange={setCreateOpen} institutionId={institutionId} />
-      )}
     </div>
   );
 }

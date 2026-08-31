@@ -15,7 +15,7 @@ import { TableSearch } from '@/components/ui/table-search';
 import { ColumnFilter } from '@/components/ui/column-filter';
 import { TablePagination } from '@/components/ui/table-pagination';
 import { Switch } from '@/components/ui/switch';
-import { BranchFormDialog } from '@/modules/general/branches/components/branch-form-dialog';
+import { BranchForm } from '@/modules/general/branches/components/branch-form';
 import { PageHeader } from '@/components/layout/page-header';
 import { StatChip } from '@/components/layout/stat-chip';
 import { useCurrentModuleColor } from '@/components/layout/use-current-module-color';
@@ -99,6 +99,17 @@ function BranchesPage() {
         <StatChip icon={XCircle} label="Inactivas" value={stats.inactive} tone="warning" />
         <TableSearch value={search} onChange={setSearch} placeholder="Buscar sucursal o institución..." />
       </div>
+
+      {editingBranch && (
+        <div className="mt-4">
+          <BranchForm
+            institutionId={editingBranch.institutionId}
+            branch={{ id: editingBranch.id, name: editingBranch.name }}
+            onSaved={() => setEditingBranch(null)}
+            onCancel={() => setEditingBranch(null)}
+          />
+        </div>
+      )}
 
       <motion.div initial="hidden" animate="show" variants={fadeUp} className="mt-6">
         <div className="overflow-hidden rounded-2xl border shadow-sm">
@@ -254,14 +265,6 @@ function BranchesPage() {
         </div>
       </motion.div>
 
-      {editingBranch && (
-        <BranchFormDialog
-          open={!!editingBranch}
-          onOpenChange={(open) => !open && setEditingBranch(null)}
-          institutionId={editingBranch.institutionId}
-          branch={{ id: editingBranch.id, name: editingBranch.name }}
-        />
-      )}
     </div>
   );
 }

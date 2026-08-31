@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useRemoveProductUnitMutation } from '@/modules/inventario';
-import { AddProductUnitDialog } from './add-product-unit-dialog';
+import { AddProductUnitPanel } from './add-product-unit-panel';
 import { UNIT_OPTIONS } from './product-form-fields';
 import type { Product, ProductUnit } from '@isai/shared-types';
 
@@ -37,11 +37,15 @@ export function ProductUnitsTab({ product }: ProductUnitsTabProps) {
         </p>
       </div>
 
-      <div className="mb-4 flex justify-end">
-        <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
-          <Plus className="mr-1.5 h-4 w-4" /> Agregar presentación
-        </Button>
-      </div>
+      {!addOpen && (
+        <div className="mb-4 flex justify-end">
+          <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
+            <Plus className="mr-1.5 h-4 w-4" /> Agregar presentación
+          </Button>
+        </div>
+      )}
+
+      {addOpen && <AddProductUnitPanel product={product} onDone={() => setAddOpen(false)} />}
 
       {product.units.length === 0 ? (
         <p className="text-sm text-muted-foreground">Este producto solo se compra/vende por {unitLabel(product.unitCode)}.</p>
@@ -75,8 +79,6 @@ export function ProductUnitsTab({ product }: ProductUnitsTabProps) {
           </TableBody>
         </Table>
       )}
-
-      <AddProductUnitDialog open={addOpen} onOpenChange={setAddOpen} product={product} />
 
       <ConfirmDialog
         open={!!removingUnit}

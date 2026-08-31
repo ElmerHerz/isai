@@ -1,9 +1,7 @@
-import { useState } from 'react';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
 import { Truck, Plus, Pencil } from 'lucide-react';
 import { useSuppliersQuery } from '@/modules/comercio';
-import { SupplierFormDialog } from '@/modules/comercio/suppliers/components/supplier-form-dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { TableSkeletonRows } from '@/components/ui/table-skeleton';
@@ -14,7 +12,6 @@ import { useCurrentModuleColor } from '@/components/layout/use-current-module-co
 import { tintBackground, tintForeground } from '@/lib/color';
 import { useIsDarkMode } from '@/lib/theme-store';
 import { cn } from '@/lib/utils';
-import type { Supplier } from '@isai/shared-types';
 
 export const Route = createFileRoute('/_authenticated/store/suppliers/')({
   component: SuppliersPage,
@@ -27,11 +24,10 @@ const fadeUp: Variants = {
 
 function SuppliersPage() {
   const { data: suppliers, isLoading, isError, refetch } = useSuppliersQuery();
+  const navigate = useNavigate();
   const color = useCurrentModuleColor();
   const isDark = useIsDarkMode();
   const headStyle = { backgroundColor: tintBackground(color, isDark), color: tintForeground(color, isDark) };
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
 
   return (
     <div>
@@ -40,7 +36,7 @@ function SuppliersPage() {
         title="Proveedores"
         description="A quién se le compra — se elige por compra, no por producto."
         action={
-          <Button variant="translucent" onClick={() => setCreateOpen(true)}>
+          <Button variant="translucent" onClick={() => navigate({ to: '/store/suppliers/new' })}>
             <Plus className="mr-2 h-4 w-4" />
             Nuevo proveedor
           </Button>
@@ -76,7 +72,7 @@ function SuppliersPage() {
                   key={supplier.id}
                   type="button"
                   className="w-full p-4 text-left"
-                  onClick={() => setEditingSupplier(supplier)}
+                  onClick={() => navigate({ to: '/store/suppliers/$supplierId', params: { supplierId: supplier.id } })}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <p className="truncate text-sm font-medium">{supplier.name}</p>
@@ -131,7 +127,11 @@ function SuppliersPage() {
                     </TableCell>
                     <TableCell>{supplier.isActive ? 'Activo' : 'Inactivo'}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => setEditingSupplier(supplier)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => navigate({ to: '/store/suppliers/$supplierId', params: { supplierId: supplier.id } })}
+                      >
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </TableCell>
@@ -142,13 +142,6 @@ function SuppliersPage() {
           </div>
         </div>
       </motion.div>
-
-      <SupplierFormDialog open={createOpen} onOpenChange={setCreateOpen} />
-      <SupplierFormDialog
-        open={!!editingSupplier}
-        onOpenChange={(open) => !open && setEditingSupplier(null)}
-        supplier={editingSupplier ?? undefined}
-      />
     </div>
   );
 }

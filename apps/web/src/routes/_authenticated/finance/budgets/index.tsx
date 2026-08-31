@@ -4,7 +4,6 @@ import { motion, type Variants } from 'framer-motion';
 import { PiggyBank, Plus } from 'lucide-react';
 import { useInstitutionsQuery } from '@/modules/general';
 import { useBudgetsQuery } from '@/modules/finanzas';
-import { BudgetFormDialog } from '@/modules/finanzas/budgets/components/budget-form-dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { TableSkeletonRows } from '@/components/ui/table-skeleton';
@@ -48,7 +47,6 @@ function BudgetsPage() {
   }, [institutions, institutionId]);
 
   const { data: budgets, isLoading, isError, refetch } = useBudgetsQuery(institutionId);
-  const [createOpen, setCreateOpen] = useState(false);
 
   return (
     <div>
@@ -57,7 +55,7 @@ function BudgetsPage() {
         title="Presupuestos"
         description="Cuánto se planea recibir/gastar por cuenta, contra lo real."
         action={
-          <Button variant="translucent" onClick={() => setCreateOpen(true)} disabled={!institutionId}>
+          <Button variant="translucent" onClick={() => navigate({ to: '/finance/budgets/new' })} disabled={!institutionId}>
             <Plus className="mr-2 h-4 w-4" />
             Nuevo presupuesto
           </Button>
@@ -172,10 +170,6 @@ function BudgetsPage() {
           </div>
         </div>
       </motion.div>
-
-      {institutionId && (
-        <BudgetFormDialog open={createOpen} onOpenChange={setCreateOpen} institutionId={institutionId} />
-      )}
     </div>
   );
 }

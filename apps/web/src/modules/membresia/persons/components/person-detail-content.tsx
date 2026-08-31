@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import {
   Award,
   Calendar,
@@ -26,9 +27,8 @@ import {
   useUpdatePersonMutation,
 } from '@/modules/membresia';
 import { useInstitutionsQuery } from '@/modules/general';
-import { PersonFormDialog } from './person-form-dialog';
-import { AddFamilyRelationshipDialog } from './add-family-relationship-dialog';
-import { AddMilestoneDialog } from './add-milestone-dialog';
+import { AddFamilyRelationshipPanel } from './add-family-relationship-panel';
+import { AddMilestonePanel } from './add-milestone-panel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -51,11 +51,11 @@ interface PersonDetailContentProps {
 }
 
 // Cuerpo del detalle de una persona (datos + Grupos + Cargos + Núcleo
-// familiar + Hitos espirituales) — sin PageHeader ni enlace de regreso,
-// para poder incrustarlo tanto en la página de ruta ($personId.tsx, usada
-// en móvil) como dentro de un Dialog (usado en escritorio) sin duplicar la
-// lógica de datos en dos lugares.
+// familiar + Hitos espirituales) — sin PageHeader ni enlace de regreso, para
+// que $personId.tsx (la única forma de verlo, en cualquier viewport) lo
+// pueda envolver con su propio encabezado sin duplicar la lógica de datos.
 export function PersonDetailContent({ personId }: PersonDetailContentProps) {
+  const navigate = useNavigate();
   const { data: person, isLoading, isError, refetch } = usePersonQuery(personId);
   const { data: institutions } = useInstitutionsQuery();
   const { data: groups, isLoading: isGroupsLoading, isError: isGroupsError, refetch: refetchGroups } =
@@ -78,7 +78,6 @@ export function PersonDetailContent({ personId }: PersonDetailContentProps) {
   const removeMilestoneMutation = useRemovePersonMilestoneMutation(personId);
   const updateMutation = useUpdatePersonMutation();
 
-  const [editOpen, setEditOpen] = useState(false);
   const [addFamilyOpen, setAddFamilyOpen] = useState(false);
   const [removingRelationship, setRemovingRelationship] = useState<PersonRelationshipItem | null>(null);
   const [addMilestoneOpen, setAddMilestoneOpen] = useState(false);
@@ -143,7 +142,12 @@ export function PersonDetailContent({ personId }: PersonDetailContentProps) {
               />
               <span className="text-xs text-muted-foreground">{person.isActive ? 'Activa' : 'Inactiva'}</span>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="flex-1 sm:flex-none">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate({ to: '/membership/persons/$personId/edit', params: { personId: person.id } })}
+              className="flex-1 sm:flex-none"
+            >
               <Pencil className="mr-1.5 h-4 w-4" />
               Editar
             </Button>
@@ -248,11 +252,21 @@ export function PersonDetailContent({ personId }: PersonDetailContentProps) {
                 <Heart className="h-4 w-4" />
                 Núcleo familiar
               </h2>
-              <Button variant="outline" size="sm" onClick={() => setAddFamilyOpen(true)}>
-                <Plus className="mr-1.5 h-4 w-4" />
-                Agregar
-              </Button>
+              {!addFamilyOpen && (
+                <Button variant="outline" size="sm" onClick={() => setAddFamilyOpen(true)}>
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  Agregar
+                </Button>
+              )}
             </div>
+
+            {addFamilyOpen && (
+              <AddFamilyRelationshipPanel
+                personId={person.id}
+                institutionId={person.institutionId}
+                onDone={() => setAddFamilyOpen(false)}
+              />
+            )}
 
             {isRelationshipsLoading && (
               <div className="space-y-2">
@@ -306,11 +320,17 @@ export function PersonDetailContent({ personId }: PersonDetailContentProps) {
                   <Church className="h-4 w-4" />
                   Hitos espirituales
                 </h2>
-                <Button variant="outline" size="sm" onClick={() => setAddMilestoneOpen(true)}>
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  Agregar
-                </Button>
+                {!addMilestoneOpen && (
+                  <Button variant="outline" size="sm" onClick={() => setAddMilestoneOpen(true)}>
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Agregar
+                  </Button>
+                )}
               </div>
+
+              {addMilestoneOpen && (
+                <AddMilestonePanel personId={person.id} onDone={() => setAddMilestoneOpen(false)} />
+              )}
 
               {isMilestonesLoading && (
                 <div className="space-y-2">
@@ -353,19 +373,6 @@ export function PersonDetailContent({ personId }: PersonDetailContentProps) {
         )}
       </div>
 
-      <PersonFormDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        institutionId={person.institutionId}
-        person={person}
-      />
-
-      <AddFamilyRelationshipDialog
-        open={addFamilyOpen}
-        onOpenChange={setAddFamilyOpen}
-        personId={person.id}
-        institutionId={person.institutionId}
-      />
       <ConfirmDialog
         open={!!removingRelationship}
         onOpenChange={(open) => !open && setRemovingRelationship(null)}
@@ -388,7 +395,6 @@ export function PersonDetailContent({ personId }: PersonDetailContentProps) {
 
       {isChurch && (
         <>
-          <AddMilestoneDialog open={addMilestoneOpen} onOpenChange={setAddMilestoneOpen} personId={person.id} />
           <ConfirmDialog
             open={!!removingMilestone}
             onOpenChange={(open) => !open && setRemovingMilestone(null)}

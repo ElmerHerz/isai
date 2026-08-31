@@ -24,7 +24,7 @@ import {
   usePostGroupFundExpenseToLedgerMutation,
   useRemoveGroupFundExpenseMutation,
 } from '@/modules/finanzas';
-import { AddGroupFundMovementDialog } from '@/modules/finanzas/group-funds/components/add-group-fund-movement-dialog';
+import { AddGroupFundMovementPanel } from '@/modules/finanzas/group-funds/components/add-group-fund-movement-panel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -139,27 +139,37 @@ function GroupFundDetailPage() {
                 <Wallet className="h-4 w-4" />
                 Movimientos
               </h2>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!group.cashAccountId}
-                  onClick={() => setFundMovementType('income')}
-                >
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  Ingreso
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!group.cashAccountId}
-                  onClick={() => setFundMovementType('expense')}
-                >
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  Gasto
-                </Button>
-              </div>
+              {!fundMovementType && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!group.cashAccountId}
+                    onClick={() => setFundMovementType('income')}
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Ingreso
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!group.cashAccountId}
+                    onClick={() => setFundMovementType('expense')}
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Gasto
+                  </Button>
+                </div>
+              )}
             </div>
+
+            {fundMovementType && (
+              <AddGroupFundMovementPanel
+                groupId={groupId}
+                type={fundMovementType}
+                onDone={() => setFundMovementType(null)}
+              />
+            )}
 
             {!group.cashAccountId && (
               <p className="mb-4 text-xs font-medium text-amber-600 dark:text-amber-400">
@@ -334,15 +344,6 @@ function GroupFundDetailPage() {
           </CardContent>
         </Card>
       </motion.div>
-
-      {fundMovementType && (
-        <AddGroupFundMovementDialog
-          open={!!fundMovementType}
-          onOpenChange={(open) => !open && setFundMovementType(null)}
-          groupId={groupId}
-          type={fundMovementType}
-        />
-      )}
 
       <ConfirmDialog
         open={!!removingExpense}

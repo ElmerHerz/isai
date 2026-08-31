@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
 import { History, FileJson } from 'lucide-react';
@@ -10,7 +10,6 @@ import { TableSearch } from '@/components/ui/table-search';
 import { TablePagination } from '@/components/ui/table-pagination';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { PageHeader } from '@/components/layout/page-header';
 import { useCurrentModuleColor } from '@/components/layout/use-current-module-color';
 import { tintBackground, tintForeground } from '@/lib/color';
@@ -160,52 +159,63 @@ function AuditPage() {
                 )}
 
                 {data?.data.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="text-muted-foreground">{formatDateTime(row.createdAt)}</TableCell>
-                    <TableCell>
-                      {row.user ? (
-                        <>
-                          <p className="font-medium">
-                            {row.user.firstName} {row.user.lastName}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{row.user.email}</p>
-                        </>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Sistema</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={cn(
-                          'rounded-full px-2 py-0.5 text-xs font-medium',
-                          ACTION_TONES[row.action] ?? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+                  <Fragment key={row.id}>
+                    <TableRow>
+                      <TableCell className="text-muted-foreground">{formatDateTime(row.createdAt)}</TableCell>
+                      <TableCell>
+                        {row.user ? (
+                          <>
+                            <p className="font-medium">
+                              {row.user.firstName} {row.user.lastName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{row.user.email}</p>
+                          </>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Sistema</span>
                         )}
-                      >
-                        {ACTION_LABELS[row.action] ?? row.action}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-medium">{row.entityType ?? '—'}</span>
-                      {row.entityId && (
-                        <span className="ml-1.5 font-mono text-xs text-muted-foreground">
-                          {row.entityId.slice(0, 8)}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDetailRow(row)}
-                          aria-label="Ver detalle"
-                          title="Ver detalle"
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={cn(
+                            'rounded-full px-2 py-0.5 text-xs font-medium',
+                            ACTION_TONES[row.action] ?? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+                          )}
                         >
-                          <FileJson className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                          {ACTION_LABELS[row.action] ?? row.action}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium">{row.entityType ?? '—'}</span>
+                        {row.entityId && (
+                          <span className="ml-1.5 font-mono text-xs text-muted-foreground">
+                            {row.entityId.slice(0, 8)}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDetailRow(detailRow?.id === row.id ? null : row)}
+                            aria-label="Ver detalle"
+                            title="Ver detalle"
+                          >
+                            <FileJson className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {detailRow?.id === row.id && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={5} className="bg-muted/30">
+                          <pre className="max-h-96 overflow-auto rounded-lg bg-muted/50 p-4 text-xs">
+                            {JSON.stringify(row.newValues, null, 2)}
+                          </pre>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>
@@ -219,20 +229,6 @@ function AuditPage() {
           />
         </div>
       </motion.div>
-
-      <Dialog open={!!detailRow} onOpenChange={(open) => !open && setDetailRow(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Detalle del registro</DialogTitle>
-            <DialogDescription>
-              {detailRow && `${ACTION_LABELS[detailRow.action] ?? detailRow.action} · ${detailRow.entityType ?? '—'} · ${formatDateTime(detailRow.createdAt)}`}
-            </DialogDescription>
-          </DialogHeader>
-          <pre className="max-h-96 overflow-auto rounded-lg bg-muted/50 p-4 text-xs">
-            {detailRow ? JSON.stringify(detailRow.newValues, null, 2) : ''}
-          </pre>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

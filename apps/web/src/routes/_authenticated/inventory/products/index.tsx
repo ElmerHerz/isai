@@ -3,8 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
 import { Package, Plus, Tags } from 'lucide-react';
 import { useProductsQuery, useProductCategoriesQuery } from '@/modules/inventario';
-import { ProductFormDialog } from '@/modules/inventario/products/components/product-form-dialog';
-import { CategoriesManagerDialog } from '@/modules/inventario/product-categories/components/categories-manager-dialog';
+import { CategoriesManagerPanel } from '@/modules/inventario/product-categories/components/categories-manager-panel';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { TableSkeletonRows } from '@/components/ui/table-skeleton';
@@ -41,7 +40,6 @@ function ProductsPage() {
   const isDark = useIsDarkMode();
   const headStyle = { backgroundColor: tintBackground(color, isDark), color: tintForeground(color, isDark) };
 
-  const [createOpen, setCreateOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
 
   const filteredProducts = products?.filter(
@@ -56,17 +54,25 @@ function ProductsPage() {
         description="Catálogo de productos — para vender o para uso interno de la institución."
         action={
           <div className="flex gap-2">
-            <Button variant="translucent" onClick={() => setCategoriesOpen(true)}>
-              <Tags className="mr-2 h-4 w-4" />
-              Categorías
-            </Button>
-            <Button variant="translucent" onClick={() => setCreateOpen(true)}>
+            {!categoriesOpen && (
+              <Button variant="translucent" onClick={() => setCategoriesOpen(true)}>
+                <Tags className="mr-2 h-4 w-4" />
+                Categorías
+              </Button>
+            )}
+            <Button variant="translucent" onClick={() => navigate({ to: '/inventory/products/new' })}>
               <Plus className="mr-2 h-4 w-4" />
               Nuevo producto
             </Button>
           </div>
         }
       />
+
+      {categoriesOpen && (
+        <div className="mt-4">
+          <CategoriesManagerPanel onDone={() => setCategoriesOpen(false)} />
+        </div>
+      )}
 
       {categories && categories.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -181,9 +187,6 @@ function ProductsPage() {
           </div>
         </div>
       </motion.div>
-
-      <ProductFormDialog open={createOpen} onOpenChange={setCreateOpen} />
-      <CategoriesManagerDialog open={categoriesOpen} onOpenChange={setCategoriesOpen} />
     </div>
   );
 }

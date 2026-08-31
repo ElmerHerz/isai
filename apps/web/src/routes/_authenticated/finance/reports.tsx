@@ -45,6 +45,7 @@ import { useAuthStore } from '@/lib/auth-store';
 import { tintBackground, tintForeground } from '@/lib/color';
 import { useIsDarkMode } from '@/lib/theme-store';
 import { cn } from '@/lib/utils';
+import { normalizeText } from '@/lib/normalize-text';
 import type { AccountBalanceNode, Project } from '@isai/shared-types';
 
 export const Route = createFileRoute('/_authenticated/finance/reports')({
@@ -180,9 +181,9 @@ function DonorStatementSection({ institutionId }: { institutionId: string }) {
   const [year, setYear] = useState(new Date().getFullYear());
 
   const matches = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = normalizeText(search.trim());
     if (!term) return [];
-    return (persons ?? []).filter((p) => `${p.firstName} ${p.lastName}`.toLowerCase().includes(term)).slice(0, 8);
+    return (persons ?? []).filter((p) => normalizeText(`${p.firstName} ${p.lastName}`).includes(term)).slice(0, 8);
   }, [persons, search]);
 
   const selectedPerson = persons?.find((p) => p.id === personId);

@@ -8,7 +8,7 @@ import {
   usePostPurchaseToLedgerMutation,
   useRemovePurchaseMutation,
 } from '@/modules/comercio';
-import { AddPurchaseLineDialog } from '@/modules/comercio/purchases/components/add-purchase-line-dialog';
+import { AddPurchaseLinePanel } from '@/modules/comercio/purchases/components/add-purchase-line-panel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -105,12 +105,16 @@ export function PurchaseWorkspace({ purchaseId }: PurchaseWorkspaceProps) {
           <CardContent className="p-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-semibold">Líneas de la compra</h2>
-              {!isPosted && (
+              {!isPosted && !addLineOpen && (
                 <Button variant="outline" size="sm" onClick={() => setAddLineOpen(true)}>
                   <Plus className="mr-1.5 h-4 w-4" /> Agregar línea
                 </Button>
               )}
             </div>
+
+            {addLineOpen && (
+              <AddPurchaseLinePanel purchaseId={purchaseId} onDone={() => setAddLineOpen(false)} />
+            )}
 
             {purchase.lines.length === 0 ? (
               <p className="text-sm text-muted-foreground">Todavía no hay líneas — agrega un producto arriba.</p>
@@ -169,8 +173,6 @@ export function PurchaseWorkspace({ purchaseId }: PurchaseWorkspaceProps) {
           </CardContent>
         </Card>
       </motion.div>
-
-      <AddPurchaseLineDialog open={addLineOpen} onOpenChange={setAddLineOpen} purchaseId={purchaseId} />
 
       <ConfirmDialog
         open={!!removingLineId}

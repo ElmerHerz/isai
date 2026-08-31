@@ -4,7 +4,6 @@ import { motion, type Variants } from 'framer-motion';
 import { LayoutGrid, Pencil, Plus } from 'lucide-react';
 import { useInstitutionsQuery } from '@/modules/general';
 import { useGroupsQuery, useUpdateGroupMutation } from '@/modules/membresia';
-import { GroupFormDialog } from '@/modules/membresia/groups/components/group-form-dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { TableSkeletonRows } from '@/components/ui/table-skeleton';
@@ -22,7 +21,6 @@ import { useCurrentModuleColor } from '@/components/layout/use-current-module-co
 import { tintBackground, tintForeground } from '@/lib/color';
 import { useIsDarkMode } from '@/lib/theme-store';
 import { useSearchAndSort } from '@/lib/use-search-and-sort';
-import type { GroupListItem } from '@isai/shared-types';
 
 export const Route = createFileRoute('/_authenticated/membership/groups/')({
   component: GroupsPage,
@@ -49,9 +47,6 @@ function GroupsPage() {
 
   const { data: groups, isLoading, isError, refetch } = useGroupsQuery(institutionId);
   const updateMutation = useUpdateGroupMutation();
-
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editingGroup, setEditingGroup] = useState<GroupListItem | null>(null);
 
   const stats = useMemo(() => {
     const list = groups ?? [];
@@ -98,7 +93,7 @@ function GroupsPage() {
         title="Grupos"
         description="Células, sociedades, ministerios y demás grupos de la institución."
         action={
-          <Button variant="translucent" onClick={() => setCreateOpen(true)} disabled={!institutionId}>
+          <Button variant="translucent" onClick={() => navigate({ to: '/membership/groups/new' })} disabled={!institutionId}>
             <Plus className="mr-2 h-4 w-4" />
             Nuevo grupo
           </Button>
@@ -178,7 +173,7 @@ function GroupsPage() {
                     variant="outline"
                     size="sm"
                     className="mt-3 w-full"
-                    onClick={() => setEditingGroup(group)}
+                    onClick={() => navigate({ to: '/membership/groups/$groupId/edit', params: { groupId: group.id } })}
                   >
                     <Pencil className="mr-1.5 h-4 w-4" />
                     Editar
@@ -294,7 +289,7 @@ function GroupsPage() {
                         <Button
                           variant="edit"
                           size="icon"
-                          onClick={() => setEditingGroup(group)}
+                          onClick={() => navigate({ to: '/membership/groups/$groupId/edit', params: { groupId: group.id } })}
                           aria-label="Editar"
                           title="Editar"
                         >
@@ -317,18 +312,6 @@ function GroupsPage() {
           />
         </div>
       </motion.div>
-
-      {institutionId && (
-        <GroupFormDialog open={createOpen} onOpenChange={setCreateOpen} institutionId={institutionId} />
-      )}
-      {editingGroup && (
-        <GroupFormDialog
-          open={!!editingGroup}
-          onOpenChange={(open) => !open && setEditingGroup(null)}
-          institutionId={editingGroup.institutionId}
-          group={editingGroup}
-        />
-      )}
     </div>
   );
 }

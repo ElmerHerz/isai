@@ -11,7 +11,6 @@ import { SortableTableHead } from '@/components/ui/sortable-table-head';
 import { TableSearch } from '@/components/ui/table-search';
 import { ColumnFilter } from '@/components/ui/column-filter';
 import { TablePagination } from '@/components/ui/table-pagination';
-import { InstitutionFormDialog } from '@/modules/general/institutions/components/institution-form-dialog';
 import { PageHeader } from '@/components/layout/page-header';
 import { StatChip } from '@/components/layout/stat-chip';
 import { useCurrentModuleColor } from '@/components/layout/use-current-module-color';
@@ -32,7 +31,6 @@ const fadeUp: Variants = {
 function InstitutionsListPage() {
   const { data: institutions, isLoading, isError, refetch } = useInstitutionsQuery();
   const navigate = useNavigate();
-  const [createOpen, setCreateOpen] = useState(false);
   const color = useCurrentModuleColor();
   const isDark = useIsDarkMode();
   const headStyle = { backgroundColor: tintBackground(color, isDark), color: tintForeground(color, isDark) };
@@ -87,7 +85,7 @@ function InstitutionsListPage() {
         title="Instituciones"
         description="Las instituciones que administras."
         action={
-          <Button variant="translucent" onClick={() => setCreateOpen(true)}>
+          <Button variant="translucent" onClick={() => navigate({ to: '/general/institutions/new' })}>
             <Plus className="mr-2 h-4 w-4" />
             Nueva institución
           </Button>
@@ -229,8 +227,6 @@ function InstitutionsListPage() {
           />
         </div>
       </motion.div>
-
-      <InstitutionFormDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   );
 }

@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -279,14 +280,16 @@ function ProductDetailPage() {
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="expenseAccountId">Cuenta de gasto</Label>
-                        <Select value={expenseAccountId} onValueChange={setExpenseAccountId}>
-                          <SelectTrigger id="expenseAccountId"><SelectValue placeholder="Selecciona una cuenta" /></SelectTrigger>
-                          <SelectContent>
-                            {expenseAccounts.map((account) => (
-                              <SelectItem key={account.id} value={account.id}>{account.code} — {account.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Combobox
+                          id="expenseAccountId"
+                          options={expenseAccounts}
+                          value={expenseAccountId}
+                          onChange={setExpenseAccountId}
+                          getOptionValue={(account) => account.id}
+                          getOptionLabel={(account) => `${account.code} — ${account.name}`}
+                          placeholder="Selecciona una cuenta"
+                          searchPlaceholder="Buscar por código o nombre..."
+                        />
                       </div>
                     </div>
                     <div className="space-y-1.5">

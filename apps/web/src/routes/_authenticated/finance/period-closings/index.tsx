@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
 import { Lock, Plus } from 'lucide-react';
 import { useInstitutionsQuery } from '@/modules/general';
 import { usePeriodClosingsQuery, useReopenPeriodClosingMutation } from '@/modules/finanzas';
-import { ClosePeriodDialog } from '@/modules/finanzas/period-closings/components/close-period-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,6 +31,7 @@ const fadeUp: Variants = {
 };
 
 function PeriodClosingsPage() {
+  const navigate = useNavigate();
   const { data: institutions } = useInstitutionsQuery();
   const [institutionId, setInstitutionId] = useState('');
   const color = useCurrentModuleColor();
@@ -47,7 +47,6 @@ function PeriodClosingsPage() {
   }, [institutions, institutionId]);
 
   const { data: closings, isLoading, isError, refetch } = usePeriodClosingsQuery(institutionId);
-  const [createOpen, setCreateOpen] = useState(false);
   const [reopening, setReopening] = useState<PeriodClosing | null>(null);
   const [reopenReason, setReopenReason] = useState('');
   const reopenMutation = useReopenPeriodClosingMutation();
@@ -59,7 +58,7 @@ function PeriodClosingsPage() {
         title="Cierre de periodo"
         description="Mueve el resultado neto de Ingreso/Gasto a Patrimonio y bloquea corregir asientos hacia atrás."
         action={
-          <Button variant="translucent" onClick={() => setCreateOpen(true)} disabled={!institutionId}>
+          <Button variant="translucent" onClick={() => navigate({ to: '/finance/period-closings/new' })} disabled={!institutionId}>
             <Plus className="mr-2 h-4 w-4" />
             Cerrar periodo
           </Button>
@@ -180,8 +179,6 @@ function PeriodClosingsPage() {
           </div>
         </div>
       </motion.div>
-
-      {institutionId && <ClosePeriodDialog open={createOpen} onOpenChange={setCreateOpen} institutionId={institutionId} />}
 
       <Dialog
         open={!!reopening}

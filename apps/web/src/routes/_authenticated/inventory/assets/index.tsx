@@ -4,7 +4,6 @@ import { motion, type Variants } from 'framer-motion';
 import { Warehouse, Plus } from 'lucide-react';
 import { useInstitutionsQuery } from '@/modules/general';
 import { useAssetsQuery } from '@/modules/inventario';
-import { AssetFormDialog } from '@/modules/inventario/assets/components/asset-form-dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { TableSkeletonRows } from '@/components/ui/table-skeleton';
@@ -45,7 +44,6 @@ function AssetsPage() {
   }, [institutions, institutionId]);
 
   const { data: assets, isLoading, isError, refetch } = useAssetsQuery(institutionId);
-  const [createOpen, setCreateOpen] = useState(false);
 
   return (
     <div>
@@ -54,7 +52,7 @@ function AssetsPage() {
         title="Activos"
         description="Equipo y mobiliario duradero — quién lo tiene, dónde está, en qué estado."
         action={
-          <Button variant="translucent" onClick={() => setCreateOpen(true)} disabled={!institutionId}>
+          <Button variant="translucent" onClick={() => navigate({ to: '/inventory/assets/new' })} disabled={!institutionId}>
             <Plus className="mr-2 h-4 w-4" />
             Nuevo activo
           </Button>
@@ -171,8 +169,6 @@ function AssetsPage() {
           </div>
         </div>
       </motion.div>
-
-      {institutionId && <AssetFormDialog open={createOpen} onOpenChange={setCreateOpen} institutionId={institutionId} />}
     </div>
   );
 }

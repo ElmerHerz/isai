@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { usePersonsQuery } from '@/modules/membresia';
 import { cn } from '@/lib/utils';
+import { normalizeText } from '@/lib/normalize-text';
 
 interface PersonPickerProps {
   institutionId: string;
@@ -17,9 +18,8 @@ interface PersonPickerProps {
 export function PersonPicker({ institutionId, value, onChange }: PersonPickerProps) {
   const [search, setSearch] = useState('');
   const { data: persons, isLoading } = usePersonsQuery(institutionId, !!institutionId);
-  const available = (persons ?? []).filter((p) =>
-    `${p.firstName} ${p.lastName}`.toLowerCase().includes(search.toLowerCase()),
-  );
+  const term = normalizeText(search);
+  const available = (persons ?? []).filter((p) => normalizeText(`${p.firstName} ${p.lastName}`).includes(term));
 
   return (
     <div className="space-y-2">

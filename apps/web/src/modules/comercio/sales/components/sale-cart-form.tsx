@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { DateInput } from '@/components/ui/date-input';
 import { useBranchesQuery } from '@/modules/general';
@@ -254,18 +255,16 @@ export function SaleCartForm({ institutionId }: SaleCartFormProps) {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="cart-product">Producto</Label>
-              <Select value={productId} onValueChange={onSelectProduct}>
-                <SelectTrigger id="cart-product">
-                  <SelectValue placeholder="Selecciona un producto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sellableProducts.map((product: Product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.sku ? `${product.sku} · ${product.name}` : product.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                id="cart-product"
+                options={sellableProducts}
+                value={productId}
+                onChange={onSelectProduct}
+                getOptionValue={(product: Product) => product.id}
+                getOptionLabel={(product: Product) => (product.sku ? `${product.sku} · ${product.name}` : product.name)}
+                placeholder="Selecciona un producto"
+                searchPlaceholder="Buscar por nombre o SKU..."
+              />
             </div>
 
             {captureOptions.length > 1 && (

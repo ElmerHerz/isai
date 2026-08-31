@@ -4,9 +4,6 @@ import { motion, type Variants } from 'framer-motion';
 import { Users, Plus, Upload, Pencil, Eye } from 'lucide-react';
 import { useInstitutionsQuery } from '@/modules/general';
 import { usePersonsQuery, useUpdatePersonMutation } from '@/modules/membresia';
-import { PersonFormDialog } from '@/modules/membresia/persons/components/person-form-dialog';
-import { ImportPersonsDialog } from '@/modules/membresia/persons/components/import-persons-dialog';
-import { PersonDetailDialog } from '@/modules/membresia/persons/components/person-detail-dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { TableSkeletonRows } from '@/components/ui/table-skeleton';
@@ -24,7 +21,6 @@ import { useCurrentModuleColor } from '@/components/layout/use-current-module-co
 import { tintBackground, tintForeground } from '@/lib/color';
 import { useIsDarkMode } from '@/lib/theme-store';
 import { useSearchAndSort } from '@/lib/use-search-and-sort';
-import type { PersonWithRelations } from '@isai/shared-types';
 
 export const Route = createFileRoute('/_authenticated/membership/persons/')({
   component: PersonsPage,
@@ -51,11 +47,6 @@ function PersonsPage() {
 
   const { data: persons, isLoading, isError, refetch } = usePersonsQuery(institutionId);
   const updateMutation = useUpdatePersonMutation();
-
-  const [createOpen, setCreateOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
-  const [editingPerson, setEditingPerson] = useState<PersonWithRelations | null>(null);
-  const [viewingPersonId, setViewingPersonId] = useState<string | null>(null);
 
   const stats = useMemo(() => {
     const list = persons ?? [];
@@ -104,11 +95,11 @@ function PersonsPage() {
         description="Miembros, visitantes, empleados y demás personas de la institución."
         action={
           <div className="flex gap-2">
-            <Button variant="translucent" onClick={() => setImportOpen(true)} disabled={!institutionId}>
+            <Button variant="translucent" onClick={() => navigate({ to: '/membership/persons/import' })} disabled={!institutionId}>
               <Upload className="mr-2 h-4 w-4" />
               Importar
             </Button>
-            <Button variant="translucent" onClick={() => setCreateOpen(true)} disabled={!institutionId}>
+            <Button variant="translucent" onClick={() => navigate({ to: '/membership/persons/new' })} disabled={!institutionId}>
               <Plus className="mr-2 h-4 w-4" />
               Nueva persona
             </Button>
@@ -299,7 +290,7 @@ function PersonsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setViewingPersonId(person.id)}
+                          onClick={() => navigate({ to: '/membership/persons/$personId', params: { personId: person.id } })}
                           aria-label="Ver"
                           title="Ver"
                         >
@@ -308,7 +299,7 @@ function PersonsPage() {
                         <Button
                           variant="edit"
                           size="icon"
-                          onClick={() => setEditingPerson(person)}
+                          onClick={() => navigate({ to: '/membership/persons/$personId/edit', params: { personId: person.id } })}
                           aria-label="Editar"
                           title="Editar"
                         >
@@ -331,28 +322,6 @@ function PersonsPage() {
           />
         </div>
       </motion.div>
-
-      {institutionId && (
-        <PersonFormDialog open={createOpen} onOpenChange={setCreateOpen} institutionId={institutionId} />
-      )}
-      {institutionId && (
-        <ImportPersonsDialog open={importOpen} onOpenChange={setImportOpen} institutionId={institutionId} />
-      )}
-      {editingPerson && (
-        <PersonFormDialog
-          open={!!editingPerson}
-          onOpenChange={(open) => !open && setEditingPerson(null)}
-          institutionId={editingPerson.institutionId}
-          person={editingPerson}
-        />
-      )}
-      {viewingPersonId && (
-        <PersonDetailDialog
-          open={!!viewingPersonId}
-          onOpenChange={(open) => !open && setViewingPersonId(null)}
-          personId={viewingPersonId}
-        />
-      )}
     </div>
   );
 }

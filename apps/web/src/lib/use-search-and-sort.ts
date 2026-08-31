@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { normalizeText } from '@/lib/normalize-text';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -75,9 +76,9 @@ export function useSearchAndSort<T>(
   const result = useMemo(() => {
     let list = items ?? [];
 
-    const term = search.trim().toLowerCase();
+    const term = normalizeText(search.trim());
     if (term) {
-      list = list.filter((item) => getSearchText(item).toLowerCase().includes(term));
+      list = list.filter((item) => normalizeText(getSearchText(item)).includes(term));
     }
 
     for (const [column, values] of Object.entries(filters)) {

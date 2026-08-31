@@ -1,9 +1,7 @@
-import { useState } from 'react';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
 import { Users, Plus, Pencil } from 'lucide-react';
 import { useCustomersQuery } from '@/modules/comercio';
-import { CustomerFormDialog } from '@/modules/comercio/customers/components/customer-form-dialog';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { TableSkeletonRows } from '@/components/ui/table-skeleton';
@@ -14,7 +12,6 @@ import { useCurrentModuleColor } from '@/components/layout/use-current-module-co
 import { tintBackground, tintForeground } from '@/lib/color';
 import { useIsDarkMode } from '@/lib/theme-store';
 import { cn } from '@/lib/utils';
-import type { Customer } from '@isai/shared-types';
 
 export const Route = createFileRoute('/_authenticated/store/customers/')({
   component: CustomersPage,
@@ -27,11 +24,10 @@ const fadeUp: Variants = {
 
 function CustomersPage() {
   const { data: customers, isLoading, isError, refetch } = useCustomersQuery();
+  const navigate = useNavigate();
   const color = useCurrentModuleColor();
   const isDark = useIsDarkMode();
   const headStyle = { backgroundColor: tintBackground(color, isDark), color: tintForeground(color, isDark) };
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
 
   return (
     <div>
@@ -40,7 +36,7 @@ function CustomersPage() {
         title="Clientes"
         description="A quién se le vende — opcional, una venta puede ser a Consumidor Final."
         action={
-          <Button variant="translucent" onClick={() => setCreateOpen(true)}>
+          <Button variant="translucent" onClick={() => navigate({ to: '/store/customers/new' })}>
             <Plus className="mr-2 h-4 w-4" />
             Nuevo cliente
           </Button>
@@ -76,7 +72,7 @@ function CustomersPage() {
                   key={customer.id}
                   type="button"
                   className="w-full p-4 text-left"
-                  onClick={() => setEditingCustomer(customer)}
+                  onClick={() => navigate({ to: '/store/customers/$customerId', params: { customerId: customer.id } })}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <p className="truncate text-sm font-medium">{customer.name}</p>
@@ -131,7 +127,11 @@ function CustomersPage() {
                     </TableCell>
                     <TableCell>{customer.isActive ? 'Activo' : 'Inactivo'}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => setEditingCustomer(customer)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => navigate({ to: '/store/customers/$customerId', params: { customerId: customer.id } })}
+                      >
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </TableCell>
@@ -142,13 +142,6 @@ function CustomersPage() {
           </div>
         </div>
       </motion.div>
-
-      <CustomerFormDialog open={createOpen} onOpenChange={setCreateOpen} />
-      <CustomerFormDialog
-        open={!!editingCustomer}
-        onOpenChange={(open) => !open && setEditingCustomer(null)}
-        customer={editingCustomer ?? undefined}
-      />
     </div>
   );
 }

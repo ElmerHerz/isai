@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
 import { FileCheck, Plus, Pencil } from 'lucide-react';
 import { useApprovalRoutesQuery, useUpdateApprovalRouteMutation } from '@/modules/proyectos';
-import { ApprovalRouteFormDialog } from '@/modules/proyectos/approval-routes/components/approval-route-form-dialog';
 import { EditApprovalRouteAmountDialog } from '@/modules/proyectos/approval-routes/components/edit-approval-route-amount-dialog';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -44,11 +43,11 @@ function accountsLabel(route: ApprovalRoute) {
 function ApprovalRoutesPage() {
   const { data: routes, isLoading, isError, refetch } = useApprovalRoutesQuery();
   const updateMutation = useUpdateApprovalRouteMutation();
+  const navigate = useNavigate();
   const color = useCurrentModuleColor();
   const isDark = useIsDarkMode();
   const headStyle = { backgroundColor: tintBackground(color, isDark), color: tintForeground(color, isDark) };
 
-  const [createOpen, setCreateOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<ApprovalRoute | null>(null);
 
   return (
@@ -58,7 +57,7 @@ function ApprovalRoutesPage() {
         title="Rutas de Aprobación"
         description="A partir de qué monto un gasto de proyecto necesita aprobación, y quién debe aprobarlo, en orden."
         action={
-          <Button variant="translucent" onClick={() => setCreateOpen(true)}>
+          <Button variant="translucent" onClick={() => navigate({ to: '/finance/approval-routes/new' })}>
             <Plus className="mr-2 h-4 w-4" />
             Nueva ruta
           </Button>
@@ -173,8 +172,6 @@ function ApprovalRoutesPage() {
           </div>
         </div>
       </motion.div>
-
-      <ApprovalRouteFormDialog open={createOpen} onOpenChange={setCreateOpen} />
 
       {editingRoute && (
         <EditApprovalRouteAmountDialog

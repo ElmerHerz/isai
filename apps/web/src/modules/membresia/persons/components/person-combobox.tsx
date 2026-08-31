@@ -3,6 +3,7 @@ import { Check, ChevronDown, Search } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { normalizeText } from '@/lib/normalize-text';
 
 interface PersonOption {
   id: string;
@@ -30,9 +31,9 @@ export function PersonCombobox({ id, persons, value, onChange, placeholder, disa
   const [search, setSearch] = useState('');
 
   const selected = persons.find((p) => p.id === value);
-  const term = search.trim().toLowerCase();
+  const term = normalizeText(search.trim());
   const filtered = term
-    ? persons.filter((p) => `${p.firstName} ${p.lastName}`.toLowerCase().includes(term))
+    ? persons.filter((p) => normalizeText(`${p.firstName} ${p.lastName}`).includes(term))
     : persons;
 
   return (

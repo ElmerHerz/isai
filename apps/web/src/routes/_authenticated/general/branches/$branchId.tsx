@@ -26,9 +26,9 @@ import { PageHeader } from '@/components/layout/page-header';
 import { LocationMap } from '@/components/ui/location-map';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  ScheduleFormDialog,
+  ScheduleFormPanel,
   DAYS,
-} from '@/modules/general/branches/components/schedule-form-dialog';
+} from '@/modules/general/branches/components/schedule-form-panel';
 import { getErrorMessage } from '@/lib/toast';
 import type { BranchSchedule } from '@isai/shared-types';
 
@@ -99,7 +99,7 @@ function BranchDetailPage() {
     refetch: refetchSchedules,
   } = useBranchSchedulesQuery(branchId);
   const deleteScheduleMutation = useDeleteBranchScheduleMutation(branchId);
-  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [scheduleFormOpen, setScheduleFormOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<BranchSchedule | null>(null);
   const [deletingSchedule, setDeletingSchedule] = useState<BranchSchedule | null>(null);
 
@@ -310,11 +310,24 @@ function BranchDetailPage() {
                 <Clock className="h-4 w-4" />
                 Horario
               </h2>
-              <Button variant="outline" size="sm" onClick={() => setScheduleDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Nueva franja
-              </Button>
+              {!scheduleFormOpen && !editingSchedule && (
+                <Button variant="outline" size="sm" onClick={() => setScheduleFormOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nueva franja
+                </Button>
+              )}
             </div>
+
+            {scheduleFormOpen && (
+              <ScheduleFormPanel branchId={branchId} onDone={() => setScheduleFormOpen(false)} />
+            )}
+            {editingSchedule && (
+              <ScheduleFormPanel
+                branchId={branchId}
+                schedule={editingSchedule}
+                onDone={() => setEditingSchedule(null)}
+              />
+            )}
 
             {isSchedulesLoading && (
               <div className="space-y-2">
@@ -348,7 +361,14 @@ function BranchDetailPage() {
                     </p>
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => setEditingSchedule(schedule)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setScheduleFormOpen(false);
+                        setEditingSchedule(schedule);
+                      }}
+                    >
                       Editar
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => setDeletingSchedule(schedule)}>
@@ -361,20 +381,6 @@ function BranchDetailPage() {
           </CardContent>
         </Card>
       </motion.div>
-
-      <ScheduleFormDialog
-        open={scheduleDialogOpen}
-        onOpenChange={setScheduleDialogOpen}
-        branchId={branchId}
-      />
-      {editingSchedule && (
-        <ScheduleFormDialog
-          open={!!editingSchedule}
-          onOpenChange={(open) => !open && setEditingSchedule(null)}
-          branchId={branchId}
-          schedule={editingSchedule}
-        />
-      )}
 
       <ConfirmDialog
         open={!!deletingSchedule}
