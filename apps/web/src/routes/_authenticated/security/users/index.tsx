@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
-import { CheckCircle2, MinusCircle, Plus, UserCog, Users as UsersIcon } from 'lucide-react';
+import { CheckCircle2, KeyRound, MinusCircle, Plus, UserCog, Users as UsersIcon } from 'lucide-react';
 import { useUsersQuery } from '@/modules/security';
+import { ResetPasswordDialog } from '@/modules/security/users/components/reset-password-dialog';
+import type { UserListItem } from '@isai/shared-types';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { TableSkeletonRows } from '@/components/ui/table-skeleton';
@@ -35,6 +37,7 @@ function initials(firstName: string, lastName: string) {
 function UsersListPage() {
   const { data: users, isLoading, isError, refetch } = useUsersQuery();
   const navigate = useNavigate();
+  const [resettingPasswordUser, setResettingPasswordUser] = useState<UserListItem | null>(null);
   const color = useCurrentModuleColor();
   const isDark = useIsDarkMode();
   const headStyle = { backgroundColor: tintBackground(color, isDark), color: tintForeground(color, isDark) };
@@ -174,8 +177,16 @@ function UsersListPage() {
                           {initials(user.firstName, user.lastName)}
                         </span>
                         <div>
-                          <p className="font-medium">
+                          <p className="flex items-center gap-1.5 font-medium">
                             {user.firstName} {user.lastName}
+                            {user.mustChangePassword && (
+                              <span
+                                className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+                                title="Debe cambiar su contraseña al ingresar"
+                              >
+                                Pendiente de cambiar contraseña
+                              </span>
+                            )}
                           </p>
                           <p className="text-xs text-muted-foreground">{user.email}</p>
                         </div>
@@ -211,7 +222,16 @@ function UsersListPage() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="edit"
+                          size="icon"
+                          onClick={() => setResettingPasswordUser(user)}
+                          aria-label="Restablecer contraseña"
+                          title="Restablecer contraseña"
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="edit"
                           size="icon"
@@ -238,6 +258,8 @@ function UsersListPage() {
           />
         </div>
       </motion.div>
+
+      <ResetPasswordDialog user={resettingPasswordUser} onOpenChange={(open) => !open && setResettingPasswordUser(null)} />
     </div>
   );
 }

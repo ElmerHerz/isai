@@ -1,11 +1,12 @@
 import {
-  Controller, Get, Post, Patch, Param, Body, ParseUUIDPipe,
+  Controller, Get, Post, Patch, Param, Body, ParseUUIDPipe, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AssignRoleDto } from './dto/assign-role.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser, RequestUser } from '../../../common/decorators/current-user.decorator';
@@ -49,6 +50,18 @@ export class UsersController {
     @CurrentTenant() tenantId: string | null,
   ) {
     return this.usersService.update(id, tenantId, dto);
+  }
+
+  @Post(':id/reset-password')
+  @RequirePermission('security.user.update')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Restablecer la contraseña de un usuario (queda con mustChangePassword=true)' })
+  resetPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ResetPasswordDto,
+    @CurrentTenant() tenantId: string | null,
+  ) {
+    return this.usersService.resetPassword(id, tenantId, dto.newPassword);
   }
 
   @Post(':userId/roles')

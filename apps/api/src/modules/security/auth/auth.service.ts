@@ -6,6 +6,7 @@ import * as bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 export interface JwtPayload {
   sub: string;       // userId
@@ -13,12 +14,14 @@ export interface JwtPayload {
   tenantId: string | null; // null = superadmin de la plataforma (sin tenant)
   permissions: string[];
   isSuperadmin: boolean; // true = tiene el rol de sistema "superadmin" (acceso total, bypass de permisos)
+  mustChangePassword: boolean; // leído por MustChangePasswordGuard sin ir a la BD en cada request
 }
 
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+  mustChangePassword: boolean; // conveniencia para el frontend, sin decodificar el JWT
 }
 
 // Incluye lo necesario para calcular permisos efectivos + isSuperadmin —
@@ -143,6 +146,7 @@ export class AuthService {
         isActive: true,
         emailVerifiedAt: true,
         lastLoginAt: true,
+        mustChangePassword: true,
         createdAt: true,
         updatedAt: true,
         userRoles: {
@@ -158,6 +162,33 @@ export class AuthService {
       ...new Set(userRoles.flatMap((ur) => ur.role.rolePermissions.map((rp) => rp.permission.code))),
     ];
     return { ...rest, roles: userRoles.map((ur) => ur.role.name), permissions };
+  }
+
+  // Cambio de contraseña de autoservicio — exige la contraseña actual
+  // (a diferencia de UsersService.resetPassword, que es un admin
+  // restableciéndole la contraseña a OTRO usuario sin conocer la suya).
+  // Reemite tokens para que el nuevo JWT ya traiga mustChangePassword:
+  // false de inmediato, sin que el frontend tenga que volver a loguearse.
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<AuthTokens> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: userRolesInclude,
+    });
+    if (!user) throw new UnauthorizedException();
+
+    const passwordValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    if (!passwordValid) {
+      throw new UnauthorizedException('La contraseña actual no es correcta.');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 12);
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, mustChangePassword: false },
+      include: userRolesInclude,
+    });
+
+    return this.issueTokens(updated);
   }
 
   async logout(userId: string): Promise<void> {
@@ -190,6 +221,7 @@ export class AuthService {
       tenantId: user.tenantId,
       permissions,
       isSuperadmin,
+      mustChangePassword: user.mustChangePassword,
     };
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -223,6 +255,7 @@ export class AuthService {
       accessToken,
       refreshToken,
       expiresIn: 900, // 15 minutos en segundos
+      mustChangePassword: user.mustChangePassword,
     };
   }
 

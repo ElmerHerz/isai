@@ -1080,6 +1080,7 @@ export interface User {
   isActive: boolean;
   emailVerifiedAt?: string | null;
   lastLoginAt?: string | null;
+  mustChangePassword: boolean;
   createdAt: string;
   updatedAt: string;
   // Solo viene poblado en endpoints que lo incluyen explícitamente (ej. /auth/me) —
@@ -1097,6 +1098,7 @@ export interface UserListItem {
   lastName: string;
   isActive: boolean;
   lastLoginAt?: string | null;
+  mustChangePassword: boolean;
   createdAt: string;
   roles: string[];
 }

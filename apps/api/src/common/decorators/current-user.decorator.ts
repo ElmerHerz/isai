@@ -10,6 +10,7 @@ export interface RequestUser {
   tenantId: string | null;
   permissions: string[];
   isSuperadmin: boolean;
+  mustChangePassword: boolean;
 }
 
 /**

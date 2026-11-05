@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useMeQuery, useRolesQuery, useCreateUserMutation, useAssignRoleMutation } from '@/modules/security';
 import { useTenantsQuery, useInstitutionsQuery, useBranchesQuery } from '@/modules/general';
 import { getErrorMessage } from '@/lib/toast';
@@ -21,6 +22,7 @@ const userSchema = z
     lastName: z.string().min(1, 'El apellido es requerido').max(100),
     email: z.string().email('Correo inválido'),
     password: z.string().min(8, 'Mínimo 8 caracteres'),
+    mustChangePassword: z.boolean(),
   })
   .superRefine((data, ctx) => {
     if (data.branchId && !data.institutionId) {
@@ -76,6 +78,7 @@ export function UserForm({ onSaved }: UserFormProps) {
       lastName: '',
       email: '',
       password: '',
+      mustChangePassword: true,
     },
   });
 
@@ -112,6 +115,7 @@ export function UserForm({ onSaved }: UserFormProps) {
         password: values.password,
         firstName: values.firstName,
         lastName: values.lastName,
+        mustChangePassword: values.mustChangePassword,
         tenantId: values.tenantId || undefined,
       },
       {
@@ -188,6 +192,22 @@ export function UserForm({ onSaved }: UserFormProps) {
             <Label htmlFor="password">Contraseña</Label>
             <Input id="password" type="password" {...register('password')} />
             {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <Label htmlFor="mustChangePassword">Debe cambiar la contraseña al ingresar</Label>
+              <p className="text-xs text-muted-foreground">
+                Esta contraseña queda como temporal — se le pedirá cambiarla en su primer login.
+              </p>
+            </div>
+            <Controller
+              name="mustChangePassword"
+              control={control}
+              render={({ field }) => (
+                <Switch id="mustChangePassword" checked={field.value} onCheckedChange={field.onChange} />
+              )}
+            />
           </div>
 
           <div className="space-y-2">

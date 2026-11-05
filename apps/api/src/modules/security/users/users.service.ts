@@ -21,7 +21,7 @@ export class UsersService {
       where: { ...(tenantId ? { tenantId } : {}) },
       select: {
         id: true, email: true, firstName: true, lastName: true,
-        isActive: true, lastLoginAt: true, createdAt: true,
+        isActive: true, lastLoginAt: true, createdAt: true, mustChangePassword: true,
         userRoles: { include: { role: { select: { name: true } } } },
       },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
@@ -38,7 +38,7 @@ export class UsersService {
       where: { id, ...(tenantId ? { tenantId } : {}) },
       select: {
         id: true, tenantId: true, email: true, firstName: true, lastName: true,
-        isActive: true, lastLoginAt: true, createdAt: true,
+        isActive: true, lastLoginAt: true, createdAt: true, mustChangePassword: true,
         userRoles: { include: { role: true } },
       },
     });
@@ -72,11 +72,28 @@ export class UsersService {
         passwordHash,
         firstName: dto.firstName,
         lastName: dto.lastName,
+        // Por defecto, todo usuario que crea un admin debe cambiar esta
+        // contraseña (que el admin escribió a mano) en su primer login.
+        mustChangePassword: dto.mustChangePassword ?? true,
       },
       select: {
         id: true, email: true, firstName: true, lastName: true,
         isActive: true, createdAt: true,
       },
+    });
+  }
+
+  // Un admin restablece la contraseña de OTRO usuario (sin conocer la
+  // suya) — distinto de AuthService.changePassword, que es autoservicio y
+  // exige la contraseña actual. Siempre marca mustChangePassword: true —
+  // el usuario debe cambiarla por una suya en su siguiente login.
+  async resetPassword(id: string, tenantId: string | null, newPassword: string) {
+    await this.findOne(id, tenantId);
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await this.prisma.user.update({
+      where: { id },
+      data: { passwordHash, mustChangePassword: true },
     });
   }
 

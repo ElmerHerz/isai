@@ -9,6 +9,8 @@ export interface CreateUserInput {
   password: string;
   firstName: string;
   lastName: string;
+  /** Si debe cambiar esta contraseña en su primer login. Default backend: true. */
+  mustChangePassword?: boolean;
   /** Solo lo manda superadmin (sin tenant propio) para indicar a cuál pertenece. */
   tenantId?: string;
 }

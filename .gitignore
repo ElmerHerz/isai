@@ -57,3 +57,7 @@ coverage/
 # Notas de diseno/despliegue internas, no se versionan
 *.md
 !README.md
+
+# Respaldos de base de datos (pueden traer datos reales/hashes de password)
+.backups/
+*.dump

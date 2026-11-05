@@ -201,7 +201,7 @@ function LoginPage() {
 
   const onSubmit = (values: LoginFormValues) => {
     loginMutation.mutate(values, {
-      onSuccess: () => navigate({ to: '/' }),
+      onSuccess: (data) => navigate({ to: data.mustChangePassword ? '/change-password' : '/' }),
     });
   };
 
@@ -260,7 +260,7 @@ function LoginPage() {
                       <button
                         type="button"
                         className="text-xs font-medium text-primary hover:underline"
-                        onClick={() => alert('Próximamente: recuperación de contraseña.')}
+                        onClick={() => toast.error('Por ahora, pide a un administrador que te restablezca la contraseña.')}
                       >
                         ¿Olvidaste tu contraseña?
                       </button>

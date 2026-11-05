@@ -8,6 +8,7 @@ export { useProjectsQuery, projectsQueryKey } from './projects/use-projects.quer
 export { useProjectQuery, projectDetailKey } from './projects/use-project.query';
 export { useCreateProjectMutation, type CreateProjectInput } from './projects/use-create-project.mutation';
 export { useUpdateProjectMutation, type UpdateProjectInput } from './projects/use-update-project.mutation';
+export { useRemoveProjectMutation } from './projects/use-remove-project.mutation';
 export {
   useProjectContributionsQuery,
   projectContributionsKey,

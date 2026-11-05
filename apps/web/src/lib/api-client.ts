@@ -64,9 +64,21 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error: unknown) => {
     const axiosError = error as {
-      response?: { status: number };
+      response?: { status: number; data?: { code?: string } };
       config?: { _retry?: boolean; skipErrorToast?: boolean } & Record<string, unknown>;
     };
+
+    // El backend bloquea todo (salvo cambiar contraseña/perfil/logout) con
+    // este código mientras mustChangePassword siga en true (ver
+    // MustChangePasswordGuard) — se redirige en vez de mostrar el toast
+    // genérico de "no tienes permiso". El guard de la propia ruta evita el
+    // loop si ya estamos ahí.
+    if (axiosError.response?.status === 403 && axiosError.response?.data?.code === 'MUST_CHANGE_PASSWORD') {
+      if (window.location.pathname !== '/change-password') {
+        window.location.href = '/change-password';
+      }
+      return Promise.reject(error);
+    }
 
     if (axiosError.response?.status === 401 && !axiosError.config?._retry) {
       const originalRequest = axiosError.config ?? {};

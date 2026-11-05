@@ -217,6 +217,26 @@ export class ProjectsService {
     return withTotal;
   }
 
+  // Bloquea el borrado si hay algo ya contabilizado (mismo criterio que
+  // removeContribution/removeExpense, pero a nivel de todo el proyecto) —
+  // de lo contrario el onDelete: Cascade del schema borraría aportes/gastos
+  // que ya movieron Caja real vía LedgerService, dejando asientos huérfanos.
+  async remove(id: string, tenantId: string | null, user: RequestUser) {
+    await this.getAccessibleProject(id, tenantId, user);
+
+    const [postedContribution, postedExpense] = await Promise.all([
+      this.prisma.projectContribution.findFirst({ where: { projectId: id, journalEntryId: { not: null } } }),
+      this.prisma.projectExpense.findFirst({ where: { projectId: id, journalEntryId: { not: null } } }),
+    ]);
+    if (postedContribution || postedExpense) {
+      throw new BadRequestException(
+        'Este proyecto tiene aportes o gastos ya contabilizados — no se puede eliminar sin dejar asientos contables huérfanos.',
+      );
+    }
+
+    await this.prisma.project.delete({ where: { id } });
+  }
+
   // --- Aportes ---------------------------------------------------------------
 
   async findContributions(projectId: string, tenantId: string | null, user: RequestUser) {

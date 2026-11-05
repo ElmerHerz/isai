@@ -101,6 +101,18 @@ export class ProjectsController {
     return this.projectsService.update(id, tenantId, dto, user);
   }
 
+  @Delete(':id')
+  @RequirePermission('finance.project.delete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Eliminar un proyecto (solo si no tiene aportes/gastos ya contabilizados)' })
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() tenantId: string | null,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.projectsService.remove(id, tenantId, user);
+  }
+
   @Get(':id/contributions')
   @RequirePermission('finance.project.view')
   @ApiOperation({ summary: 'Aportes registrados en este proyecto' })

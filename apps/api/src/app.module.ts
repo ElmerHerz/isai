@@ -11,6 +11,7 @@ import { InventarioModule } from './modules/inventario/inventario.module';
 import { ComercioModule } from './modules/comercio/comercio.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
+import { MustChangePasswordGuard } from './common/guards/must-change-password.guard';
 import { ScopeGuard } from './common/guards/scope.guard';
 import { TenantRlsInterceptor } from './common/interceptors/tenant-rls.interceptor';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
@@ -53,6 +54,13 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     {
       provide: APP_GUARD,
       useClass: PermissionsGuard,
+    },
+    // Bloquea todo excepto los endpoints @AllowWhileMustChangePassword()
+    // (cambiar contraseña, /auth/me, logout) mientras el usuario tenga
+    // una contraseña temporal pendiente de cambiar.
+    {
+      provide: APP_GUARD,
+      useClass: MustChangePasswordGuard,
     },
     // Afirma acceso a institución/sucursal cuando el handler declara
     // @RequireScope() — no-op para todo lo que no lo use.

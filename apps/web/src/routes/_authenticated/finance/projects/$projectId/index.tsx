@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import {
   useProjectQuery,
+  useRemoveProjectMutation,
   useProjectContributionsQuery,
   useRemoveProjectContributionMutation,
   usePostProjectContributionToLedgerMutation,
@@ -720,6 +721,8 @@ function ProjectDetailPage() {
   const { projectId } = Route.useParams();
   const navigate = useNavigate();
   const { data: project, isLoading, isError, refetch } = useProjectQuery(projectId);
+  const removeProjectMutation = useRemoveProjectMutation();
+  const [removingProject, setRemovingProject] = useState(false);
   const {
     data: contributions,
     isLoading: isContributionsLoading,
@@ -780,10 +783,7 @@ function ProjectDetailPage() {
   const totalPledged = Number(project.totalPledged);
 
   const kpis: { label: string; value: string; icon: LucideIcon; tone: StatTone }[] = [
-    { label: 'Recaudado', value: formatAmount(totalContributed), icon: TrendingUp, tone: 'emerald' },
     { label: 'Prometido', value: formatAmount(totalPledged), icon: Handshake, tone: 'violet' },
-    { label: 'Gastado', value: formatAmount(totalSpent), icon: TrendingDown, tone: 'amber' },
-    { label: 'Disponible', value: formatAmount(available), icon: Wallet, tone: available < 0 ? 'rose' : 'blue' },
     { label: 'Meta', value: formatAmount(goalAmount), icon: Flag, tone: 'slate' },
     { label: 'Falta para la meta', value: formatAmount(remaining), icon: CircleDollarSign, tone: 'slate' },
     ...(daysRemaining !== null
@@ -832,15 +832,51 @@ function ProjectDetailPage() {
                   </p>
                 )}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate({ to: '/finance/projects/$projectId/edit', params: { projectId } })}
-                className="shrink-0"
-              >
-                <Pencil className="mr-1.5 h-4 w-4" />
-                Editar
-              </Button>
+              <div className="flex shrink-0 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate({ to: '/finance/projects/$projectId/edit', params: { projectId } })}
+                >
+                  <Pencil className="mr-1.5 h-4 w-4" />
+                  Editar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                  onClick={() => setRemovingProject(true)}
+                >
+                  <Trash2 className="mr-1.5 h-4 w-4" />
+                  Eliminar
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-xl border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <TrendingUp className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  Ingresos (recaudado)
+                </span>
+                <span className="font-medium text-emerald-700 dark:text-emerald-400">{formatAmount(totalContributed)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <TrendingDown className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  Egresos (gastado)
+                </span>
+                <span className="font-medium text-amber-700 dark:text-amber-400">−{formatAmount(totalSpent)}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-3 border-t pt-3">
+                <span className="flex items-center gap-1.5 text-sm font-semibold">
+                  <Wallet className="h-4 w-4 shrink-0" />
+                  Saldo disponible
+                </span>
+                <span className={cn('text-lg font-bold', available < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-blue-700 dark:text-blue-400')}>
+                  {formatAmount(available)}
+                </span>
+              </div>
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -1196,6 +1232,19 @@ function ProjectDetailPage() {
           </TabsContent>
         </Tabs>
       </motion.div>
+
+      <ConfirmDialog
+        open={removingProject}
+        onOpenChange={(open) => !open && setRemovingProject(false)}
+        title="Eliminar proyecto"
+        description={`Esto elimina el proyecto "${project.name}" junto con sus aportes, gastos y compromisos no contabilizados. No se puede deshacer.`}
+        isPending={removeProjectMutation.isPending}
+        onConfirm={() => {
+          removeProjectMutation.mutate(projectId, {
+            onSuccess: () => navigate({ to: '/finance/projects' }),
+          });
+        }}
+      />
 
       <ConfirmDialog
         open={!!removingContribution}

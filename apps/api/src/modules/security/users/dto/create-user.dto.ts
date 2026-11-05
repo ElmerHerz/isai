@@ -23,4 +23,8 @@ export class CreateUserDto {
   @ApiPropertyOptional({ example: true })
   @IsBoolean() @IsOptional()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ example: true, description: 'Si debe cambiar esta contraseña en su primer login. Default: true.' })
+  @IsBoolean() @IsOptional()
+  mustChangePassword?: boolean;
 }
