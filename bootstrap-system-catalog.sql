@@ -276,6 +276,10 @@ ON CONFLICT DO NOTHING;
 -- ítem a cualquier administrador de tenant (nadie más lo tiene asignado),
 -- mientras que isSuperadmin ya hace que se vea todo sin importar permisos.
 
+INSERT INTO seguridad.actions (code, name)
+VALUES ('manage', 'Administrar')
+ON CONFLICT (code) DO NOTHING;
+
 INSERT INTO seguridad.permissions (id, module_code, resource, action_code, name)
 VALUES
   (gen_random_uuid(), 'core', 'tenant', 'manage', 'Administrar tenants y módulos')
