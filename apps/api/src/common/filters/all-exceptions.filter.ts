@@ -13,6 +13,9 @@ interface ErrorResponse {
   path: string;
   message: string | string[];
   error?: string;
+  /** Código discriminante opcional (ej. MUST_CHANGE_PASSWORD) para que el
+   * frontend distinga casos especiales sin parsear el texto de `message`. */
+  code?: string;
 }
 
 /**
@@ -59,11 +62,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? (exceptionResponse as { message: string | string[] }).message
         : 'Ocurrió un error inesperado. Intenta de nuevo.';
 
+    const code =
+      exceptionResponse &&
+      typeof exceptionResponse === 'object' &&
+      'code' in exceptionResponse
+        ? (exceptionResponse as { code: string }).code
+        : undefined;
+
     const errorBody: ErrorResponse = {
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.url,
       message,
+      ...(code ? { code } : {}),
     };
 
     if (status >= 500) {
