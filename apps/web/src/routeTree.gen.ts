@@ -39,6 +39,7 @@ import { Route as AuthenticatedGeneralBranchesBranchIdRouteImport } from './rout
 import { Route as AuthenticatedGeneralCatalogsIndexRouteImport } from './routes/_authenticated/general/catalogs/index'
 import { Route as AuthenticatedGeneralInstitutionsIndexRouteImport } from './routes/_authenticated/general/institutions/index'
 import { Route as AuthenticatedGeneralInstitutionsNewRouteImport } from './routes/_authenticated/general/institutions/new'
+import { Route as AuthenticatedGeneralTenantsIndexRouteImport } from './routes/_authenticated/general/tenants/index'
 import { Route as AuthenticatedInventoryAssetsIndexRouteImport } from './routes/_authenticated/inventory/assets/index'
 import { Route as AuthenticatedInventoryAssetsAssetIdRouteImport } from './routes/_authenticated/inventory/assets/$assetId'
 import { Route as AuthenticatedInventoryAssetsNewRouteImport } from './routes/_authenticated/inventory/assets/new'
@@ -277,6 +278,12 @@ const AuthenticatedGeneralInstitutionsNewRoute =
   AuthenticatedGeneralInstitutionsNewRouteImport.update({
     id: '/general/institutions/new',
     path: '/general/institutions/new',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedGeneralTenantsIndexRoute =
+  AuthenticatedGeneralTenantsIndexRouteImport.update({
+    id: '/general/tenants/',
+    path: '/general/tenants/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedInventoryAssetsIndexRoute =
@@ -713,6 +720,7 @@ export interface FileRoutesByFullPath {
   '/general/branches/': typeof AuthenticatedGeneralBranchesIndexRoute
   '/general/catalogs/': typeof AuthenticatedGeneralCatalogsIndexRoute
   '/general/institutions/': typeof AuthenticatedGeneralInstitutionsIndexRoute
+  '/general/tenants/': typeof AuthenticatedGeneralTenantsIndexRoute
   '/inventory/assets/': typeof AuthenticatedInventoryAssetsIndexRoute
   '/inventory/products/': typeof AuthenticatedInventoryProductsIndexRoute
   '/membership/events/': typeof AuthenticatedMembershipEventsIndexRoute
@@ -808,6 +816,7 @@ export interface FileRoutesByTo {
   '/general/branches': typeof AuthenticatedGeneralBranchesIndexRoute
   '/general/catalogs': typeof AuthenticatedGeneralCatalogsIndexRoute
   '/general/institutions': typeof AuthenticatedGeneralInstitutionsIndexRoute
+  '/general/tenants': typeof AuthenticatedGeneralTenantsIndexRoute
   '/inventory/assets': typeof AuthenticatedInventoryAssetsIndexRoute
   '/inventory/products': typeof AuthenticatedInventoryProductsIndexRoute
   '/membership/events': typeof AuthenticatedMembershipEventsIndexRoute
@@ -905,6 +914,7 @@ export interface FileRoutesById {
   '/_authenticated/general/branches/': typeof AuthenticatedGeneralBranchesIndexRoute
   '/_authenticated/general/catalogs/': typeof AuthenticatedGeneralCatalogsIndexRoute
   '/_authenticated/general/institutions/': typeof AuthenticatedGeneralInstitutionsIndexRoute
+  '/_authenticated/general/tenants/': typeof AuthenticatedGeneralTenantsIndexRoute
   '/_authenticated/inventory/assets/': typeof AuthenticatedInventoryAssetsIndexRoute
   '/_authenticated/inventory/products/': typeof AuthenticatedInventoryProductsIndexRoute
   '/_authenticated/membership/events/': typeof AuthenticatedMembershipEventsIndexRoute
@@ -1002,6 +1012,7 @@ export interface FileRouteTypes {
     | '/general/branches/'
     | '/general/catalogs/'
     | '/general/institutions/'
+    | '/general/tenants/'
     | '/inventory/assets/'
     | '/inventory/products/'
     | '/membership/events/'
@@ -1097,6 +1108,7 @@ export interface FileRouteTypes {
     | '/general/branches'
     | '/general/catalogs'
     | '/general/institutions'
+    | '/general/tenants'
     | '/inventory/assets'
     | '/inventory/products'
     | '/membership/events'
@@ -1193,6 +1205,7 @@ export interface FileRouteTypes {
     | '/_authenticated/general/branches/'
     | '/_authenticated/general/catalogs/'
     | '/_authenticated/general/institutions/'
+    | '/_authenticated/general/tenants/'
     | '/_authenticated/inventory/assets/'
     | '/_authenticated/inventory/products/'
     | '/_authenticated/membership/events/'
@@ -1456,6 +1469,13 @@ declare module '@tanstack/react-router' {
       path: '/general/institutions/new'
       fullPath: '/general/institutions/new'
       preLoaderRoute: typeof AuthenticatedGeneralInstitutionsNewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/general/tenants/': {
+      id: '/_authenticated/general/tenants/'
+      path: '/general/tenants'
+      fullPath: '/general/tenants/'
+      preLoaderRoute: typeof AuthenticatedGeneralTenantsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/inventory/assets/': {
@@ -1956,6 +1976,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedGeneralBranchesIndexRoute: typeof AuthenticatedGeneralBranchesIndexRoute
   AuthenticatedGeneralCatalogsIndexRoute: typeof AuthenticatedGeneralCatalogsIndexRoute
   AuthenticatedGeneralInstitutionsIndexRoute: typeof AuthenticatedGeneralInstitutionsIndexRoute
+  AuthenticatedGeneralTenantsIndexRoute: typeof AuthenticatedGeneralTenantsIndexRoute
   AuthenticatedInventoryAssetsIndexRoute: typeof AuthenticatedInventoryAssetsIndexRoute
   AuthenticatedInventoryProductsIndexRoute: typeof AuthenticatedInventoryProductsIndexRoute
   AuthenticatedMembershipEventsIndexRoute: typeof AuthenticatedMembershipEventsIndexRoute
@@ -2076,6 +2097,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedGeneralCatalogsIndexRoute,
   AuthenticatedGeneralInstitutionsIndexRoute:
     AuthenticatedGeneralInstitutionsIndexRoute,
+  AuthenticatedGeneralTenantsIndexRoute: AuthenticatedGeneralTenantsIndexRoute,
   AuthenticatedInventoryAssetsIndexRoute:
     AuthenticatedInventoryAssetsIndexRoute,
   AuthenticatedInventoryProductsIndexRoute:

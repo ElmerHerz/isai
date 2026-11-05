@@ -269,6 +269,25 @@ WHERE r.id IN ('39dddea5-8048-421e-be8e-797f2656942b', 'e0464193-235b-4bd5-acee-
   AND p.code = 'finance.project.delete'
 ON CONFLICT DO NOTHING;
 
+-- ─── General: pantalla de superadmin para activar/desactivar módulos ──
+-- (sesión 2026-11-05). Permiso SIN asignar a role_permissions a propósito:
+-- los endpoints son @SuperadminOnly() (bypasea el sistema de permisos por
+-- completo) — este código solo existe para que MenusService oculte este
+-- ítem a cualquier administrador de tenant (nadie más lo tiene asignado),
+-- mientras que isSuperadmin ya hace que se vea todo sin importar permisos.
+
+INSERT INTO seguridad.permissions (id, module_code, resource, action_code, name)
+VALUES
+  (gen_random_uuid(), 'core', 'tenant', 'manage', 'Administrar tenants y módulos')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO general.menus (id, parent_id, module_code, permission_code, label, icon, route, sort_order, code, level)
+VALUES (
+  gen_random_uuid(), '20000000-0000-0000-0000-000000000001', 'core',
+  'core.tenant.manage', 'Tenants', 'building-2', '/general/tenants', 6, 'GEN_TENANTS', 2
+)
+ON CONFLICT (code) DO NOTHING;
+
 -- ─── Membresía: menú de Reportes ────────────────────────────────────────
 -- (encontrado corriendo directo en el droplet, nunca había quedado
 -- guardado en el repo — ver sesión 2026-11-05.)

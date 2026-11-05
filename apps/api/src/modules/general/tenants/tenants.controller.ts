@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   ParseUUIDPipe,
@@ -89,5 +90,26 @@ export class TenantsController {
     @Body() updateTenantDto: UpdateTenantDto,
   ) {
     return this.tenantsService.update(id, updateTenantDto);
+  }
+
+  @Post(':id/modules/:moduleCode')
+  @SuperadminOnly()
+  @ApiOperation({ summary: 'Activar un módulo para un tenant' })
+  activateModule(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('moduleCode') moduleCode: string,
+  ) {
+    return this.tenantsService.activateModule(id, moduleCode);
+  }
+
+  @Delete(':id/modules/:moduleCode')
+  @SuperadminOnly()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Desactivar un módulo de un tenant (los módulos core no se pueden desactivar)' })
+  deactivateModule(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('moduleCode') moduleCode: string,
+  ) {
+    return this.tenantsService.deactivateModule(id, moduleCode);
   }
 }

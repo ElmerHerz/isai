@@ -22,6 +22,16 @@ export interface Tenant {
   createdAt: string; // ISO 8601
   updatedAt: string;
   deletedAt?: string | null;
+  /** Solo en GET /tenants (listado) — códigos de módulo vigentes para este tenant. */
+  activeModuleCodes?: string[];
+}
+
+export interface Module {
+  code: string;
+  name: string;
+  description?: string | null;
+  isCore: boolean;
+  colorHex: string;
 }
 
 export interface Institution {

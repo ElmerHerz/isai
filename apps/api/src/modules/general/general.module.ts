@@ -11,6 +11,7 @@ import { LanguagesModule } from './languages/languages.module';
 import { CatalogItemsModule } from './catalog-items/catalog-items.module';
 import { BranchSchedulesModule } from './branch-schedules/branch-schedules.module';
 import { DocumentSequencesModule } from './document-sequences/document-sequences.module';
+import { ModulesModule } from './modules/modules.module';
 
 /**
  * GeneralModule — Schema "general" de Postgres
@@ -37,6 +38,7 @@ import { DocumentSequencesModule } from './document-sequences/document-sequences
     CatalogItemsModule,
     BranchSchedulesModule,
     DocumentSequencesModule,
+    ModulesModule,
   ],
   exports: [
     TenantsModule,
@@ -50,6 +52,7 @@ import { DocumentSequencesModule } from './document-sequences/document-sequences
     CatalogItemsModule,
     BranchSchedulesModule,
     DocumentSequencesModule,
+    ModulesModule,
   ],
 })
 export class GeneralModule {}

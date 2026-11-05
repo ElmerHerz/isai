@@ -2,8 +2,13 @@
 // Contiene: instituciones, sucursales (UI)
 
 // Exporta queries y componentes del módulo
-export { useTenantsQuery } from './tenants/use-tenants.query';
+export { useTenantsQuery, TENANTS_QUERY_KEY } from './tenants/use-tenants.query';
 export { useCreateTenantMutation, type CreateTenantInput } from './tenants/use-create-tenant.mutation';
+export {
+  useToggleTenantModuleMutation,
+  type ToggleTenantModuleInput,
+} from './tenants/use-toggle-tenant-module.mutation';
+export { useModulesQuery, MODULES_QUERY_KEY } from './modules/use-modules.query';
 export { useTenantSettingsQuery } from './tenants/use-tenant-settings.query';
 export {
   useUpdateTenantSettingsMutation,
