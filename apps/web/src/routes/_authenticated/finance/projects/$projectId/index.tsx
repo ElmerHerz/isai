@@ -322,7 +322,7 @@ function ProjectStatsTab({ project, contributions, expenses }: ProjectStatsTabPr
           </Card>
 
           <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-            <Card className="rounded-2xl">
+            <Card className="min-w-0 rounded-2xl">
               <CardContent className="p-5">
                 <CollapsibleSection icon={TrendingUp} title="Proyección hacia la meta" defaultOpen>
                   <div className="space-y-4">
@@ -384,7 +384,7 @@ function ProjectStatsTab({ project, contributions, expenses }: ProjectStatsTabPr
               </CardContent>
             </Card>
 
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6">
               <Card className="rounded-2xl">
                 <CardContent className="p-5">
                   <CollapsibleSection icon={TrendingUp} title="Aportes por mes" defaultOpen>
