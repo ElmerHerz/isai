@@ -8,6 +8,7 @@ import {
   Calendar,
   Check,
   CheckCircle2,
+  ChevronRight,
   CircleDollarSign,
   Clock,
   Download,
@@ -130,6 +131,29 @@ function StatTile({ icon: Icon, label, value, tone }: { icon: LucideIcon; label:
 // --- Tab de estadísticas -----------------------------------------------------
 
 const MONTH_LABELS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const MONTH_LABELS_FULL = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
+function monthKeyLabel(monthKey: string): string {
+  const [year, month] = monthKey.split('-');
+  return `${MONTH_LABELS_FULL[Number(month) - 1]} ${year}`;
+}
+
+// Agrupa en el orden en que ya vienen (findContributions ordena
+// contributedAt desc) — así los grupos de mes también salen del más
+// reciente al más viejo, sin tener que volver a ordenar acá.
+function groupByMonth<T extends { contributedAt: string }>(items: T[]): [string, T[]][] {
+  const map = new Map<string, T[]>();
+  for (const item of items) {
+    const key = item.contributedAt.slice(0, 7);
+    const group = map.get(key);
+    if (group) group.push(item);
+    else map.set(key, [item]);
+  }
+  return [...map.entries()];
+}
 
 interface ProjectStatsTabProps {
   project: { id: string; name: string; goalAmount: string; targetDate?: string | null; createdAt: string; totalContributed: string };
@@ -760,6 +784,10 @@ function ProjectDetailPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [removingContribution, setRemovingContribution] = useState<ProjectContribution | null>(null);
   const [viewingContribution, setViewingContribution] = useState<ProjectContribution | null>(null);
+  // null = default ("solo el mes más reciente abierto") — se vuelve un Set
+  // real recién cuando el usuario expande/colapsa algo a mano, para no
+  // tener que precalcular el default antes de que lleguen los aportes.
+  const [openContributionMonths, setOpenContributionMonths] = useState<Set<string> | null>(null);
   const [postingContribution, setPostingContribution] = useState<ProjectContribution | null>(null);
   const [addPledgeOpen, setAddPledgeOpen] = useState(false);
   const [removingPledge, setRemovingPledge] = useState<ProjectPledge | null>(null);
@@ -788,6 +816,19 @@ function ProjectDetailPage() {
   const daysTone: StatTone = daysRemaining === null ? 'violet' : daysRemaining < 0 ? 'rose' : daysRemaining <= 7 ? 'amber' : 'violet';
 
   const totalPledged = Number(project.totalPledged);
+
+  const contributionMonthGroups = useMemo(() => groupByMonth(contributions ?? []), [contributions]);
+  const isMonthOpen = (monthKey: string, index: number) =>
+    openContributionMonths ? openContributionMonths.has(monthKey) : index === 0;
+  const toggleMonth = (monthKey: string) => {
+    setOpenContributionMonths((prev) => {
+      const base = prev ?? new Set(contributionMonthGroups.length > 0 ? [contributionMonthGroups[0]![0]] : []);
+      const next = new Set(base);
+      if (next.has(monthKey)) next.delete(monthKey);
+      else next.add(monthKey);
+      return next;
+    });
+  };
 
   const kpis: { label: string; value: string; icon: LucideIcon; tone: StatTone }[] = [
     { label: 'Prometido', value: formatAmount(totalPledged), icon: Handshake, tone: 'violet' },
@@ -945,8 +986,28 @@ function ProjectDetailPage() {
               <p className="text-sm text-muted-foreground">Todavía no se han registrado aportes.</p>
             )}
 
-            <ul className="max-h-[480px] space-y-2 overflow-y-auto pr-1">
-              {contributions?.map((contribution) => (
+            <div className="max-h-[480px] space-y-3 overflow-y-auto pr-1">
+              {contributionMonthGroups.map(([monthKey, items], index) => {
+                const open = isMonthOpen(monthKey, index);
+                const subtotal = items.reduce((sum, c) => sum + Number(c.amount), 0);
+                return (
+                  <div key={monthKey} className="rounded-lg border">
+                    <button
+                      type="button"
+                      onClick={() => toggleMonth(monthKey)}
+                      className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-muted/50"
+                    >
+                      <span className="flex items-center gap-1.5 text-sm font-semibold">
+                        <ChevronRight className={cn('h-4 w-4 shrink-0 transition-transform', open && 'rotate-90')} />
+                        {monthKeyLabel(monthKey)}
+                        <span className="font-normal text-muted-foreground">({items.length})</span>
+                      </span>
+                      <span className="shrink-0 text-sm font-medium text-muted-foreground">{formatAmount(subtotal)}</span>
+                    </button>
+
+                    {open && (
+                      <ul className="space-y-2 border-t p-2">
+              {items.map((contribution) => (
                 <li key={contribution.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
                   <button
                     type="button"
@@ -1014,7 +1075,12 @@ function ProjectDetailPage() {
                   </div>
                 </li>
               ))}
-            </ul>
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
             </CollapsibleSection>
           </CardContent>
         </Card>
