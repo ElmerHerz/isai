@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { UserPlus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,13 +8,32 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { DateInput } from '@/components/ui/date-input';
 import { usePersonsQuery, useGroupsQuery } from '@/modules/membresia';
 import { PersonForm } from '@/modules/membresia/persons/components/person-form';
-import { useCreateProjectContributionMutation } from '@/modules/proyectos';
+import { useCreateProjectContributionMutation, useProjectContributionsQuery } from '@/modules/proyectos';
 import { useAuthStore } from '@/lib/auth-store';
 import { getErrorMessage } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { normalizeText } from '@/lib/normalize-text';
-import { todayLocalDateInput } from '@/lib/format-date';
+import { todayLocalDateInput, formatDate } from '@/lib/format-date';
 import type { PersonWithRelations } from '@isai/shared-types';
+
+// Siguiente mes, mismo día (con clamp si el mes destino es más corto, ej.
+// 31 ene → 28/29 feb) — parseo directo de dígitos, no new Date(iso), por el
+// mismo motivo de huso horario que todayLocalDateInput() (ver format-date.ts).
+function suggestNextMonthDate(lastDateIso: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(lastDateIso);
+  if (!match) return todayLocalDateInput();
+  const year = Number(match[1]);
+  const day = Number(match[3]);
+  let targetYear = year;
+  let targetMonth = Number(match[2]) + 1; // 1-12, antes de normalizar
+  if (targetMonth > 12) {
+    targetMonth = 1;
+    targetYear += 1;
+  }
+  const lastDayOfTargetMonth = new Date(targetYear, targetMonth, 0).getDate();
+  const targetDay = Math.min(day, lastDayOfTargetMonth);
+  return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
+}
 
 interface AddContributionPanelProps {
   projectId: string;
@@ -33,6 +52,9 @@ export function AddContributionPanel({ projectId, institutionId, onDone }: AddCo
   const canViewGroups = permissions.includes('membership.group.view');
   const { data: persons, isLoading: isPersonsLoading } = usePersonsQuery(institutionId, canViewPersons);
   const { data: groups } = useGroupsQuery(institutionId, canViewGroups);
+  // Ya cacheado por la pantalla del proyecto (misma query key) — no dispara
+  // una petición nueva, solo lee lo que ya está en memoria.
+  const { data: contributions } = useProjectContributionsQuery(projectId);
   const mutation = useCreateProjectContributionMutation(projectId);
 
   const [search, setSearch] = useState('');
@@ -48,6 +70,24 @@ export function AddContributionPanel({ projectId, institutionId, onDone }: AddCo
     const term = normalizeText(search.trim());
     return (persons ?? []).filter((p) => !term || normalizeText(`${p.firstName} ${p.lastName}`).includes(term));
   }, [persons, search]);
+
+  // Último aporte de ESTA persona a ESTE proyecto — para mostrarlo de
+  // referencia y sugerir la fecha del siguiente (mismo criterio "aporte
+  // mensual, un mes a la vez" que ya usa el Excel que se importó).
+  const lastContribution = useMemo(() => {
+    if (!personId || !contributions) return null;
+    const mine = contributions.filter((c) => c.personId === personId);
+    if (mine.length === 0) return null;
+    return mine.reduce((latest, c) => (c.contributedAt > latest.contributedAt ? c : latest));
+  }, [contributions, personId]);
+
+  // Al elegir (o cambiar de) persona, sugiere la fecha del mes siguiente a
+  // su último aporte — sigue editable, es solo el punto de partida.
+  useEffect(() => {
+    if (!personId) return;
+    setContributedAt(lastContribution ? suggestNextMonthDate(lastContribution.contributedAt) : todayLocalDateInput());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personId]);
 
   const parsedAmount = Number(amount);
   const isAmountValid = amount.trim() !== '' && Number.isFinite(parsedAmount) && parsedAmount > 0;
@@ -100,18 +140,30 @@ export function AddContributionPanel({ projectId, institutionId, onDone }: AddCo
             ) : (
               <>
                 {personId ? (
-                  <div className="flex items-center justify-between gap-2 rounded-lg border bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
-                    <span className="truncate">Seleccionado: {selectedPersonName}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPersonId('');
-                        setSelectedPersonName('');
-                      }}
-                      className="shrink-0 text-xs font-medium underline-offset-2 hover:underline"
-                    >
-                      Cambiar
-                    </button>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2 rounded-lg border bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
+                      <span className="truncate">Seleccionado: {selectedPersonName}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPersonId('');
+                          setSelectedPersonName('');
+                        }}
+                        className="shrink-0 text-xs font-medium underline-offset-2 hover:underline"
+                      >
+                        Cambiar
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {lastContribution ? (
+                        <>
+                          Último aporte: {formatDate(lastContribution.contributedAt)} — ${Number(lastContribution.amount).toFixed(2)}.
+                          Fecha sugerida abajo: el mes siguiente.
+                        </>
+                      ) : (
+                        'Todavía no tiene aportes registrados en este proyecto.'
+                      )}
+                    </p>
                   </div>
                 ) : (
                   <>
