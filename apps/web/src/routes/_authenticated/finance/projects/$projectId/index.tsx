@@ -621,6 +621,9 @@ function ProjectionLineChart({
           </span>
         )}
       </p>
+      {maxIndex > 5 && (
+        <p className="mt-1 text-center text-xs text-muted-foreground sm:hidden">Desliza para ver toda la línea de tiempo →</p>
+      )}
     </div>
   );
 }
@@ -712,6 +715,9 @@ function MonthlyContributionsBars({ monthly }: { monthly: [string, number][] }) 
         <div className="mt-1 text-xs text-muted-foreground">
           {MONTH_LABELS[Number(hover.month.slice(5, 7)) - 1]}: <span className="font-medium text-foreground">{formatAmount(hover.value)}</span>
         </div>
+      )}
+      {monthly.length > 4 && (
+        <p className="mt-1 text-center text-xs text-muted-foreground sm:hidden">Desliza para ver todos los meses →</p>
       )}
     </div>
   );

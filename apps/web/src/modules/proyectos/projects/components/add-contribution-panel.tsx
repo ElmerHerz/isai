@@ -99,56 +99,67 @@ export function AddContributionPanel({ projectId, institutionId, onDone }: AddCo
               />
             ) : (
               <>
-                <div className="flex items-end gap-2">
-                  <div className="flex-1 space-y-2">
-                    <Label htmlFor="contribution-person-search">Buscar persona</Label>
-                    <Input
-                      id="contribution-person-search"
-                      placeholder="Buscar por nombre..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
+                {personId ? (
+                  <div className="flex items-center justify-between gap-2 rounded-lg border bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
+                    <span className="truncate">Seleccionado: {selectedPersonName}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPersonId('');
+                        setSelectedPersonName('');
+                      }}
+                      className="shrink-0 text-xs font-medium underline-offset-2 hover:underline"
+                    >
+                      Cambiar
+                    </button>
                   </div>
-                  <Button type="button" variant="outline" onClick={() => setQuickAddOpen(true)} className="shrink-0">
-                    <UserPlus className="mr-1.5 h-4 w-4" />
-                    Nueva
-                  </Button>
-                </div>
+                ) : (
+                  <>
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1 space-y-2">
+                        <Label htmlFor="contribution-person-search">Buscar persona</Label>
+                        <Input
+                          id="contribution-person-search"
+                          placeholder="Buscar por nombre..."
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                        />
+                      </div>
+                      <Button type="button" variant="outline" onClick={() => setQuickAddOpen(true)} className="shrink-0">
+                        <UserPlus className="mr-1.5 h-4 w-4" />
+                        Nueva
+                      </Button>
+                    </div>
 
-                {personId && !available.some((p) => p.id === personId) && (
-                  <p className="mt-2 rounded-lg border bg-primary/10 px-3 py-2 text-sm font-medium text-primary">
-                    Seleccionado: {selectedPersonName}
-                  </p>
+                    <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border">
+                      {!canViewPersons && (
+                        <p className="p-3 text-sm text-muted-foreground">No tienes permiso para ver personas.</p>
+                      )}
+                      {canViewPersons && isPersonsLoading && <p className="p-3 text-sm text-muted-foreground">Cargando...</p>}
+                      {canViewPersons && !isPersonsLoading && available.length === 0 && (
+                        <p className="p-3 text-sm text-muted-foreground">
+                          Nadie coincide con esa búsqueda. Si es alguien externo, usa "Nueva" arriba para registrarlo rápido.
+                        </p>
+                      )}
+                      {canViewPersons && !isPersonsLoading &&
+                        available.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              setPersonId(p.id);
+                              setSelectedPersonName(`${p.firstName} ${p.lastName}`);
+                            }}
+                            className={cn(
+                              'flex w-full items-center border-b px-3 py-2 text-left text-sm last:border-b-0 hover:bg-muted/50',
+                            )}
+                          >
+                            {p.firstName} {p.lastName}
+                          </button>
+                        ))}
+                    </div>
+                  </>
                 )}
-
-                <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border">
-                  {!canViewPersons && (
-                    <p className="p-3 text-sm text-muted-foreground">No tienes permiso para ver personas.</p>
-                  )}
-                  {canViewPersons && isPersonsLoading && <p className="p-3 text-sm text-muted-foreground">Cargando...</p>}
-                  {canViewPersons && !isPersonsLoading && available.length === 0 && (
-                    <p className="p-3 text-sm text-muted-foreground">
-                      Nadie coincide con esa búsqueda. Si es alguien externo, usa "Nueva" arriba para registrarlo rápido.
-                    </p>
-                  )}
-                  {canViewPersons && !isPersonsLoading &&
-                    available.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => {
-                          setPersonId(p.id);
-                          setSelectedPersonName(`${p.firstName} ${p.lastName}`);
-                        }}
-                        className={cn(
-                          'flex w-full items-center border-b px-3 py-2 text-left text-sm last:border-b-0 hover:bg-muted/50',
-                          personId === p.id && 'bg-primary/10 font-medium text-primary',
-                        )}
-                      >
-                        {p.firstName} {p.lastName}
-                      </button>
-                    ))}
-                </div>
               </>
             )}
           </TabsContent>
