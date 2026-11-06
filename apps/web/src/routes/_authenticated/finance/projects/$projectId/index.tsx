@@ -753,6 +753,7 @@ function ProjectDetailPage() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [removingContribution, setRemovingContribution] = useState<ProjectContribution | null>(null);
+  const [viewingContribution, setViewingContribution] = useState<ProjectContribution | null>(null);
   const [postingContribution, setPostingContribution] = useState<ProjectContribution | null>(null);
   const [addPledgeOpen, setAddPledgeOpen] = useState(false);
   const [removingPledge, setRemovingPledge] = useState<ProjectPledge | null>(null);
@@ -946,10 +947,14 @@ function ProjectDetailPage() {
             <ul className="max-h-[480px] space-y-2 overflow-y-auto pr-1">
               {contributions?.map((contribution) => (
                 <li key={contribution.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{contributorLabel(contribution)}</p>
+                  <button
+                    type="button"
+                    onClick={() => setViewingContribution(contribution)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <p className="truncate text-sm font-medium hover:underline">{contributorLabel(contribution)}</p>
                     <p className="truncate text-xs text-muted-foreground">{formatDate(contribution.contributedAt)}</p>
-                  </div>
+                  </button>
                   <div className="flex shrink-0 items-center gap-2">
                     <span className="text-sm font-medium">{formatAmount(contribution.amount)}</span>
                     {contribution.documentNumber ? (
@@ -1245,6 +1250,54 @@ function ProjectDetailPage() {
           });
         }}
       />
+
+      <Dialog open={!!viewingContribution} onOpenChange={(open) => !open && setViewingContribution(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Detalle del aporte</DialogTitle>
+            <DialogDescription>
+              {viewingContribution && `Registrado el ${formatDate(viewingContribution.createdAt)}.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {viewingContribution && (
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Aportante</span>
+                <span className="font-medium">{contributorLabel(viewingContribution)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Monto</span>
+                <span className="font-medium">{formatAmount(viewingContribution.amount)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Fecha del aporte</span>
+                <span className="font-medium">{formatDate(viewingContribution.contributedAt)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Comprobante</span>
+                <span className="font-medium">{viewingContribution.documentNumber ?? 'No generado'}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Contabilizado</span>
+                <span className="font-medium">{viewingContribution.journalEntryId ? 'Sí' : 'No'}</span>
+              </div>
+              {viewingContribution.notes && (
+                <div className="border-t pt-3">
+                  <p className="text-muted-foreground">Notas</p>
+                  <p className="mt-1">{viewingContribution.notes}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setViewingContribution(null)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={!!removingContribution}
