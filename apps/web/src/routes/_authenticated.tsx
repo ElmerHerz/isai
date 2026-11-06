@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createFileRoute, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
 import { ChevronRight, Home, LogOut, Menu, Moon, Sun } from 'lucide-react';
@@ -33,6 +33,23 @@ function AuthenticatedLayout() {
   const { sectionLabel, itemLabel, colorHex } = useCurrentMenuNode();
   const theme = useThemeStore((state) => state.theme);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
+
+  // Red de seguridad además del `navigate` que ya hace login.tsx al entrar:
+  // cualquier otra forma de llegar aquí con mustChangePassword=true (un
+  // admin te restablece la contraseña mientras ya tenías sesión abierta,
+  // una recarga, etc.) te saca antes de que el resto del layout alcance a
+  // montar y disparar sus propias queries (que de otro modo 403'ían una por
+  // una contra MustChangePasswordGuard y se verían como toasts de error en
+  // vez de la redirección limpia).
+  useEffect(() => {
+    if (user?.mustChangePassword) {
+      navigate({ to: '/change-password' });
+    }
+  }, [user, navigate]);
+
+  if (user?.mustChangePassword) {
+    return null;
+  }
 
   return (
     // h-dvh (no h-screen/100vh): en Safari/iOS, 100vh se calcula con la
