@@ -7,8 +7,14 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const variantClasses: Record<NonNullable<ButtonProps['variant']>, string> = {
-  default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-  outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
+  default: 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
+  // El borde de --input es gris casi blanco (91% luminosidad) — a secas se
+  // perdía contra el borde de la tarjeta que lo rodea, quedando como un
+  // botón "invisible". border-2 + un gris más oscuro + sombra lo separa del
+  // fondo sin competir con el azul sólido de "default" (hallazgo de sesión:
+  // "la mayoría son blancos, no resaltan").
+  outline:
+    'border-2 border-slate-300 bg-background shadow-sm hover:border-slate-400 hover:bg-accent hover:text-accent-foreground dark:border-slate-600 dark:hover:border-slate-500',
   ghost: 'hover:bg-accent hover:text-accent-foreground',
   // Para botones sobre un banner de color (ver PageHeader) — blanco translúcido.
   translucent: 'border border-white/40 bg-white/20 text-white backdrop-blur-sm hover:bg-white/30',
