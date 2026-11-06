@@ -216,7 +216,7 @@ function GroupFundDetailPage() {
               <p className="text-sm text-muted-foreground">Todavía no hay movimientos registrados en este fondo.</p>
             )}
 
-            <ul className="space-y-2">
+            <ul className="max-h-[480px] space-y-2 overflow-y-auto pr-1">
               {fundMovements?.map((movement) => (
                 <li key={movement.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2">
                   <div className="flex min-w-0 items-center gap-2">

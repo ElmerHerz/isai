@@ -143,7 +143,7 @@ function ApprovalsPage() {
       return <p className="text-sm text-muted-foreground">No hay gastos pendientes de aprobación.</p>;
     }
     return (
-      <ul className="space-y-2">
+      <ul className="max-h-[480px] space-y-2 overflow-y-auto pr-1">
         {rows.map((row) => (
           <PendingApprovalCard
             key={row.requestId}

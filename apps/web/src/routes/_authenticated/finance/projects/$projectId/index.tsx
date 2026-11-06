@@ -943,7 +943,7 @@ function ProjectDetailPage() {
               <p className="text-sm text-muted-foreground">Todavía no se han registrado aportes.</p>
             )}
 
-            <ul className="space-y-2">
+            <ul className="max-h-[480px] space-y-2 overflow-y-auto pr-1">
               {contributions?.map((contribution) => (
                 <li key={contribution.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
                   <div className="min-w-0">
@@ -1052,7 +1052,7 @@ function ProjectDetailPage() {
               <p className="text-sm text-muted-foreground">Todavía no hay compromisos de aporte registrados.</p>
             )}
 
-            <ul className="space-y-2">
+            <ul className="max-h-[480px] space-y-2 overflow-y-auto pr-1">
               {pledges?.map((pledge) => (
                 <li key={pledge.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
                   <div className="min-w-0">
@@ -1116,7 +1116,7 @@ function ProjectDetailPage() {
               <p className="text-sm text-muted-foreground">Todavía no se han registrado gastos.</p>
             )}
 
-            <ul className="space-y-2">
+            <ul className="max-h-[480px] space-y-2 overflow-y-auto pr-1">
               {expenses?.map((expense) => (
                 <li key={expense.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
                   <div className="min-w-0">
