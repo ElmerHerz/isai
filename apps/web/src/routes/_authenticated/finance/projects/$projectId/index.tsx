@@ -797,6 +797,14 @@ function ProjectDetailPage() {
   const [rejectingExpense, setRejectingExpense] = useState<ProjectExpense | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
+  // Hook — tiene que llamarse siempre en el mismo orden en cada render, así
+  // que va antes de los `return` condicionales de abajo (isError/isLoading).
+  // Quedó después por error en la primera versión: en la navegación fresca
+  // (isLoading true→false entre un render y el siguiente) React detectaba
+  // un hook de más y tiraba toda la pantalla con "Something went wrong" —
+  // solo se veía bien si los datos ya estaban en caché de una visita previa.
+  const contributionMonthGroups = useMemo(() => groupByMonth(contributions ?? []), [contributions]);
+
   if (isError) {
     return <QueryErrorState message="No se pudo cargar el proyecto." onRetry={() => refetch()} />;
   }
@@ -817,7 +825,6 @@ function ProjectDetailPage() {
 
   const totalPledged = Number(project.totalPledged);
 
-  const contributionMonthGroups = useMemo(() => groupByMonth(contributions ?? []), [contributions]);
   const isMonthOpen = (monthKey: string, index: number) =>
     openContributionMonths ? openContributionMonths.has(monthKey) : index === 0;
   const toggleMonth = (monthKey: string) => {
