@@ -456,11 +456,14 @@ export interface Project {
   targetDate?: string | null;
   status: 'active' | 'completed' | 'cancelled';
   incomeAccountId?: string | null;
+  cashAccountId?: string | null;
   createdBy?: string | null;
   createdAt: string;
   updatedAt: string;
   branch: { id: string; name: string };
   incomeAccount?: { id: string; code: string; name: string } | null;
+  /** Caja propia del proyecto — si es null, Contabilizar usa la caja por defecto de la sucursal. */
+  cashAccount?: { id: string; code: string; name: string } | null;
   /** Suma de TODOS los aportes (contabilizados o no) — el KPI de avance no espera a "Contabilizar". */
   totalContributed: string;
   /** Suma de TODOS los gastos (contabilizados o no) — mismo criterio que totalContributed. */

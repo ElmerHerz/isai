@@ -43,6 +43,7 @@ model Account {
   branchesDefaultCogs Branch[]           @relation("BranchDefaultCogsAccount")
   branchesDefaultReceivable Branch[]     @relation("BranchDefaultReceivableAccount")
   projectsIncome   Project[]             @relation("ProjectIncomeAccount")
+  projectsCash     Project[]             @relation("ProjectCashAccount")
   projectExpenses  ProjectExpense[]      @relation("ProjectExpenseAccount")
   groupsCash       Group[]               @relation("GroupCashAccount")
   budgetLines      BudgetLine[]

@@ -35,4 +35,12 @@ export class CreateProjectDto {
   @Transform(emptyToUndefined)
   @IsUUID('loose') @IsOptional()
   incomeAccountId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Caja propia del proyecto (ej. la caja de un grupo que administra su propio dinero) — si no se indica, se usa la caja por defecto de la sucursal',
+  })
+  @Transform(emptyToUndefined)
+  @IsUUID('loose') @IsOptional()
+  cashAccountId?: string;
 }

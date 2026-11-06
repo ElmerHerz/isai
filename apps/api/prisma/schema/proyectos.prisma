@@ -31,6 +31,10 @@ model Project {
   // de Sonido"). Null = falta configurar, bloquea Contabilizar — mismo
   // patrón que FundType.incomeAccountId.
   incomeAccountId String?   @map("income_account_id")
+  // Caja propia del proyecto (ej. cuando lo administra un grupo con su
+  // propia caja, Group.cashAccountId) — null = usa branch.default_cash_
+  // account_id, igual que siempre (ver comentario de branchId arriba).
+  cashAccountId   String?   @map("cash_account_id")
   createdBy       String?   @map("created_by")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
@@ -39,6 +43,7 @@ model Project {
   institution   Institution           @relation(fields: [institutionId], references: [id])
   branch        Branch                @relation(fields: [branchId], references: [id])
   incomeAccount Account?              @relation("ProjectIncomeAccount", fields: [incomeAccountId], references: [id])
+  cashAccount   Account?              @relation("ProjectCashAccount", fields: [cashAccountId], references: [id])
   createdByUser User?                 @relation("ProjectCreatedBy", fields: [createdBy], references: [id])
   contributions ProjectContribution[]
   expenses      ProjectExpense[]

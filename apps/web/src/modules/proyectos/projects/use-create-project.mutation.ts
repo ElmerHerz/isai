@@ -12,6 +12,7 @@ export interface CreateProjectInput {
   goalAmount: number;
   targetDate?: string;
   incomeAccountId?: string;
+  cashAccountId?: string;
 }
 
 export function useCreateProjectMutation() {

@@ -16,6 +16,7 @@ import { getErrorMessage } from '@/lib/toast';
 import type { Project } from '@isai/shared-types';
 
 const INCOME_ACCOUNT_TYPE = 'INCOME';
+const ASSET_ACCOUNT_TYPE = 'ASSET';
 
 const projectSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido').max(150),
@@ -24,6 +25,7 @@ const projectSchema = z.object({
   goalAmount: z.string().min(1, 'La meta es requerida'),
   targetDate: z.string().optional(),
   incomeAccountId: z.string().optional(),
+  cashAccountId: z.string().optional(),
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
@@ -35,6 +37,7 @@ const EMPTY_VALUES: ProjectFormValues = {
   goalAmount: '',
   targetDate: '',
   incomeAccountId: '',
+  cashAccountId: '',
 };
 
 interface ProjectFormProps {
@@ -53,6 +56,7 @@ export function ProjectForm({ institutionId, project, onSaved }: ProjectFormProp
   const { data: branches } = useBranchesQuery(institutionId, canViewBranches);
   const { data: accounts } = useAccountsQuery(undefined, canViewAccounts);
   const incomeAccounts = accounts?.filter((a) => a.accountType.code === INCOME_ACCOUNT_TYPE && a.allowsTransactions) ?? [];
+  const cashAccounts = accounts?.filter((a) => a.accountType.code === ASSET_ACCOUNT_TYPE && a.allowsTransactions) ?? [];
   const createMutation = useCreateProjectMutation();
   const updateMutation = useUpdateProjectMutation();
   const mutation = isEditing ? updateMutation : createMutation;
@@ -72,6 +76,7 @@ export function ProjectForm({ institutionId, project, onSaved }: ProjectFormProp
           goalAmount: project.goalAmount,
           targetDate: project.targetDate?.slice(0, 10) ?? '',
           incomeAccountId: project.incomeAccountId ?? '',
+          cashAccountId: project.cashAccountId ?? '',
         }
       : EMPTY_VALUES,
   });
@@ -83,6 +88,7 @@ export function ProjectForm({ institutionId, project, onSaved }: ProjectFormProp
       goalAmount: Number(values.goalAmount),
       targetDate: values.targetDate || undefined,
       incomeAccountId: values.incomeAccountId || undefined,
+      cashAccountId: values.cashAccountId || undefined,
     };
 
     if (isEditing) {
@@ -176,6 +182,30 @@ export function ProjectForm({ institutionId, project, onSaved }: ProjectFormProp
             />
             <p className="text-xs text-muted-foreground">
               A qué cuenta se contabilizan los aportes de este proyecto. Se puede configurar después.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="cashAccountId">Caja propia del proyecto (opcional)</Label>
+            <Controller
+              name="cashAccountId"
+              control={control}
+              render={({ field }) => (
+                <Combobox
+                  id="cashAccountId"
+                  options={cashAccounts}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  getOptionValue={(account) => account.id}
+                  getOptionLabel={(account) => `${account.code} · ${account.name}`}
+                  placeholder="Sin configurar — usa la caja de la sucursal"
+                  searchPlaceholder="Buscar por código o nombre..."
+                />
+              )}
+            />
+            <p className="text-xs text-muted-foreground">
+              Si el dinero de este proyecto se guarda en una caja distinta a la general (ej. la de un grupo), elígela
+              aquí. Si no, Contabilizar usa la caja por defecto de la sucursal.
             </p>
           </div>
 

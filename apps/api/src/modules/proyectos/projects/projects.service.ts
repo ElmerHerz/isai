@@ -15,6 +15,7 @@ import type { RequestUser } from '../../../common/decorators/current-user.decora
 const include = {
   branch: { select: { id: true, name: true } },
   incomeAccount: { select: { id: true, code: true, name: true } },
+  cashAccount: { select: { id: true, code: true, name: true } },
 };
 
 const contributionsInclude = {
@@ -176,6 +177,9 @@ export class ProjectsService {
     if (dto.incomeAccountId) {
       await this.assertAccountBelongsToTenant(dto.incomeAccountId, institution.tenantId);
     }
+    if (dto.cashAccountId) {
+      await this.assertAccountBelongsToTenant(dto.cashAccountId, institution.tenantId);
+    }
 
     const project = await this.prisma.project.create({
       data: {
@@ -187,6 +191,7 @@ export class ProjectsService {
         goalAmount: dto.goalAmount,
         targetDate: dto.targetDate ? new Date(dto.targetDate) : undefined,
         incomeAccountId: dto.incomeAccountId,
+        cashAccountId: dto.cashAccountId,
         createdBy: user.userId,
       },
       include,
@@ -200,6 +205,9 @@ export class ProjectsService {
     if (dto.incomeAccountId) {
       await this.assertAccountBelongsToTenant(dto.incomeAccountId, project.tenantId);
     }
+    if (dto.cashAccountId) {
+      await this.assertAccountBelongsToTenant(dto.cashAccountId, project.tenantId);
+    }
 
     const updated = await this.prisma.project.update({
       where: { id },
@@ -209,6 +217,7 @@ export class ProjectsService {
         goalAmount: dto.goalAmount,
         targetDate: dto.targetDate ? new Date(dto.targetDate) : undefined,
         incomeAccountId: dto.incomeAccountId,
+        cashAccountId: dto.cashAccountId,
         status: dto.status,
       },
       include,
@@ -377,9 +386,24 @@ export class ProjectsService {
   // EventsService y GroupFundsService para que la lógica contable nunca
   // diverja entre los distintos orígenes de asiento.
 
+  // La caja es la propia del proyecto si se configuró una (Project.
+  // cashAccountId — ej. un proyecto que administra un grupo con su propia
+  // caja, mismo campo que Group.cashAccountId en GroupFundsService); si no,
+  // cae a la caja por defecto de la sucursal, como siempre.
+  private async resolveProjectCashAccountId(project: { branchId: string; cashAccountId: string | null }) {
+    if (project.cashAccountId) return project.cashAccountId;
+    const branch = await this.prisma.branch.findUnique({ where: { id: project.branchId } });
+    if (!branch?.defaultCashAccountId) {
+      throw new BadRequestException(
+        'La sucursal de este proyecto no tiene una cuenta de caja configurada. Configúrala antes de contabilizar.',
+      );
+    }
+    return branch.defaultCashAccountId;
+  }
+
   // Mismo patrón exacto que EventsService::postFundCollectionToLedger —
-  // debe Caja de la sucursal del proyecto, haber la cuenta de ingreso del
-  // proyecto.
+  // debe Caja del proyecto (la propia si se configuró, si no la de su
+  // sucursal), haber la cuenta de ingreso del proyecto.
   async postContributionToLedger(
     projectId: string,
     contributionId: string,
@@ -401,12 +425,7 @@ export class ProjectsService {
       );
     }
 
-    const branch = await this.prisma.branch.findUnique({ where: { id: project.branchId } });
-    if (!branch?.defaultCashAccountId) {
-      throw new BadRequestException(
-        'La sucursal de este proyecto no tiene una cuenta de caja configurada. Configúrala antes de contabilizar.',
-      );
-    }
+    const cashAccountId = await this.resolveProjectCashAccountId(project);
 
     return this.prisma.$transaction(async (tx) => {
       const journalEntry = await this.ledger.postEntry(tx, {
@@ -420,7 +439,7 @@ export class ProjectsService {
         createdBy: user.userId,
         lines: [
           {
-            accountId: branch.defaultCashAccountId!,
+            accountId: cashAccountId,
             groupId: contribution.groupId,
             projectId: project.id,
             debitAmount: contribution.amount,
@@ -647,12 +666,7 @@ export class ProjectsService {
       throw new BadRequestException('Este gasto fue rechazado — elimínalo y registra uno corregido.');
     }
 
-    const branch = await this.prisma.branch.findUnique({ where: { id: project.branchId } });
-    if (!branch?.defaultCashAccountId) {
-      throw new BadRequestException(
-        'La sucursal de este proyecto no tiene una cuenta de caja configurada. Configúrala antes de contabilizar.',
-      );
-    }
+    const cashAccountId = await this.resolveProjectCashAccountId(project);
 
     return this.prisma.$transaction(async (tx) => {
       const journalEntry = await this.ledger.postEntry(tx, {
@@ -672,7 +686,7 @@ export class ProjectsService {
             description: project.name,
           },
           {
-            accountId: branch.defaultCashAccountId!,
+            accountId: cashAccountId,
             projectId: project.id,
             creditAmount: expense.amount,
             description: 'Caja',

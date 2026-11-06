@@ -11,6 +11,7 @@ export interface UpdateProjectInput {
   goalAmount?: number;
   targetDate?: string;
   incomeAccountId?: string;
+  cashAccountId?: string;
   status?: 'active' | 'completed' | 'cancelled';
 }
 
