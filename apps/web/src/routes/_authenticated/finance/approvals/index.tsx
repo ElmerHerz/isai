@@ -91,11 +91,11 @@ function PendingApprovalCard({ row, showWaitingOn, canDecide, onApprove, onRejec
         <span className="text-sm font-semibold">{formatAmount(row.amount)}</span>
         {canDecide ? (
           <>
-            <Button variant="ghost" size="icon" onClick={onApprove} disabled={isPending} aria-label="Aprobar" title="Aprobar">
-              <Check className="h-4 w-4 text-emerald-600" />
+            <Button variant="approve" size="icon" onClick={onApprove} disabled={isPending} aria-label="Aprobar" title="Aprobar">
+              <Check className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={onReject} disabled={isPending} aria-label="Rechazar" title="Rechazar">
-              <Ban className="h-4 w-4 text-destructive" />
+            <Button variant="reject" size="icon" onClick={onReject} disabled={isPending} aria-label="Rechazar" title="Rechazar">
+              <Ban className="h-4 w-4" />
             </Button>
           </>
         ) : (

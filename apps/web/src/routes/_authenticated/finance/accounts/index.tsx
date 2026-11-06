@@ -114,7 +114,7 @@ function AccountsPage() {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeletingAccount(account)} aria-label="Eliminar">
+                      <Button variant="delete" size="icon" onClick={() => setDeletingAccount(account)} aria-label="Eliminar">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -179,7 +179,7 @@ function AccountsPage() {
                           <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="delete"
                           size="icon"
                           onClick={() => setDeletingAccount(account)}
                           aria-label="Eliminar"

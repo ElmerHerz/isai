@@ -142,7 +142,7 @@ function GroupFundDetailPage() {
               {!fundMovementType && (
                 <div className="flex gap-2">
                   <Button
-                    variant="outline"
+                    variant="create"
                     size="sm"
                     disabled={!group.cashAccountId}
                     onClick={() => setFundMovementType('income')}
@@ -151,7 +151,7 @@ function GroupFundDetailPage() {
                     Ingreso
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="create"
                     size="sm"
                     disabled={!group.cashAccountId}
                     onClick={() => setFundMovementType('expense')}
@@ -270,27 +270,27 @@ function GroupFundDetailPage() {
                           {movement.canCurrentUserApprove && (
                             <>
                               <Button
-                                variant="ghost"
+                                variant="approve"
                                 size="icon"
                                 onClick={() => approveExpenseMutation.mutate(movement.id)}
                                 aria-label="Aprobar"
                                 title="Aprobar"
                               >
-                                <Check className="h-4 w-4 text-emerald-600" />
+                                <Check className="h-4 w-4" />
                               </Button>
                               <Button
-                                variant="ghost"
+                                variant="reject"
                                 size="icon"
                                 onClick={() => setRejectingExpense(movement)}
                                 aria-label="Rechazar"
                                 title="Rechazar"
                               >
-                                <Ban className="h-4 w-4 text-destructive" />
+                                <Ban className="h-4 w-4" />
                               </Button>
                             </>
                           )}
                           <Button
-                            variant="ghost"
+                            variant="delete"
                             size="icon"
                             onClick={() => setRemovingExpense(movement)}
                             aria-label="Eliminar"
@@ -306,7 +306,7 @@ function GroupFundDetailPage() {
                             Rechazado
                           </span>
                           <Button
-                            variant="ghost"
+                            variant="delete"
                             size="icon"
                             onClick={() => setRemovingExpense(movement)}
                             aria-label="Eliminar"
@@ -318,7 +318,7 @@ function GroupFundDetailPage() {
                       ) : (
                         <>
                           <Button
-                            variant="ghost"
+                            variant="post"
                             size="icon"
                             onClick={() => setPostingExpense(movement)}
                             aria-label="Contabilizar"
@@ -327,7 +327,7 @@ function GroupFundDetailPage() {
                             <Landmark className="h-4 w-4" />
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="delete"
                             size="icon"
                             onClick={() => setRemovingExpense(movement)}
                             aria-label="Eliminar"

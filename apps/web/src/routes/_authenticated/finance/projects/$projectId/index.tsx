@@ -841,19 +841,14 @@ function ProjectDetailPage() {
               </div>
               <div className="flex shrink-0 gap-2">
                 <Button
-                  variant="outline"
+                  variant="edit"
                   size="sm"
                   onClick={() => navigate({ to: '/finance/projects/$projectId/edit', params: { projectId } })}
                 >
                   <Pencil className="mr-1.5 h-4 w-4" />
                   Editar
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950/40"
-                  onClick={() => setRemovingProject(true)}
-                >
+                <Button variant="delete" size="sm" onClick={() => setRemovingProject(true)}>
                   <Trash2 className="mr-1.5 h-4 w-4" />
                   Eliminar
                 </Button>
@@ -919,7 +914,7 @@ function ProjectDetailPage() {
               defaultOpen
               action={
                 !addOpen && (
-                  <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
+                  <Button variant="create" size="sm" onClick={() => setAddOpen(true)}>
                     <Plus className="mr-1.5 h-4 w-4" />
                     Agregar
                   </Button>
@@ -997,7 +992,7 @@ function ProjectDetailPage() {
                     ) : (
                       <>
                         <Button
-                          variant="ghost"
+                          variant="post"
                           size="icon"
                           onClick={() => setPostingContribution(contribution)}
                           aria-label="Contabilizar"
@@ -1006,7 +1001,7 @@ function ProjectDetailPage() {
                           <Landmark className="h-4 w-4" />
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="delete"
                           size="icon"
                           onClick={() => setRemovingContribution(contribution)}
                           aria-label="Eliminar"
@@ -1032,7 +1027,7 @@ function ProjectDetailPage() {
               defaultOpen={false}
               action={
                 !addPledgeOpen && (
-                  <Button variant="outline" size="sm" onClick={() => setAddPledgeOpen(true)}>
+                  <Button variant="create" size="sm" onClick={() => setAddPledgeOpen(true)}>
                     <Plus className="mr-1.5 h-4 w-4" />
                     Agregar
                   </Button>
@@ -1076,7 +1071,7 @@ function ProjectDetailPage() {
                   <div className="flex shrink-0 items-center gap-2">
                     <span className="text-sm font-medium">{formatAmount(pledge.amount)}</span>
                     <Button
-                      variant="ghost"
+                      variant="delete"
                       size="icon"
                       onClick={() => setRemovingPledge(pledge)}
                       aria-label="Eliminar"
@@ -1100,7 +1095,7 @@ function ProjectDetailPage() {
               defaultOpen={false}
               action={
                 !addExpenseOpen && (
-                  <Button variant="outline" size="sm" onClick={() => setAddExpenseOpen(true)}>
+                  <Button variant="create" size="sm" onClick={() => setAddExpenseOpen(true)}>
                     <Plus className="mr-1.5 h-4 w-4" />
                     Agregar
                   </Button>
@@ -1162,27 +1157,27 @@ function ProjectDetailPage() {
                         {expense.canCurrentUserApprove && (
                           <>
                             <Button
-                              variant="ghost"
+                              variant="approve"
                               size="icon"
                               onClick={() => approveExpenseMutation.mutate(expense.id)}
                               aria-label="Aprobar"
                               title="Aprobar"
                             >
-                              <Check className="h-4 w-4 text-emerald-600" />
+                              <Check className="h-4 w-4" />
                             </Button>
                             <Button
-                              variant="ghost"
+                              variant="reject"
                               size="icon"
                               onClick={() => setRejectingExpense(expense)}
                               aria-label="Rechazar"
                               title="Rechazar"
                             >
-                              <Ban className="h-4 w-4 text-destructive" />
+                              <Ban className="h-4 w-4" />
                             </Button>
                           </>
                         )}
                         <Button
-                          variant="ghost"
+                          variant="delete"
                           size="icon"
                           onClick={() => setRemovingExpense(expense)}
                           aria-label="Eliminar"
@@ -1198,7 +1193,7 @@ function ProjectDetailPage() {
                           Rechazado
                         </span>
                         <Button
-                          variant="ghost"
+                          variant="delete"
                           size="icon"
                           onClick={() => setRemovingExpense(expense)}
                           aria-label="Eliminar"
@@ -1210,7 +1205,7 @@ function ProjectDetailPage() {
                     ) : (
                       <>
                         <Button
-                          variant="ghost"
+                          variant="post"
                           size="icon"
                           onClick={() => setPostingExpense(expense)}
                           aria-label="Contabilizar"
@@ -1219,7 +1214,7 @@ function ProjectDetailPage() {
                           <Landmark className="h-4 w-4" />
                         </Button>
                         <Button
-                          variant="ghost"
+                          variant="delete"
                           size="icon"
                           onClick={() => setRemovingExpense(expense)}
                           aria-label="Eliminar"
