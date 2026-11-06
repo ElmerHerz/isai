@@ -10,7 +10,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Combobox } from '@/components/ui/combobox';
 import { Switch } from '@/components/ui/switch';
 import { useCatalogItemsQuery } from '@/modules/general';
-import { useAccountsQuery, useCreateAccountMutation } from '@/modules/finanzas';
+import { useAccountsQuery, useCreateAccountMutation, useUpdateAccountMutation } from '@/modules/finanzas';
 import { getErrorMessage } from '@/lib/toast';
 import type { Account } from '@isai/shared-types';
 
@@ -58,17 +58,23 @@ interface AccountFormProps {
   onSaved: () => void;
   /** Solo para superadmin: a qué tenant pertenece la cuenta nueva. */
   tenantId?: string;
+  /** Si viene, el form edita esta cuenta en vez de crear una nueva. */
+  account?: Account;
 }
 
-// Solo alta — sin edición todavía (ver plan de sesión, recorte 1 de
-// finanzas). El signo (débito/crédito) lo deriva el backend del tipo
-// elegido, no se pide acá. Transaccionable por defecto; "Cuenta de
-// agrupación" la deja como encabezado sin movimientos propios (ej. "4000
-// Ingresos"), ver docs/finanzas-mejoras-propuestas.md §4.
-export function AccountForm({ onSaved, tenantId }: AccountFormProps) {
+// El signo (débito/crédito) lo deriva el backend del tipo elegido, no se
+// pide acá. Transaccionable por defecto; "Cuenta de agrupación" la deja
+// como encabezado sin movimientos propios (ej. "4000 Ingresos"), ver
+// docs/finanzas-mejoras-propuestas.md §4. Editando una cuenta existente, el
+// tipo queda fijo (ver UpdateAccountDto — cambiarlo invalidaría el signo de
+// todo su historial de movimientos, no es algo que se deba poder tocar).
+export function AccountForm({ onSaved, tenantId, account }: AccountFormProps) {
+  const isEditing = !!account;
   const { data: accountTypes } = useCatalogItemsQuery(ACCOUNT_TYPE_CATALOG_CODE);
   const { data: accounts } = useAccountsQuery(tenantId);
-  const mutation = useCreateAccountMutation();
+  const createMutation = useCreateAccountMutation();
+  const updateMutation = useUpdateAccountMutation();
+  const mutation = isEditing ? updateMutation : createMutation;
 
   const {
     register,
@@ -79,19 +85,46 @@ export function AccountForm({ onSaved, tenantId }: AccountFormProps) {
     formState: { errors, dirtyFields },
   } = useForm<AccountFormValues>({
     resolver: zodResolver(accountSchema),
-    defaultValues: EMPTY_VALUES,
+    defaultValues: account
+      ? {
+          code: account.code,
+          name: account.name,
+          accountTypeId: account.accountTypeId,
+          parentAccountId: account.parentAccountId ?? '',
+          isGrouping: !account.allowsTransactions,
+        }
+      : EMPTY_VALUES,
   });
 
   const parentAccountId = watch('parentAccountId');
   useEffect(() => {
-    if (!parentAccountId || dirtyFields.code || !accounts) return;
+    if (isEditing || !parentAccountId || dirtyFields.code || !accounts) return;
     const suggested = suggestNextCode(parentAccountId, accounts);
     if (suggested) setValue('code', suggested);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parentAccountId, accounts]);
+  }, [parentAccountId, accounts, isEditing]);
+
+  // Una cuenta no puede ser padre de sí misma, ni de sus propios hijos
+  // directos quedando ella como nieta — el backend solo valida "de sí
+  // misma", pero ya que estamos filtrando, quitamos al menos la propia.
+  const parentOptions = (accounts ?? []).filter((a) => a.id !== account?.id);
 
   const onSubmit = (values: AccountFormValues) => {
-    mutation.mutate(
+    if (isEditing) {
+      updateMutation.mutate(
+        {
+          id: account.id,
+          code: values.code,
+          name: values.name,
+          parentAccountId: values.parentAccountId || undefined,
+          allowsTransactions: !values.isGrouping,
+        },
+        { onSuccess: onSaved },
+      );
+      return;
+    }
+
+    createMutation.mutate(
       {
         code: values.code,
         name: values.name,
@@ -107,8 +140,12 @@ export function AccountForm({ onSaved, tenantId }: AccountFormProps) {
   return (
     <Card className="mt-4 rounded-2xl">
       <CardContent className="p-4">
-        <h2 className="mb-1 text-sm font-semibold">Nueva cuenta</h2>
-        <p className="mb-4 text-xs text-muted-foreground">Se agrega solo para tu organización — otros tenants no la verán.</p>
+        <h2 className="mb-1 text-sm font-semibold">{isEditing ? 'Editar cuenta' : 'Nueva cuenta'}</h2>
+        <p className="mb-4 text-xs text-muted-foreground">
+          {isEditing
+            ? 'El tipo de cuenta no se puede cambiar una vez creada — si lo elegiste mal, crea una cuenta nueva.'
+            : 'Se agrega solo para tu organización — otros tenants no la verán.'}
+        </p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
@@ -117,7 +154,7 @@ export function AccountForm({ onSaved, tenantId }: AccountFormProps) {
               name="accountTypeId"
               control={control}
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value} onValueChange={field.onChange} disabled={isEditing}>
                   <SelectTrigger id="accountTypeId">
                     <SelectValue placeholder="Selecciona un tipo" />
                   </SelectTrigger>
@@ -142,7 +179,7 @@ export function AccountForm({ onSaved, tenantId }: AccountFormProps) {
               render={({ field }) => (
                 <Combobox
                   id="parentAccountId"
-                  options={accounts ?? []}
+                  options={parentOptions}
                   value={field.value ?? ''}
                   onChange={field.onChange}
                   getOptionValue={(account) => account.id}

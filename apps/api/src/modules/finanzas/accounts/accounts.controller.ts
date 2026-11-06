@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, ParseUUIDPipe, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AccountsService } from './accounts.service';
 import { CreateAccountDto } from './dto/create-account.dto';
+import { UpdateAccountDto } from './dto/update-account.dto';
 import { RequirePermission } from '../../../common/decorators/require-permission.decorator';
 import { CurrentTenant } from '../../../common/decorators/current-tenant.decorator';
 import { CurrentUser, RequestUser } from '../../../common/decorators/current-user.decorator';
@@ -24,5 +25,24 @@ export class AccountsController {
   @ApiOperation({ summary: 'Crear una cuenta nueva en el tenant activo (siempre transaccionable)' })
   create(@Body() dto: CreateAccountDto, @CurrentTenant() tenantId: string | null) {
     return this.accountsService.create(tenantId, dto);
+  }
+
+  @Patch(':id')
+  @RequirePermission('finance.account.update')
+  @ApiOperation({ summary: 'Editar código/nombre/cuenta padre/transaccionable (el tipo de cuenta no se puede cambiar)' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateAccountDto,
+    @CurrentTenant() tenantId: string | null,
+  ) {
+    return this.accountsService.update(id, tenantId, dto);
+  }
+
+  @Delete(':id')
+  @RequirePermission('finance.account.delete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Eliminar una cuenta (solo si no está en uso)' })
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentTenant() tenantId: string | null) {
+    return this.accountsService.remove(id, tenantId);
   }
 }

@@ -7,6 +7,8 @@
 
 export { useAccountsQuery, accountsQueryKey } from './accounts/use-accounts.query';
 export { useCreateAccountMutation, type CreateAccountInput } from './accounts/use-create-account.mutation';
+export { useUpdateAccountMutation, type UpdateAccountInput } from './accounts/use-update-account.mutation';
+export { useDeleteAccountMutation } from './accounts/use-delete-account.mutation';
 export { useJournalEntriesQuery, journalEntriesQueryKey } from './journal-entries/use-journal-entries.query';
 export { useVoidJournalEntryMutation } from './journal-entries/use-void-journal-entry.mutation';
 export { useFundSummaryQuery, fundSummaryQueryKey } from './reports/use-fund-summary.query';

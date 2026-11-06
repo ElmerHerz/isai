@@ -1,12 +1,14 @@
+import { useState } from 'react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
-import { ListTree, Plus } from 'lucide-react';
-import { useAccountsQuery } from '@/modules/finanzas';
+import { ListTree, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useAccountsQuery, useDeleteAccountMutation } from '@/modules/finanzas';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { TableSkeletonRows } from '@/components/ui/table-skeleton';
 import { Skeleton } from '@/components/ui/skeleton';
 import { QueryErrorState } from '@/components/ui/query-error-state';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PageHeader } from '@/components/layout/page-header';
 import { useCurrentModuleColor } from '@/components/layout/use-current-module-color';
 import { tintBackground, tintForeground } from '@/lib/color';
@@ -48,6 +50,8 @@ function AccountsPage() {
   const color = useCurrentModuleColor();
   const isDark = useIsDarkMode();
   const headStyle = { backgroundColor: tintBackground(color, isDark), color: tintForeground(color, isDark) };
+  const deleteMutation = useDeleteAccountMutation();
+  const [deletingAccount, setDeletingAccount] = useState<Account | null>(null);
 
   const byId = new Map((accounts ?? []).map((a) => [a.id, a]));
 
@@ -98,9 +102,22 @@ function AccountsPage() {
                       </p>
                       <p className="truncate text-xs text-muted-foreground">{account.accountType.name}</p>
                     </div>
-                    {account.allowsTransactions && (
-                      <span className="shrink-0 text-sm font-semibold">{formatBalance(account.balance)}</span>
-                    )}
+                    <div className="flex shrink-0 items-center gap-2">
+                      {account.allowsTransactions && (
+                        <span className="text-sm font-semibold">{formatBalance(account.balance)}</span>
+                      )}
+                      <Button
+                        variant="edit"
+                        size="icon"
+                        onClick={() => navigate({ to: '/finance/accounts/$accountId/edit', params: { accountId: account.id } })}
+                        aria-label="Editar"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => setDeletingAccount(account)} aria-label="Eliminar">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -115,14 +132,15 @@ function AccountsPage() {
                   <TableHead style={headStyle}>Nombre</TableHead>
                   <TableHead style={headStyle}>Tipo</TableHead>
                   <TableHead style={headStyle} className="text-right">Saldo</TableHead>
+                  <TableHead style={headStyle} className="w-px" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading && <TableSkeletonRows columns={4} />}
+                {isLoading && <TableSkeletonRows columns={5} />}
 
                 {isError && (
                   <TableRow>
-                    <TableCell colSpan={4}>
+                    <TableCell colSpan={5}>
                       <QueryErrorState message="No se pudo cargar el catálogo de cuentas." onRetry={() => refetch()} />
                     </TableCell>
                   </TableRow>
@@ -130,7 +148,7 @@ function AccountsPage() {
 
                 {!isLoading && !isError && accounts?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
                       Todavía no hay cuentas configuradas.
                     </TableCell>
                   </TableRow>
@@ -149,6 +167,28 @@ function AccountsPage() {
                     <TableCell className="text-right font-medium">
                       {account.allowsTransactions ? formatBalance(account.balance) : '—'}
                     </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="edit"
+                          size="icon"
+                          onClick={() => navigate({ to: '/finance/accounts/$accountId/edit', params: { accountId: account.id } })}
+                          aria-label="Editar"
+                          title="Editar"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeletingAccount(account)}
+                          aria-label="Eliminar"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -156,6 +196,22 @@ function AccountsPage() {
           </div>
         </div>
       </motion.div>
+
+      <ConfirmDialog
+        open={!!deletingAccount}
+        onOpenChange={(open) => !open && setDeletingAccount(null)}
+        title="Eliminar cuenta"
+        description={
+          deletingAccount
+            ? `Esto elimina la cuenta "${deletingAccount.code} · ${deletingAccount.name}". No se puede deshacer, y fallará si la cuenta ya está en uso.`
+            : ''
+        }
+        isPending={deleteMutation.isPending}
+        onConfirm={() => {
+          if (!deletingAccount) return;
+          deleteMutation.mutate(deletingAccount.id, { onSuccess: () => setDeletingAccount(null) });
+        }}
+      />
     </div>
   );
 }

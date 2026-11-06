@@ -1,8 +1,10 @@
-import { Injectable, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { resolveAllBranchesScope, branchScopeSql } from '../../../common/utils/institution-scope.util';
 import type { RequestUser } from '../../../common/decorators/current-user.decorator';
 import { CreateAccountDto } from './dto/create-account.dto';
+import { UpdateAccountDto } from './dto/update-account.dto';
 
 const ACCOUNT_TYPE_CATALOG_CODE = 'account_type';
 // Regla contable estándar — el signo natural de cada tipo de cuenta no lo
@@ -110,5 +112,65 @@ export class AccountsService {
       },
       include: { accountType: { select: { code: true, name: true } } },
     });
+  }
+
+  // Nunca se permite cambiar accountTypeId (ver comentario en UpdateAccountDto)
+  // — el resto sí es seguro de editar en cualquier momento, sin importar si
+  // la cuenta ya tiene movimientos (renombrar/recodificar no afecta el
+  // historial contable, solo cómo se presenta).
+  async update(id: string, tenantId: string | null, dto: UpdateAccountDto) {
+    const account = await this.prisma.account.findFirst({ where: { id, tenantId: tenantId ?? undefined } });
+    if (!account) throw new NotFoundException(`Cuenta "${id}" no encontrada`);
+
+    if (dto.code && dto.code !== account.code) {
+      const exists = await this.prisma.account.findUnique({
+        where: { uq_accounts_tenant_code: { tenantId: account.tenantId, code: dto.code } },
+      });
+      if (exists) {
+        throw new ConflictException(`Ya existe una cuenta con código "${dto.code}" en este tenant.`);
+      }
+    }
+
+    if (dto.parentAccountId) {
+      if (dto.parentAccountId === id) {
+        throw new BadRequestException('Una cuenta no puede ser padre de sí misma.');
+      }
+      const parent = await this.prisma.account.findFirst({ where: { id: dto.parentAccountId, tenantId: account.tenantId } });
+      if (!parent) {
+        throw new BadRequestException('La cuenta padre no pertenece a este tenant.');
+      }
+    }
+
+    return this.prisma.account.update({
+      where: { id },
+      data: {
+        code: dto.code,
+        name: dto.name,
+        parentAccountId: dto.parentAccountId,
+        allowsTransactions: dto.allowsTransactions,
+      },
+      include: { accountType: { select: { code: true, name: true } } },
+    });
+  }
+
+  // Deja que la propia FK de Postgres decida si se puede borrar — más de 10
+  // tablas pueden referenciar una cuenta (líneas de asiento, cuentas por
+  // defecto de sucursal, ingreso de proyecto, caja de grupo, etc.); en vez
+  // de chequear cada una a mano, se intenta el delete y se traduce el error
+  // de llave foránea a un mensaje claro.
+  async remove(id: string, tenantId: string | null) {
+    const account = await this.prisma.account.findFirst({ where: { id, tenantId: tenantId ?? undefined } });
+    if (!account) throw new NotFoundException(`Cuenta "${id}" no encontrada`);
+
+    try {
+      await this.prisma.account.delete({ where: { id } });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+        throw new BadRequestException(
+          `"${account.name}" ya está en uso (tiene movimientos u otra configuración que la referencia) — no se puede eliminar. Puedes desmarcarla como transaccionable si ya no se debe usar.`,
+        );
+      }
+      throw err;
+    }
   }
 }

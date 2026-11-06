@@ -71,6 +71,7 @@ import { Route as AuthenticatedStoreSalesSaleIdRouteImport } from './routes/_aut
 import { Route as AuthenticatedStoreSuppliersIndexRouteImport } from './routes/_authenticated/store/suppliers/index'
 import { Route as AuthenticatedStoreSuppliersSupplierIdRouteImport } from './routes/_authenticated/store/suppliers/$supplierId'
 import { Route as AuthenticatedStoreSuppliersNewRouteImport } from './routes/_authenticated/store/suppliers/new'
+import { Route as AuthenticatedFinanceAccountsAccountIdEditRouteImport } from './routes/_authenticated/finance/accounts/$accountId/edit'
 import { Route as AuthenticatedFinanceBudgetsBudgetIdIndexRouteImport } from './routes/_authenticated/finance/budgets/$budgetId/index'
 import { Route as AuthenticatedFinanceBudgetsBudgetIdEditRouteImport } from './routes/_authenticated/finance/budgets/$budgetId/edit'
 import { Route as AuthenticatedFinanceProjectsProjectIdIndexRouteImport } from './routes/_authenticated/finance/projects/$projectId/index'
@@ -472,6 +473,12 @@ const AuthenticatedStoreSuppliersNewRoute =
     path: '/store/suppliers/new',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedFinanceAccountsAccountIdEditRoute =
+  AuthenticatedFinanceAccountsAccountIdEditRouteImport.update({
+    id: '/finance/accounts/$accountId/edit',
+    path: '/finance/accounts/$accountId/edit',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedFinanceBudgetsBudgetIdIndexRoute =
   AuthenticatedFinanceBudgetsBudgetIdIndexRouteImport.update({
     id: '/finance/budgets/$budgetId/',
@@ -733,6 +740,7 @@ export interface FileRoutesByFullPath {
   '/store/purchases/': typeof AuthenticatedStorePurchasesIndexRoute
   '/store/sales/': typeof AuthenticatedStoreSalesIndexRoute
   '/store/suppliers/': typeof AuthenticatedStoreSuppliersIndexRoute
+  '/finance/accounts/$accountId/edit': typeof AuthenticatedFinanceAccountsAccountIdEditRoute
   '/finance/budgets/$budgetId/edit': typeof AuthenticatedFinanceBudgetsBudgetIdEditRoute
   '/finance/projects/$projectId/edit': typeof AuthenticatedFinanceProjectsProjectIdEditRoute
   '/general/catalogs/attendance-tags/$tagId': typeof AuthenticatedGeneralCatalogsAttendanceTagsTagIdRoute
@@ -829,6 +837,7 @@ export interface FileRoutesByTo {
   '/store/purchases': typeof AuthenticatedStorePurchasesIndexRoute
   '/store/sales': typeof AuthenticatedStoreSalesIndexRoute
   '/store/suppliers': typeof AuthenticatedStoreSuppliersIndexRoute
+  '/finance/accounts/$accountId/edit': typeof AuthenticatedFinanceAccountsAccountIdEditRoute
   '/finance/budgets/$budgetId/edit': typeof AuthenticatedFinanceBudgetsBudgetIdEditRoute
   '/finance/projects/$projectId/edit': typeof AuthenticatedFinanceProjectsProjectIdEditRoute
   '/general/catalogs/attendance-tags/$tagId': typeof AuthenticatedGeneralCatalogsAttendanceTagsTagIdRoute
@@ -927,6 +936,7 @@ export interface FileRoutesById {
   '/_authenticated/store/purchases/': typeof AuthenticatedStorePurchasesIndexRoute
   '/_authenticated/store/sales/': typeof AuthenticatedStoreSalesIndexRoute
   '/_authenticated/store/suppliers/': typeof AuthenticatedStoreSuppliersIndexRoute
+  '/_authenticated/finance/accounts/$accountId/edit': typeof AuthenticatedFinanceAccountsAccountIdEditRoute
   '/_authenticated/finance/budgets/$budgetId/edit': typeof AuthenticatedFinanceBudgetsBudgetIdEditRoute
   '/_authenticated/finance/projects/$projectId/edit': typeof AuthenticatedFinanceProjectsProjectIdEditRoute
   '/_authenticated/general/catalogs/attendance-tags/$tagId': typeof AuthenticatedGeneralCatalogsAttendanceTagsTagIdRoute
@@ -1025,6 +1035,7 @@ export interface FileRouteTypes {
     | '/store/purchases/'
     | '/store/sales/'
     | '/store/suppliers/'
+    | '/finance/accounts/$accountId/edit'
     | '/finance/budgets/$budgetId/edit'
     | '/finance/projects/$projectId/edit'
     | '/general/catalogs/attendance-tags/$tagId'
@@ -1121,6 +1132,7 @@ export interface FileRouteTypes {
     | '/store/purchases'
     | '/store/sales'
     | '/store/suppliers'
+    | '/finance/accounts/$accountId/edit'
     | '/finance/budgets/$budgetId/edit'
     | '/finance/projects/$projectId/edit'
     | '/general/catalogs/attendance-tags/$tagId'
@@ -1218,6 +1230,7 @@ export interface FileRouteTypes {
     | '/_authenticated/store/purchases/'
     | '/_authenticated/store/sales/'
     | '/_authenticated/store/suppliers/'
+    | '/_authenticated/finance/accounts/$accountId/edit'
     | '/_authenticated/finance/budgets/$budgetId/edit'
     | '/_authenticated/finance/projects/$projectId/edit'
     | '/_authenticated/general/catalogs/attendance-tags/$tagId'
@@ -1695,6 +1708,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStoreSuppliersNewRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/finance/accounts/$accountId/edit': {
+      id: '/_authenticated/finance/accounts/$accountId/edit'
+      path: '/finance/accounts/$accountId/edit'
+      fullPath: '/finance/accounts/$accountId/edit'
+      preLoaderRoute: typeof AuthenticatedFinanceAccountsAccountIdEditRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/finance/budgets/$budgetId/': {
       id: '/_authenticated/finance/budgets/$budgetId/'
       path: '/finance/budgets/$budgetId'
@@ -1989,6 +2009,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedStorePurchasesIndexRoute: typeof AuthenticatedStorePurchasesIndexRoute
   AuthenticatedStoreSalesIndexRoute: typeof AuthenticatedStoreSalesIndexRoute
   AuthenticatedStoreSuppliersIndexRoute: typeof AuthenticatedStoreSuppliersIndexRoute
+  AuthenticatedFinanceAccountsAccountIdEditRoute: typeof AuthenticatedFinanceAccountsAccountIdEditRoute
   AuthenticatedFinanceBudgetsBudgetIdEditRoute: typeof AuthenticatedFinanceBudgetsBudgetIdEditRoute
   AuthenticatedFinanceProjectsProjectIdEditRoute: typeof AuthenticatedFinanceProjectsProjectIdEditRoute
   AuthenticatedGeneralCatalogsAttendanceTagsTagIdRoute: typeof AuthenticatedGeneralCatalogsAttendanceTagsTagIdRoute
@@ -2116,6 +2137,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedStorePurchasesIndexRoute: AuthenticatedStorePurchasesIndexRoute,
   AuthenticatedStoreSalesIndexRoute: AuthenticatedStoreSalesIndexRoute,
   AuthenticatedStoreSuppliersIndexRoute: AuthenticatedStoreSuppliersIndexRoute,
+  AuthenticatedFinanceAccountsAccountIdEditRoute:
+    AuthenticatedFinanceAccountsAccountIdEditRoute,
   AuthenticatedFinanceBudgetsBudgetIdEditRoute:
     AuthenticatedFinanceBudgetsBudgetIdEditRoute,
   AuthenticatedFinanceProjectsProjectIdEditRoute:
